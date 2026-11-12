@@ -107,21 +107,48 @@ alter table public.mock_exam_items enable row level security;
 alter table public.attempts enable row level security;
 
 -- Profiles policies
-create policy if not exists "profiles_select_own" on public.profiles for select using (auth.uid() = id);
-create policy if not exists "profiles_insert_own" on public.profiles for insert with check (auth.uid() = id);
-create policy if not exists "profiles_update_own" on public.profiles for update using (auth.uid() = id);
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'profiles' AND policyname = 'profiles_select_own') THEN
+    CREATE POLICY "profiles_select_own" ON public.profiles FOR SELECT USING (auth.uid() = id);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'profiles' AND policyname = 'profiles_insert_own') THEN
+    CREATE POLICY "profiles_insert_own" ON public.profiles FOR INSERT WITH CHECK (auth.uid() = id);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'profiles' AND policyname = 'profiles_update_own') THEN
+    CREATE POLICY "profiles_update_own" ON public.profiles FOR UPDATE USING (auth.uid() = id);
+  END IF;
+END $$;
 
 -- Generic owner policies
-create policy if not exists "materials_owner" on public.review_materials for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
-create policy if not exists "flashcards_owner" on public.flashcards for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
-create policy if not exists "practice_items_owner" on public.practice_items for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
-create policy if not exists "mock_exams_owner" on public.mock_exams for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
-create policy if not exists "attempts_owner" on public.attempts for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'review_materials' AND policyname = 'materials_owner') THEN
+    CREATE POLICY "materials_owner" ON public.review_materials FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'flashcards' AND policyname = 'flashcards_owner') THEN
+    CREATE POLICY "flashcards_owner" ON public.flashcards FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'practice_items' AND policyname = 'practice_items_owner') THEN
+    CREATE POLICY "practice_items_owner" ON public.practice_items FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'mock_exams' AND policyname = 'mock_exams_owner') THEN
+    CREATE POLICY "mock_exams_owner" ON public.mock_exams FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'attempts' AND policyname = 'attempts_owner') THEN
+    CREATE POLICY "attempts_owner" ON public.attempts FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+  END IF;
+END $$;
 
 -- mock_exam_items: access via owning exam
-create policy if not exists "mock_exam_items_owner" on public.mock_exam_items for all
-using (exists (select 1 from public.mock_exams e where e.id = exam_id and e.user_id = auth.uid()))
-with check (exists (select 1 from public.mock_exams e where e.id = exam_id and e.user_id = auth.uid()));
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'mock_exam_items' AND policyname = 'mock_exam_items_owner') THEN
+    CREATE POLICY "mock_exam_items_owner" ON public.mock_exam_items FOR ALL
+    USING (EXISTS (SELECT 1 FROM public.mock_exams e WHERE e.id = exam_id AND e.user_id = auth.uid()))
+    WITH CHECK (EXISTS (SELECT 1 FROM public.mock_exams e WHERE e.id = exam_id AND e.user_id = auth.uid()));
+  END IF;
+END $$;
 
 -- Storage: create bucket 'reviewers' in dashboard (private). Example policy (apply via dashboard/storage policies):
 -- allow authenticated users to manage files under their uid folder.
