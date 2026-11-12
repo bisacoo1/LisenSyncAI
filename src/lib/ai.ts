@@ -2,17 +2,16 @@ import { BoardProgramKey, PracticeItem, PracticeType } from '@/types'
 import { getProgram } from './syllabus'
 
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY as string | undefined
-const GEMINI_MODEL = (import.meta.env.VITE_GEMINI_MODEL as string | undefined) || 'gemini-1.5-flash-latest'
+const GEMINI_MODEL = (import.meta.env.VITE_GEMINI_MODEL as string | undefined) || 'gemini-3.5-flash-lite'
 const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta'
 
 // Fallback model chain: if the primary model is unavailable, try the next one
 const FALLBACK_MODELS: string[] = [
   GEMINI_MODEL,
-  'gemini-1.5-flash-latest',
-  'gemini-1.5-pro-latest',
-  'gemini-2.0-flash',
-  'gemini-2.0-flash-lite',
-  'gemini-2.5-flash',
+  'gemini-3-flash',
+  'gemini-3.1-flash-lite',
+  'gemini-3.6-flash',
+  'gemini-3.8-flash',
 ]
 
 export function geminiConfigured() {
