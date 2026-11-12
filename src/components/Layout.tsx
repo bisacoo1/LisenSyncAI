@@ -3,8 +3,9 @@ import { Outlet } from 'react-router-dom'
 import { Sidebar } from '@/components/Sidebar'
 import { useAuth } from '@/context/AuthContext'
 import { Button, Icon, Badge } from '@/components/ui'
+import type { ReactNode } from 'react'
 
-export function Layout() {
+export function Layout({ children }: { children?: ReactNode }) {
   const { profile, signOut } = useAuth()
   const [mobileOpen, setMobileOpen] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
@@ -39,6 +40,7 @@ export function Layout() {
       <main className="app-main">
         <div className="container">
           <Outlet />
+          {children}
         </div>
       </main>
 
@@ -53,11 +55,12 @@ export function Layout() {
   )
 }
 
-export function AuthLayout() {
+export function AuthLayout({ children }: { children?: ReactNode }) {
   return (
     <div className="auth-shell">
       <div className="auth-card">
         <Outlet />
+        {children}
       </div>
     </div>
   )
