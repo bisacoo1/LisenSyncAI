@@ -101,7 +101,7 @@ export default function AnalyticsPage() {
       <Card variant="outlined" style={{ marginBottom: 24 }}>
         <CardHeader title="Per-Subject Performance" icon="bar-chart" subtitle={`${program.name} • ${stats.length} subjects tracked`} />
         <CardContent>
-          <div style={{ overflowX: 'auto' }}>
+          <div className="table-wrapper" style={{ overflowX: 'auto' }}>
             <table className="table" style={{ minWidth: 700 }}>
               <thead>
                 <tr>

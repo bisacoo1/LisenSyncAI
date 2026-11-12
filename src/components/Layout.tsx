@@ -27,6 +27,7 @@ export function Layout({ children }: { children?: ReactNode }) {
 
       <Sidebar
         open={mobileOpen}
+        collapsed={collapsed}
         onToggle={() => {
           if (window.innerWidth <= 900) setMobileOpen(o => !o)
           else setCollapsed(c => !c)

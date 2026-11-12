@@ -51,9 +51,9 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
 const ToastContainer: React.FC<{ toasts: Toast[]; onRemove: (id: string) => void }> = ({ toasts, onRemove }) => {
   const typeStyles: Record<ToastType, React.CSSProperties> = {
-    success: { borderLeftColor: 'var(--ok)' },
+    success: { borderLeftColor: 'var(--success)' },
     error: { borderLeftColor: 'var(--danger)' },
-    warning: { borderLeftColor: 'var(--warn)' },
+    warning: { borderLeftColor: 'var(--warning)' },
     info: { borderLeftColor: '#3b82f6' },
     default: { borderLeftColor: 'var(--primary)' },
   }
@@ -67,26 +67,19 @@ const ToastContainer: React.FC<{ toasts: Toast[]; onRemove: (id: string) => void
   }
 
   const typeTitleColors: Record<ToastType, string> = {
-    success: 'var(--ok)',
+    success: 'var(--success)',
     error: 'var(--danger)',
-    warning: 'var(--warn)',
+    warning: 'var(--warning)',
     info: '#93c5fd',
     default: 'var(--primary)',
   }
 
   return (
     <div
-      style={{
-        position: 'fixed',
-        top: 20,
-        right: 20,
-        zIndex: 9999,
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 8,
-        maxWidth: 400,
-        pointerEvents: 'none',
-      }}
+      className="toast-container"
+      role="region"
+      aria-label="Notifications"
+      aria-live="polite"
     >
       {toasts.map((toast) => (
         <ToastItem key={toast.id} toast={toast} onRemove={onRemove} />
@@ -109,9 +102,9 @@ const ToastItem: React.FC<{ toast: Toast; onRemove: (id: string) => void }> = ({
   }, [toast, onRemove])
 
   const typeStyles: Record<ToastType, React.CSSProperties> = {
-    success: { borderLeftColor: 'var(--ok)' },
+    success: { borderLeftColor: 'var(--success)' },
     error: { borderLeftColor: 'var(--danger)' },
-    warning: { borderLeftColor: 'var(--warn)' },
+    warning: { borderLeftColor: 'var(--warning)' },
     info: { borderLeftColor: '#3b82f6' },
     default: { borderLeftColor: 'var(--primary)' },
   }
@@ -125,9 +118,9 @@ const ToastItem: React.FC<{ toast: Toast; onRemove: (id: string) => void }> = ({
   }
 
   const typeTitleColors: Record<ToastType, string> = {
-    success: 'var(--ok)',
+    success: 'var(--success)',
     error: 'var(--danger)',
-    warning: 'var(--warn)',
+    warning: 'var(--warning)',
     info: '#93c5fd',
     default: 'var(--primary)',
   }

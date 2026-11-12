@@ -606,6 +606,76 @@ li:last-child { margin-bottom: 0; }
   z-index: calc(var(--z-sticky) + 1);
 }
 
+/* Toast container - ensure it's above auth actions */
+.toast-container {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: calc(var(--z-toast) + 1);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 400px;
+  pointer-events: none;
+}
+
+/* Table scroll indicator */
+.table-wrapper {
+  position: relative;
+  overflow-x: auto;
+}
+.table-wrapper::-webkit-scrollbar {
+  height: 8px;
+}
+.table-wrapper::-webkit-scrollbar-track {
+  background: var(--panel-2);
+  border-radius: 4px;
+}
+.table-wrapper::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 4px;
+}
+.table-wrapper::-webkit-scrollbar-thumb:hover {
+  background: var(--muted-strong);
+}
+
+/* Scroll hint for tables on mobile */
+.table-wrapper::after {
+  content: '← Scroll for more →';
+  position: sticky;
+  right: 0;
+  bottom: 0;
+  display: none;
+  padding: 8px 16px;
+  background: linear-gradient(90deg, transparent, var(--bg));
+  color: var(--muted);
+  font-size: var(--text-xs);
+  white-space: nowrap;
+  pointer-events: none;
+}
+@media (max-width: 768px) {
+  .table-wrapper::after {
+    display: block;
+  }
+}
+
+/* Responsive tabs for mobile */
+.tabs-scrollable {
+  display: flex;
+  overflow-x: auto;
+  gap: 8px;
+  padding-bottom: 8px;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+}
+.tabs-scrollable::-webkit-scrollbar {
+  display: none;
+}
+.tabs-scrollable .tab-btn {
+  flex-shrink: 0;
+  scroll-snap-align: start;
+}
+
 /* === Responsive === */
 @media (max-width: 900px) {
   .sidebar {

@@ -1,6 +1,15 @@
-import React, { useEffect, useRef } from 'react'
+import React, { useEffect, useRef, useCallback } from 'react'
 import { Icon } from './Icon'
 import { Button } from './Button'
+
+// Focus trap utility
+function getFocusableElements(container: HTMLElement): HTMLElement[] {
+  const selector = 'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
+  return Array.from(container.querySelectorAll<HTMLElement>(selector)).filter(el => {
+    const style = window.getComputedStyle(el)
+    return style.display !== 'none' && style.visibility !== 'hidden' && el.offsetParent !== null
+  })
+}
 
 export interface ModalProps {
   open: boolean
@@ -15,6 +24,7 @@ export interface ModalProps {
   footer?: React.ReactNode
   className?: string
   style?: React.CSSProperties
+  onKeyDown?: (e: React.KeyboardEvent) => void
 }
 
 export const Modal: React.FC<ModalProps> = ({
@@ -30,6 +40,7 @@ export const Modal: React.FC<ModalProps> = ({
   footer,
   className = '',
   style,
+  onKeyDown,
 }) => {
   const overlayRef = useRef<HTMLDivElement>(null)
   const contentRef = useRef<HTMLDivElement>(null)
@@ -39,13 +50,48 @@ export const Modal: React.FC<ModalProps> = ({
     if (open) {
       previousActiveElement.current = document.activeElement as HTMLElement
       document.body.style.overflow = 'hidden'
-      contentRef.current?.focus()
+      // Focus trap: set up after render
+      const setupFocusTrap = () => {
+        const container = contentRef.current
+        if (!container) return
+
+        const focusableElements = getFocusableElements(container)
+        if (focusableElements.length > 0) {
+          focusableElements[0].focus()
+        } else {
+          container.focus()
+        }
+
+        const handleTab = (e: KeyboardEvent) => {
+          if (e.key !== 'Tab') return
+          const focusableElements = getFocusableElements(container)
+          if (focusableElements.length === 0) return
+
+          const first = focusableElements[0]
+          const last = focusableElements[focusableElements.length - 1]
+
+          if (e.shiftKey) {
+            if (document.activeElement === first) {
+              e.preventDefault()
+              last.focus()
+            }
+          } else {
+            if (document.activeElement === last) {
+              e.preventDefault()
+              first.focus()
+            }
+          }
+        }
+
+        container.addEventListener('keydown', handleTab)
+        return () => container.removeEventListener('keydown', handleTab)
+      }
+
+      const cleanup = setupFocusTrap()
+      return () => cleanup?.()
     } else {
       document.body.style.overflow = ''
       previousActiveElement.current?.focus()
-    }
-    return () => {
-      document.body.style.overflow = ''
     }
   }, [open])
 
@@ -78,6 +124,7 @@ export const Modal: React.FC<ModalProps> = ({
     <div
       ref={overlayRef}
       onClick={handleOverlayClick}
+      onKeyDown={(e) => { if (e.key === 'Escape' && closeOnEscape) onClose(); onKeyDown?.(e); }}
       style={{
         position: 'fixed',
         inset: 0,

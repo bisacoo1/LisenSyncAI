@@ -13,7 +13,7 @@ export interface TabsProps {
   tabs: TabItem[]
   value: string
   onChange: (value: string) => void
-  variant?: 'line' | 'pills' | 'enclosed'
+  variant?: 'line' | 'pills' | 'enclosed' | 'scrollable'
   fullWidth?: boolean
   className?: string
   style?: React.CSSProperties
@@ -44,6 +44,15 @@ export const Tabs: React.FC<TabsProps> = ({
       border: '1px solid var(--border)',
       borderRadius: 10,
       gap: 0,
+    },
+    scrollable: {
+      background: 'transparent',
+      gap: 8,
+      paddingBottom: 8,
+      overflowX: 'auto',
+      scrollSnapType: 'x mandatory',
+      WebkitOverflowScrolling: 'touch',
+      scrollbarWidth: 'none',
     },
   }
 
@@ -80,12 +89,22 @@ export const Tabs: React.FC<TabsProps> = ({
         background: isActive ? 'var(--panel)' : 'transparent',
         boxShadow: isActive ? '0 2px 8px rgba(0, 0, 0, 0.2)' : 'none',
       }
-    } else {
+    } else if (variant === 'enclosed') {
       return {
         ...base,
         padding: '10px 16px',
         borderRight: tab.value !== tabs[tabs.length - 1].value ? '1px solid var(--border)' : 'none',
         background: isActive ? 'var(--panel)' : 'transparent',
+      }
+    } else { // scrollable
+      return {
+        ...base,
+        padding: '10px 16px',
+        borderRadius: 8,
+        background: isActive ? 'var(--primary-bg)' : 'var(--panel-2)',
+        border: isActive ? '1px solid var(--primary-border)' : '1px solid var(--border)',
+        flexShrink: 0,
+        scrollSnapAlign: 'start',
       }
     }
   }

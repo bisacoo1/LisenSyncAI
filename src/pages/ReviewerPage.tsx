@@ -298,11 +298,20 @@ export default function ReviewerPage() {
               <div style={{ fontSize: 12, color: 'var(--success)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>Answer</div>
               <div style={{ fontSize: 16, lineHeight: 1.6 }}>{selectedCard.back}</div>
             </div>
+            <p style={{ fontSize: 13, color: 'var(--muted)', margin: 0 }}>
+              <Badge variant="primary" size="sm" style={{ marginRight: 8 }}>{selectedCard.subject}</Badge>
+              Generated from: {selectedCard.material_id ? 'Saved material' : 'AI generation'}
+            </p>
           </div>
           <footer>
-            <Button variant="primary" onClick={() => setSelectedCard(null)} fullWidth>
-              Close
-            </Button>
+            <div style={{ display: 'flex', gap: 8, width: '100%' }}>
+              <Button variant="secondary" onClick={() => setSelectedCard(null)} style={{ flex: 1 }}>
+                Close
+              </Button>
+              <Button variant="primary" onClick={() => { setSelectedCard(null); navigate(`/practice?mode=flashcards&subject=${encodeURIComponent(selectedCard.subject)}`) }} style={{ flex: 1 }}>
+                Practice this subject
+              </Button>
+            </div>
           </footer>
         </Modal>
       )}
@@ -318,7 +327,7 @@ export default function ReviewerPage() {
               description="Upload a reviewer above to get started."
             />
           ) : (
-            <div style={{ overflowX: 'auto' }}>
+            <div className="table-wrapper" style={{ overflowX: 'auto' }}>
               <table className="table" style={{ minWidth: 700 }}>
                 <thead>
                   <tr>

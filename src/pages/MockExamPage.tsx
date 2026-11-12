@@ -182,7 +182,7 @@ export default function MockExamPage() {
             <CardContent>
               <div style={{ marginBottom: 20 }}>
                 <h4 style={{ margin: '0 0 12px', fontSize: 14, fontWeight: 600 }}>Table of Specifications (TOS)</h4>
-                <div style={{ overflowX: 'auto' }}>
+                <div className="table-wrapper" style={{ overflowX: 'auto' }}>
                   <table className="table">
                     <thead><tr><th>Subject</th><th style={{width: 80}}>Items</th><th style={{width: 100}}>Weight</th></tr></thead>
                     <tbody>
@@ -398,23 +398,28 @@ export default function MockExamPage() {
             {it.type === 'mcq' && (
               <>
                 <h3 style={{ margin: '0 0 20px', fontSize: 18, fontWeight: 600, lineHeight: 1.5 }}>{(it.question as McqQuestion).stem}</h3>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  {(it.question as McqQuestion).options.map((opt, i) => (
-                    <label key={i} style={{
-                      display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px',
-                      borderRadius: 10, border: '2px solid',
-                      borderColor: resp?.selected === i ? 'var(--primary)' : 'var(--border)',
-                      background: resp?.selected === i ? 'var(--primary-bg)' : 'var(--panel-2)',
-                      cursor: 'pointer', transition: 'all 150ms ease'
-                    }}>
-                      <input type="radio" name={`mcq-${it.id}`} checked={resp?.selected === i} onChange={() => setResponse(it.id, { selected: i })} style={{ accentColor: 'var(--primary)', width: 18, height: 18 }} />
-                      <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 32, borderRadius: '50%', background: resp?.selected === i ? 'var(--primary)' : 'var(--border)', color: resp?.selected === i ? '#041014' : 'var(--muted)', fontWeight: 700, fontSize: 13, flexShrink: 0 }}>
-                        {String.fromCharCode(65 + i)}
-                      </span>
-                      <span style={{ flex: 1, fontSize: 14 }}>{opt}</span>
-                    </label>
-                  ))}
-                </div>
+                <fieldset style={{ border: 'none', padding: 0, margin: 0 }}>
+                  <legend style={{ position: 'absolute', width: 1, height: 1, padding: 0, margin: -1, overflow: 'hidden', clip: 'rect(0, 0, 0, 0)', whiteSpace: 'nowrap', border: 0 }}>
+                    Question {current + 1} of {items.length}: Choose the best answer
+                  </legend>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    {(it.question as McqQuestion).options.map((opt, i) => (
+                      <label key={i} style={{
+                        display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px',
+                        borderRadius: 10, border: '2px solid',
+                        borderColor: resp?.selected === i ? 'var(--primary)' : 'var(--border)',
+                        background: resp?.selected === i ? 'var(--primary-bg)' : 'var(--panel-2)',
+                        cursor: 'pointer', transition: 'all 150ms ease'
+                      }}>
+                        <input type="radio" name={`mcq-${it.id}`} checked={resp?.selected === i} onChange={() => setResponse(it.id, { selected: i })} style={{ accentColor: 'var(--primary)', width: 18, height: 18 }} />
+                        <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 32, borderRadius: '50%', background: resp?.selected === i ? 'var(--primary)' : 'var(--border)', color: resp?.selected === i ? '#041014' : 'var(--muted)', fontWeight: 700, fontSize: 13, flexShrink: 0 }}>
+                          {String.fromCharCode(65 + i)}
+                        </span>
+                        <span style={{ flex: 1, fontSize: 14 }}>{opt}</span>
+                      </label>
+                    ))}
+                  </div>
+                </fieldset>
               </>
             )}
 
@@ -503,6 +508,7 @@ export default function MockExamPage() {
         onClose={() => setShowSubmitConfirm(false)}
         title="Submit Exam?"
         size="sm"
+        onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && !busy) handleConfirmSubmit(); if (e.key === 'Escape') setShowSubmitConfirm(false); }}
         footer={
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
             <Button variant="secondary" onClick={() => setShowSubmitConfirm(false)}>Cancel</Button>

@@ -35,8 +35,8 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
 
   const variantColors: Record<string, string> = {
     default: 'var(--primary)',
-    success: 'var(--ok)',
-    warning: 'var(--warn)',
+    success: 'var(--success)',
+    warning: 'var(--warning)',
     danger: 'var(--danger)',
     primary: 'var(--primary)',
   }
@@ -116,8 +116,8 @@ export const CircularProgress: React.FC<CircularProgressProps> = ({
 
   const variantColors: Record<string, string> = {
     default: 'var(--primary)',
-    success: 'var(--ok)',
-    warning: 'var(--warn)',
+    success: 'var(--success)',
+    warning: 'var(--warning)',
     danger: 'var(--danger)',
   }
 
