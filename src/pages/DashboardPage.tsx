@@ -4,7 +4,7 @@ import { useAuth } from '@/context/AuthContext'
 import { getProgram } from '@/lib/syllabus'
 import { supabase } from '@/lib/supabase'
 import { computeSubjectStats, overallPercent, readinessLabel } from '@/lib/analytics'
-import { PASSING_RATE, type Attempt } from '@/types'
+import { PASSING_RATE, type Attempt, type Profile } from '@/types'
 import { Card, CardHeader, CardContent, Button, Badge, ProgressBar, Icon, EmptyState, Skeleton } from '@/components/ui'
 
 export default function DashboardPage() {
@@ -70,6 +70,41 @@ export default function DashboardPage() {
                 <div style={{ fontSize: 36, fontWeight: 700, letterSpacing: '-0.02em' }}>{loading ? '—' : attempts.length}</div>
                 <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>SUBJECTS IN PROGRAM</div>
                 <div style={{ fontSize: 36, fontWeight: 700, letterSpacing: '-0.02em' }}>{program.subjects.length}</div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Gamification: XP, Level, Streak, Daily Goal */}
+        <Card variant="elevated">
+          <CardHeader title="Study Progress" icon="trophy" subtitle="Earn XP, level up, and keep your streak alive" />
+          <CardContent>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 16 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: 16, background: 'var(--panel-2)', borderRadius: 12, border: '1px solid var(--border)' }}>
+                <div style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Level</div>
+                <div style={{ fontSize: 32, fontWeight: 700, color: 'var(--primary)' }}>{profile.level || 1}</div>
+                <div style={{ fontSize: 12, color: 'var(--muted)' }}>{(profile.xp || 0)} XP total</div>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: 16, background: 'var(--panel-2)', borderRadius: 12, border: '1px solid var(--border)' }}>
+                <div style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Current Streak</div>
+                <div style={{ fontSize: 32, fontWeight: 700, color: 'var(--warning)' }}>{profile.current_streak || 0} 🔥</div>
+                <div style={{ fontSize: 12, color: 'var(--muted)' }}>Best: {profile.longest_streak || 0} days</div>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: 16, background: 'var(--panel-2)', borderRadius: 12, border: '1px solid var(--border)' }}>
+                <div style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Daily Goal</div>
+                <div style={{ fontSize: 24, fontWeight: 700, color: 'var(--success)' }}>
+                  {profile.daily_items_completed || 0} / {profile.daily_goal || 20}
+                </div>
+                <ProgressBar
+                  value={Math.min(100, (((profile.daily_items_completed || 0) / Math.max(profile.daily_goal || 20)) * 100))}
+                  max={100}
+                  size="sm"
+                  variant={(profile.daily_items_completed || 0) >= (profile.daily_goal || 20) ? 'success' : 'primary'}
+                  style={{ marginTop: 8 }}
+                />
+                <div style={{ fontSize: 12, color: 'var(--muted)' }}>
+                  {(profile.daily_items_completed || 0) >= (profile.daily_goal || 20) ? 'Goal reached! 🎉' : `${Math.max(0, (profile.daily_goal || 20) - (profile.daily_items_completed || 0))} items left`}
+                </div>
               </div>
             </div>
           </CardContent>
@@ -205,7 +240,7 @@ export default function DashboardPage() {
       <Card variant="outlined">
         <CardHeader title="Per-Subject Performance" icon="bar-chart" subtitle="Track your mastery across all board subjects" />
         <CardContent>
-          <div style={{ overflowX: 'auto' }}>
+          <div className="table-wrapper" style={{ overflowX: 'auto' }}>
             <table className="table" style={{ minWidth: 600 }}>
               <thead>
                 <tr>

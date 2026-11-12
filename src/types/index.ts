@@ -20,7 +20,16 @@ export interface Profile {
   full_name: string | null
   board_program: BoardProgramKey
   target_exam_date: string | null
+  xp?: number
+  level?: number
+  current_streak?: number
+  longest_streak?: number
+  last_activity_date?: string
+  daily_goal?: number
+  daily_items_completed?: number
+  daily_goal_date?: string
   created_at?: string
+  updated_at?: string
 }
 
 export interface ReviewMaterial {

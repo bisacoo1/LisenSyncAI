@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { getProgram } from '@/lib/syllabus'
 import { supabase } from '@/lib/supabase'
-import { checkDiagnosis, checkSequence } from '@/lib/analytics'
+import { checkDiagnosis, checkSequence, computeProfileStatsUpdate } from '@/lib/analytics'
 import type { Flashcard, McqAnswer, McqQuestion, PracticeItem, PracticeType, SequenceAnswer, SequenceQuestion, DiagnosisAnswer, DiagnosisQuestion } from '@/types'
 import { Card, CardHeader, CardContent, Button, Badge, Icon, EmptyState, SegControl, Tabs, TabPanels, TabPanel, Skeleton, useToast, type TabItem } from '@/components/ui'
 
@@ -86,6 +86,9 @@ export default function PracticePage() {
       user_response: response,
       is_correct: correct
     })
+    const today = new Date().toISOString().slice(0, 10)
+    const updates = computeProfileStatsUpdate(profile, correct, today)
+    await supabase.from('profiles').update(updates).eq('id', profile.id)
   }
 
   async function submitMcq() {
@@ -152,7 +155,7 @@ export default function PracticePage() {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16, alignItems: 'end', marginBottom: 16 }}>
             <div>
               <label style={{ display: 'block', fontSize: 12, color: 'var(--muted)', marginBottom: 6, fontWeight: 500 }}>MODE</label>
-              <Tabs tabs={modeTabs} value={mode} onChange={(v) => setMode(v as 'flashcards' | PracticeType)} variant="pills" fullWidth />
+              <Tabs tabs={modeTabs} value={mode} onChange={(v) => setMode(v as 'flashcards' | PracticeType)} variant="scrollable" fullWidth />
             </div>
             <div>
               <label style={{ display: 'block', fontSize: 12, color: 'var(--muted)', marginBottom: 6, fontWeight: 500 }}>BOARD SUBJECT</label>
@@ -261,27 +264,32 @@ export default function PracticePage() {
 
             <h3 style={{ margin: '0 0 24px', fontSize: 18, fontWeight: 600, lineHeight: 1.5 }}>{(current.question as McqQuestion).stem}</h3>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {(current.question as McqQuestion).options.map((opt, i) => (
-                <label key={i} style={{
-                  display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px',
-                  borderRadius: 10, border: '2px solid',
-                  borderColor: selected === i ? 'var(--primary)' : feedback ? (i === (current.answer as McqAnswer).correctIndex ? 'var(--success)' : selected === i ? 'var(--danger)' : 'var(--border)') : 'var(--border)',
-                  background: selected === i ? 'var(--primary-bg)' : feedback ? (i === (current.answer as McqAnswer).correctIndex ? 'var(--success-bg)' : selected === i ? 'var(--danger-bg)' : 'var(--panel-2)') : 'var(--panel-2)',
-                  cursor: feedback ? 'default' : 'pointer',
-                  transition: 'all 150ms ease',
-                  opacity: feedback && selected !== i && i !== (current.answer as McqAnswer).correctIndex ? 0.5 : 1,
-                }}>
-                  <input type="radio" name="mcq" checked={selected === i} onChange={() => !feedback && setSelected(i)} disabled={!!feedback} style={{ accentColor: 'var(--primary)', width: 18, height: 18 }} />
-                  <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 32, borderRadius: '50%', background: selected === i ? 'var(--primary)' : feedback ? (i === (current.answer as McqAnswer).correctIndex ? 'var(--success)' : selected === i ? 'var(--danger)' : 'var(--border)') : 'var(--border)', color: selected === i ? '#041014' : feedback ? (i === (current.answer as McqAnswer).correctIndex ? '#fff' : selected === i ? '#fff' : 'var(--muted)') : 'var(--muted)', fontWeight: 700, fontSize: 13, flexShrink: 0 }}>
-                    {String.fromCharCode(65 + i)}
-                  </span>
-                  <span style={{ flex: 1, fontSize: 14 }}>{opt}</span>
-                  {feedback && i === (current.answer as McqAnswer).correctIndex && <Icon name="check-circle" size={18} style={{ color: 'var(--success)' }} />}
-                  {feedback && selected === i && i !== (current.answer as McqAnswer).correctIndex && <Icon name="x-circle" size={18} style={{ color: 'var(--danger)' }} />}
-                </label>
-              ))}
-            </div>
+            <fieldset style={{ border: 'none', padding: 0, margin: 0 }}>
+              <legend style={{ position: 'absolute', width: 1, height: 1, padding: 0, margin: -1, overflow: 'hidden', clip: 'rect(0, 0, 0, 0)', whiteSpace: 'nowrap', border: 0 }}>
+                Question {idx + 1} of {items.length}: Choose the best answer
+              </legend>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {(current.question as McqQuestion).options.map((opt, i) => (
+                  <label key={i} style={{
+                    display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px',
+                    borderRadius: 10, border: '2px solid',
+                    borderColor: selected === i ? 'var(--primary)' : feedback ? (i === (current.answer as McqAnswer).correctIndex ? 'var(--success)' : selected === i ? 'var(--danger)' : 'var(--border)') : 'var(--border)',
+                    background: selected === i ? 'var(--primary-bg)' : feedback ? (i === (current.answer as McqAnswer).correctIndex ? 'var(--success-bg)' : selected === i ? 'var(--danger-bg)' : 'var(--panel-2)') : 'var(--panel-2)',
+                    cursor: feedback ? 'default' : 'pointer',
+                    transition: 'all 150ms ease',
+                    opacity: feedback && selected !== i && i !== (current.answer as McqAnswer).correctIndex ? 0.5 : 1,
+                  }}>
+                    <input type="radio" name={`mcq-${current.id}`} checked={selected === i} onChange={() => !feedback && setSelected(i)} disabled={!!feedback} style={{ accentColor: 'var(--primary)', width: 18, height: 18 }} />
+                    <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 32, borderRadius: '50%', background: selected === i ? 'var(--primary)' : feedback ? (i === (current.answer as McqAnswer).correctIndex ? 'var(--success)' : selected === i ? 'var(--danger)' : 'var(--border)') : 'var(--border)', color: selected === i ? '#041014' : feedback ? (i === (current.answer as McqAnswer).correctIndex ? '#fff' : selected === i ? '#fff' : 'var(--muted)') : 'var(--muted)', fontWeight: 700, fontSize: 13, flexShrink: 0 }}>
+                      {String.fromCharCode(65 + i)}
+                    </span>
+                    <span style={{ flex: 1, fontSize: 14 }}>{opt}</span>
+                    {feedback && i === (current.answer as McqAnswer).correctIndex && <Icon name="check-circle" size={18} style={{ color: 'var(--success)' }} />}
+                    {feedback && selected === i && i !== (current.answer as McqAnswer).correctIndex && <Icon name="x-circle" size={18} style={{ color: 'var(--danger)' }} />}
+                  </label>
+                ))}
+              </div>
+            </fieldset>
 
             <div style={{ marginTop: 20, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
               {!feedback && (

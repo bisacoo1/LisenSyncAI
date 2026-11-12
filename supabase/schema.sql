@@ -8,6 +8,14 @@ create table if not exists public.profiles (
   full_name text,
   board_program text not null,
   target_exam_date date,
+  xp integer default 0,
+  level integer default 1,
+  current_streak integer default 0,
+  longest_streak integer default 0,
+  last_activity_date date,
+  daily_goal integer default 20,
+  daily_items_completed integer default 0,
+  daily_goal_date date,
   created_at timestamptz default now(),
   updated_at timestamptz default now()
 );

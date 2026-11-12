@@ -1,4 +1,4 @@
-import { Attempt, PASSING_RATE, SubjectStat } from '@/types'
+import { Attempt, PASSING_RATE, Profile, SubjectStat } from '@/types'
 
 export function computeSubjectStats(attempts: Attempt[], subjects: string[]): SubjectStat[] {
   const by: Record<string, { correct: number; total: number }> = {}
@@ -42,4 +42,49 @@ export function checkSequence(userOrder: string[], correct: string[]) {
   const nu = userOrder.map(normalizeText)
   const nc = correct.map(normalizeText)
   return nu.every((v, i) => v === nc[i])
+}
+
+export interface ProfileStatsUpdate {
+  xp?: number
+  level?: number
+  current_streak?: number
+  longest_streak?: number
+  last_activity_date?: string
+  daily_items_completed?: number
+  daily_goal_date?: string
+}
+
+export function computeProfileStatsUpdate(
+  profile: Profile,
+  isCorrect: boolean,
+  today: string
+): ProfileStatsUpdate {
+  const xpGain = isCorrect ? 10 : 2
+  const newXp = (profile.xp || 0) + xpGain
+  const newLevel = Math.floor(newXp / 100) + 1
+
+  const lastDate = profile.last_activity_date
+  const sameDay = lastDate === today
+  let newStreak = sameDay ? (profile.current_streak || 0) : (profile.current_streak || 0) + 1
+
+  if (!sameDay) {
+    const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10)
+    if (lastDate && lastDate !== yesterday) {
+      newStreak = 1
+    }
+  }
+
+  const newLongest = Math.max(profile.longest_streak || 0, newStreak)
+
+  let dailyCompleted = profile.daily_goal_date === today ? (profile.daily_items_completed || 0) + 1 : 1
+
+  return {
+    xp: newXp,
+    level: newLevel,
+    current_streak: newStreak,
+    longest_streak: newLongest,
+    last_activity_date: today,
+    daily_items_completed: dailyCompleted,
+    daily_goal_date: today,
+  }
 }
