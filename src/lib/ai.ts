@@ -5,11 +5,50 @@ const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY as string | undefined
 const GEMINI_MODEL = (import.meta.env.VITE_GEMINI_MODEL as string | undefined) || 'gemini-1.5-flash-latest'
 const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta'
 
+// Fallback model chain: if the primary model is unavailable, try the next one
+const FALLBACK_MODELS: string[] = [
+  GEMINI_MODEL,
+  'gemini-1.5-flash-latest',
+  'gemini-1.5-pro-latest',
+  'gemini-2.0-flash',
+  'gemini-2.0-flash-lite',
+  'gemini-2.5-flash',
+]
+
 export function geminiConfigured() {
   return !!GEMINI_API_KEY && !GEMINI_API_KEY.includes('your-')
 }
 
 export const aiConfigured = geminiConfigured
+
+function isRetryableError(status: number): boolean {
+  // Retry on server errors and rate limits; give up on client/config errors
+  return status === 429 || status === 503 || status === 500 || status === 502 || status === 504
+}
+
+async function geminiRequestWithFallback(model: string, body: Record<string, unknown>): Promise<any> {
+  const lastError = await (async () => {
+    for (const m of FALLBACK_MODELS) {
+      try {
+        const res = await fetch(`${GEMINI_BASE}/models/${m}:generateContent?key=${GEMINI_API_KEY}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...body, model: `models/${m}` })
+        })
+        if (res.ok) return res.json()
+        const text = await res.text()
+        if (!isRetryableError(res.status)) throw new Error(`Gemini request failed: ${res.status} ${text}`)
+        // retryable: continue to next model
+        continue
+      } catch (e: any) {
+        if (e.message && !e.message.includes('Gemini request failed')) throw e
+        continue
+      }
+    }
+    throw new Error('All Gemini models are currently unavailable. Please try again later.')
+  })()
+  return lastError
+}
 
 async function geminiRequest(path: string, body: unknown) {
   const res = await fetch(`${GEMINI_BASE}/${path}?key=${GEMINI_API_KEY}`, {
@@ -70,7 +109,7 @@ export async function generateFlashcardsFromFile(params: {
     }],
     generationConfig: { temperature: 0.4 }
   }
-  const data = await geminiRequest(`models/${GEMINI_MODEL}:generateContent`, body)
+  const data = await geminiRequestWithFallback(GEMINI_MODEL, body)
   const text = data.candidates?.[0]?.content?.parts?.[0]?.text || ''
   const out = extractJson(text)
   return (Array.isArray(out) ? out : []).filter(x => x?.front && x?.back)
@@ -107,7 +146,7 @@ export async function generatePracticeItemsFromFile(params: {
     }],
     generationConfig: { temperature: 0.4 }
   }
-  const data = await geminiRequest(`models/${GEMINI_MODEL}:generateContent`, body)
+  const data = await geminiRequestWithFallback(GEMINI_MODEL, body)
   const text = data.candidates?.[0]?.content?.parts?.[0]?.text || ''
   const out = extractJson(text)
   const arr = Array.isArray(out) ? out : []
