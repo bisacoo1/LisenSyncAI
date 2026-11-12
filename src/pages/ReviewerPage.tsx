@@ -1,11 +1,26 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { getProgram } from '@/lib/syllabus'
-import { extractTextFromPdf } from '@/lib/pdf'
-import { aiConfigured, generateFlashcards, generatePracticeItems } from '@/lib/ai'
+import { aiConfigured, generateFlashcardsFromFile, generatePracticeItemsFromFile, uploadFileToGemini, type GeneratedFlashcard } from '@/lib/ai'
 import { supabase } from '@/lib/supabase'
 import type { Flashcard, PracticeType, ReviewMaterial } from '@/types'
-import { Card, CardHeader, CardContent, Button, Badge, Icon, Input, Select, Textarea, Badge as BadgeComp, EmptyState, Skeleton, useToast } from '@/components/ui'
+import { Card, CardHeader, CardContent, Button, Badge, Icon, Input, Select, EmptyState, Skeleton, useToast } from '@/components/ui'
+
+function fileIcon(mimeType: string | null | undefined) {
+  if (!mimeType) return 'file-text'
+  if (mimeType.includes('pdf')) return 'file-pdf'
+  if (mimeType.includes('word') || mimeType.includes('document')) return 'file-text'
+  if (mimeType.includes('powerpoint') || mimeType.includes('presentation')) return 'file-text'
+  return 'file-text'
+}
+
+function fileIconColor(mimeType: string | null | undefined) {
+  if (!mimeType) return 'var(--muted)'
+  if (mimeType.includes('pdf')) return 'var(--danger)'
+  if (mimeType.includes('word') || mimeType.includes('document')) return 'var(--primary)'
+  if (mimeType.includes('powerpoint') || mimeType.includes('presentation')) return 'var(--warning)'
+  return 'var(--muted)'
+}
 
 export default function ReviewerPage() {
   const { profile, user } = useAuth()
@@ -14,7 +29,7 @@ export default function ReviewerPage() {
   const [title, setTitle] = useState('')
   const [subject, setSubject] = useState('')
   const [file, setFile] = useState<File | null>(null)
-  const [extracted, setExtracted] = useState('')
+  const [fileUri, setFileUri] = useState<string | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
   const [msg, setMsg] = useState<string | null>(null)
   const [err, setErr] = useState<string | null>(null)
@@ -35,29 +50,39 @@ export default function ReviewerPage() {
     setFlashcards((fc as Flashcard[]) || [])
   }
 
-  async function handleExtract() {
+  async function handleUpload() {
     if (!file) return
-    setErr(null); setMsg(null); setBusy('Extracting text from PDF...')
+    const allowed = ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/vnd.openxmlformats-officedocument.presentationml.openxmlformats-officedocument.presentationml.document']
+    if (!allowed.includes(file.type)) {
+      setErr('Only PDF, DOCX, and PPT/PPTX files are supported.')
+      return
+    }
+    setErr(null); setMsg(null); setBusy('Uploading file to Gemini...')
     try {
-      const text = await extractTextFromPdf(file)
-      setExtracted(text)
-      setMsg(text ? `Extracted ${text.length} characters.` : 'No text extracted (scanned PDFs may not yield text).')
+      const uploaded = await uploadFileToGemini(file)
+      setFileUri(uploaded.uri)
+      setMsg(`File uploaded to Gemini (${(file.size / 1024 / 1024).toFixed(2)} MB). Ready to save.`)
     } catch (e: any) { setErr(e.message) } finally { setBusy(null) }
   }
 
   async function saveMaterial() {
     if (!profile || !user || !program) return
     if (!title || !subject) { setErr('Title and subject are required.'); return }
+    if (!fileUri) { setErr('Please upload a file first.'); return }
     setErr(null); setMsg(null); setBusy('Saving material...')
     try {
       const { data, error } = await supabase.from('review_materials').insert({
         user_id: user.id, title, board_program: profile.board_program, subject,
-        source_filename: file?.name || null, extracted_text: extracted || null
+        source_filename: file?.name || null,
+        file_uri: fileUri,
+        mime_type: file?.type || null,
+        file_size: file?.size || null,
+        extracted_text: null
       }).select().single()
       if (error) throw error
       setMsg('Reviewer material saved.')
       addToast({ type: 'success', title: 'Material saved', message: title })
-      setTitle(''); setFile(null); setExtracted('')
+      setTitle(''); setFile(null); setFileUri(null)
       await loadMaterials()
       if (data) setSelectedMaterial((data as any).id)
     } catch (e: any) { setErr(e.message) } finally { setBusy(null) }
@@ -66,12 +91,20 @@ export default function ReviewerPage() {
   async function generate(type: 'flashcards' | PracticeType) {
     if (!profile || !user || !program) return
     const mat = materials.find(m => m.id === selectedMaterial)
-    if (!mat || !mat.extracted_text) { setErr('Select a saved material with extracted text.'); return }
-    if (!aiConfigured()) { setErr('AI is not configured. Set VITE_OPENAI_API_KEY in .env.'); return }
+    if (!mat || !mat.file_uri) { setErr('Select a saved material with an uploaded file.'); return }
+    if (!aiConfigured()) { setErr('AI is not configured. Set VITE_GEMINI_API_KEY in .env.'); return }
     setErr(null); setMsg(null); setBusy(`Generating ${type}...`)
     try {
+      const fileUri = mat.file_uri!
+      const mimeType = mat.mime_type || 'application/pdf'
       if (type === 'flashcards') {
-        const cards = await generateFlashcards({ text: mat.extracted_text, subject: mat.subject, program: profile.board_program, count: 10 })
+        const cards = await generateFlashcardsFromFile({
+          fileUri,
+          mimeType,
+          subject: mat.subject,
+          program: profile.board_program,
+          count: 10
+        })
         if (cards.length) {
           const rows = cards.map(c => ({ user_id: user.id, material_id: mat.id, board_program: profile.board_program, subject: mat.subject, front: c.front, back: c.back }))
           const { error } = await supabase.from('flashcards').insert(rows)
@@ -80,7 +113,14 @@ export default function ReviewerPage() {
         addToast({ type: 'success', title: 'Flashcards generated', message: `${cards.length} flashcards for ${mat.subject}` })
         setMsg(`Generated ${cards.length} flashcards for ${mat.subject}.`)
       } else {
-        const items = await generatePracticeItems({ text: mat.extracted_text, subject: mat.subject, program: profile.board_program, type, count: 5 })
+        const items = await generatePracticeItemsFromFile({
+          fileUri: mat.file_uri!,
+          mimeType: mat.mime_type || 'application/pdf',
+          subject: mat.subject,
+          program: profile.board_program,
+          type,
+          count: 5
+        })
         if (items.length) {
           const rows = items.map(it => ({ user_id: user.id, material_id: mat.id, board_program: profile.board_program, subject: mat.subject, type, question: it.question, answer: it.answer, rationale: it.rationale }))
           const { error } = await supabase.from('practice_items').insert(rows)
@@ -100,7 +140,7 @@ export default function ReviewerPage() {
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 24, flexWrap: 'wrap', marginBottom: 24 }}>
         <div>
           <h1 style={{ margin: '0 0 8px', fontSize: 32, fontWeight: 700 }}>Reviewer-to-Flashcard & Drill Generator</h1>
-          <p style={{ margin: 0, color: 'var(--muted)', fontSize: 15 }}>Upload review handouts or subject PDFs. AI converts them into active-recall flashcards and situational drills tagged by board subject.</p>
+          <p style={{ margin: 0, color: 'var(--muted)', fontSize: 15 }}>Upload review handouts (PDF, DOCX, PPT/PPTX). Gemini processes the document and converts it into active-recall flashcards and situational drills tagged by board subject.</p>
         </div>
         {!aiConfigured() && (
           <Badge variant="warning" size="md">
@@ -136,7 +176,7 @@ export default function ReviewerPage() {
       <div className="grid grid-2" style={{ marginBottom: 24 }}>
         {/* Upload Section */}
         <Card variant="elevated">
-          <CardHeader title="Upload Reviewer (PDF)" icon="file-pdf" subtitle="Extract text from your review materials" />
+          <CardHeader title="Upload Reviewer" icon="file-text" subtitle="PDF, DOCX, PPT/PPTX — processed by Gemini" />
           <CardContent>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               <Input
@@ -156,11 +196,11 @@ export default function ReviewerPage() {
               />
 
               <div>
-                <label style={{ display: 'block', fontSize: 12, color: 'var(--muted)', marginBottom: 6, fontWeight: 500 }}>PDF FILE</label>
+                <label style={{ display: 'block', fontSize: 12, color: 'var(--muted)', marginBottom: 6, fontWeight: 500 }}>FILE</label>
                 <div style={{ position: 'relative' }}>
                   <input
                     type="file"
-                    accept="application/pdf"
+                    accept="application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.presentationml.openxmlformats-officedocument.presentationml.document,application/vnd.ms-powerpoint"
                     onChange={e => setFile(e.target.files?.[0] || null)}
                     style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer', width: '100%' }}
                   />
@@ -169,37 +209,25 @@ export default function ReviewerPage() {
                     borderRadius: 10, border: '2px dashed var(--border)', background: 'var(--panel-2)',
                     transition: 'all 150ms ease'
                   }}>
-                    <Icon name="file-pdf" size={28} style={{ color: 'var(--danger)', flexShrink: 0 }} />
+                    <Icon name={fileIcon(file?.type)} size={28} style={{ color: fileIconColor(file?.type), flexShrink: 0 }} />
                     <div style={{ flex: 1 }}>
                       <div style={{ fontWeight: 500, color: file ? 'var(--text)' : 'var(--muted)' }}>
-                        {file ? file.name : 'Drag & drop a PDF file or click to browse'}
+                        {file ? file.name : 'Drag & drop a file or click to browse'}
                       </div>
-                      <div style={{ fontSize: 12, color: 'var(--muted-strong)' }}>Max 10MB • Text extraction works best with digital PDFs</div>
+                      <div style={{ fontSize: 12, color: 'var(--muted-strong)' }}>Max 10MB • PDF, DOCX, PPT/PPTX supported</div>
                     </div>
                   </div>
                 </div>
               </div>
 
               <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                <Button variant="secondary" size="lg" leftIcon="download" onClick={handleExtract} disabled={!file || !!busy} fullWidth style={{ maxWidth: 200 }}>
-                  Extract Text
+                <Button variant="secondary" size="lg" leftIcon="upload" onClick={handleUpload} disabled={!file || !!busy} fullWidth style={{ maxWidth: 200 }}>
+                  Upload to Gemini
                 </Button>
-                <Button variant="primary" size="lg" leftIcon="save" onClick={saveMaterial} disabled={!!busy || !title} fullWidth style={{ maxWidth: 200 }}>
+                <Button variant="primary" size="lg" leftIcon="save" onClick={saveMaterial} disabled={!!busy || !title || !fileUri} fullWidth style={{ maxWidth: 200 }}>
                   Save Material
                 </Button>
               </div>
-
-              {extracted && (
-                <div style={{ marginTop: 8 }}>
-                  <label style={{ display: 'block', fontSize: 12, color: 'var(--muted)', marginBottom: 6, fontWeight: 500 }}>EXTRACTED TEXT (PREVIEW/EDIT)</label>
-                  <Textarea
-                    value={extracted}
-                    onChange={e => setExtracted(e.target.value)}
-                    rows={10}
-                    style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }}
-                  />
-                </div>
-              )}
             </div>
           </CardContent>
         </Card>
@@ -262,7 +290,7 @@ export default function ReviewerPage() {
             <EmptyState
               icon="file-text"
               title="No materials saved yet"
-              description="Upload a PDF reviewer above to get started."
+              description="Upload a reviewer above to get started."
             />
           ) : (
             <div style={{ overflowX: 'auto' }}>
@@ -272,7 +300,8 @@ export default function ReviewerPage() {
                     <th>Title</th>
                     <th style={{width: 180}}>Subject</th>
                     <th style={{width: 160}}>Source</th>
-                    <th style={{width: 120}}>Text Length</th>
+                    <th style={{width: 120}}>Type</th>
+                    <th style={{width: 100}}>Size</th>
                     <th style={{width: 180}}>Created</th>
                   </tr>
                 </thead>
@@ -282,9 +311,8 @@ export default function ReviewerPage() {
                       <td style={{ fontWeight: 500 }}>{m.title}</td>
                       <td><Badge variant="primary" size="sm">{m.subject}</Badge></td>
                       <td className="muted" style={{ fontSize: 13 }}>{m.source_filename || '—'}</td>
-                      <td className="muted" style={{ fontSize: 13 }}>
-                        {m.extracted_text ? `${Math.round(m.extracted_text.length / 100) / 10}k chars` : '—'}
-                      </td>
+                      <td className="muted" style={{ fontSize: 13 }}>{m.mime_type || '—'}</td>
+                      <td className="muted" style={{ fontSize: 13 }}>{m.file_size ? `${(m.file_size / 1024 / 1024).toFixed(2)} MB` : '—'}</td>
                       <td className="muted" style={{ fontSize: 13 }}>{new Date(m.created_at).toLocaleString()}</td>
                     </tr>
                   ))}

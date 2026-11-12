@@ -20,6 +20,9 @@ create table if not exists public.review_materials (
   board_program text not null,
   subject text not null,
   source_filename text,
+  file_uri text,
+  mime_type text,
+  file_size bigint,
   extracted_text text,
   created_at timestamptz default now()
 );

@@ -1,31 +1,48 @@
 import { BoardProgramKey, PracticeItem, PracticeType } from '@/types'
 import { getProgram } from './syllabus'
 
-const API_KEY = import.meta.env.VITE_OPENAI_API_KEY as string | undefined
-const MODEL = (import.meta.env.VITE_OPENAI_MODEL as string | undefined) || 'gpt-4o-mini'
-const BASE_URL = (import.meta.env.VITE_OPENAI_BASE_URL as string | undefined) || 'https://api.openai.com/v1'
+const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY as string | undefined
+const GEMINI_MODEL = (import.meta.env.VITE_GEMINI_MODEL as string | undefined) || 'gemini-1.5-flash'
+const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta'
 
-export function aiConfigured() {
-  return !!API_KEY && !API_KEY.includes('your-')
+export function geminiConfigured() {
+  return !!GEMINI_API_KEY && !GEMINI_API_KEY.includes('your-')
 }
 
-async function chat(system: string, user: string): Promise<string> {
-  if (!aiConfigured()) throw new Error('AI API is not configured. Set VITE_OPENAI_API_KEY in .env.')
-  const res = await fetch(`${BASE_URL}/chat/completions`, {
+export const aiConfigured = geminiConfigured
+
+async function geminiRequest(path: string, body: unknown, options?: RequestInit) {
+  const res = await fetch(`${GEMINI_BASE}/${path}?key=${GEMINI_API_KEY}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${API_KEY}` },
-    body: JSON.stringify({
-      model: MODEL,
-      temperature: 0.4,
-      messages: [
-        { role: 'system', content: system },
-        { role: 'user', content: user }
-      ]
-    })
+    headers: { 'Content-Type': 'application/json', ...(options?.headers || {}) },
+    body: JSON.stringify(body),
+    ...options
   })
-  if (!res.ok) throw new Error(`AI request failed: ${res.status} ${await res.text()}`)
-  const data = await res.json()
-  return data.choices?.[0]?.message?.content || ''
+  if (!res.ok) throw new Error(`Gemini request failed: ${res.status} ${await res.text()}`)
+  return res.json()
+}
+
+async function uploadFileToGemini(file: File): Promise<{ name: string; uri: string; mimeType: string }> {
+  const created = await geminiRequest('files', { displayName: file.name }, {
+    headers: { 'X-Goog-Api-Key': GEMINI_API_KEY! }
+  })
+  const fileName = created.name
+  const fileUri = created.uri || fileName
+
+  await fetch(`${GEMINI_BASE}/${fileName}?key=${GEMINI_API_KEY}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': file.type },
+    body: file
+  })
+
+  for (let i = 0; i < 45; i++) {
+    await new Promise(r => setTimeout(r, 1000))
+    const status = await fetch(`${GEMINI_BASE}/${fileName}?key=${GEMINI_API_KEY}`)
+    const data = await status.json()
+    if (data.state === 'ACTIVE') return { name: fileName, uri: fileUri, mimeType: file.type }
+    if (data.state === 'FAILED') throw new Error('Gemini file processing failed')
+  }
+  throw new Error('Gemini file processing timed out')
 }
 
 function extractJson(text: string): any {
@@ -40,7 +57,6 @@ function extractJson(text: string): any {
   else s = Math.min(firstArr, firstObj)
   if (s === -1) throw new Error('AI did not return JSON')
   const candidate = raw.slice(s)
-  // try to parse by trimming trailing text
   for (let end = candidate.length; end > 0; end--) {
     const ch = candidate[end - 1]
     if (ch !== ']' && ch !== '}') continue
@@ -51,21 +67,33 @@ function extractJson(text: string): any {
 
 export interface GeneratedFlashcard { front: string; back: string }
 
-export async function generateFlashcards(params: {
-  text: string
+export async function generateFlashcardsFromFile(params: {
+  fileUri: string
+  mimeType: string
   subject: string
   program: BoardProgramKey
   count?: number
 }): Promise<GeneratedFlashcard[]> {
   const prog = getProgram(params.program)
-  const system = `You are an expert PRC licensure exam reviewer for ${prog.name}. Create concise, accurate active-recall flashcards strictly aligned to the official board syllabus. Return ONLY valid JSON array.`
-  const user = `Subject: ${params.subject}\nGenerate ${params.count || 10} flashcards from the reviewer text below.\nEach item: {"front":"question/prompt","back":"answer with key facts"}.\nReviewer text:\n${params.text.slice(0, 12000)}`
-  const out = extractJson(await chat(system, user))
+  const body = {
+    model: `models/${GEMINI_MODEL}`,
+    contents: [{
+      parts: [
+        { fileData: { fileUri: params.fileUri, mimeType: params.mimeType } },
+        { text: `You are an expert PRC licensure exam reviewer for ${prog.name}. Create concise, accurate active-recall flashcards strictly aligned to the official board syllabus. Subject: ${params.subject}. Generate ${params.count || 10} flashcards from the uploaded document. Each item: {"front":"question/prompt","back":"answer with key facts"}. Return ONLY a valid JSON array.` }
+      ]
+    }],
+    generationConfig: { temperature: 0.4 }
+  }
+  const data = await geminiRequest(`models/${GEMINI_MODEL}:generateContent`, body)
+  const text = data.candidates?.[0]?.content?.parts?.[0]?.text || ''
+  const out = extractJson(text)
   return (Array.isArray(out) ? out : []).filter(x => x?.front && x?.back)
 }
 
-export async function generatePracticeItems(params: {
-  text: string
+export async function generatePracticeItemsFromFile(params: {
+  fileUri: string
+  mimeType: string
   subject: string
   program: BoardProgramKey
   type: PracticeType
@@ -73,7 +101,7 @@ export async function generatePracticeItems(params: {
 }): Promise<Partial<PracticeItem>[]> {
   const prog = getProgram(params.program)
   const count = params.count || 5
-  const common = `Program: ${prog.name}\nSubject: ${params.subject}\nAll questions must be board-exam level, aligned to the syllabus, and include step-by-step rationale. Return ONLY valid JSON array.`
+  const common = `Program: ${prog.name}\nSubject: ${params.subject}\nAll questions must be board-exam level, aligned to the syllabus, and include step-by-step rationale. Return ONLY a valid JSON array.`
   let spec = ''
   if (params.type === 'mcq') {
     spec = `Generate ${count} PRC-style situational multiple-choice questions (higher-order thinking). Each: {"type":"mcq","question":{"stem":"scenario-based stem","options":["A text","B text","C text","D text"]},"answer":{"correctIndex":0},"rationale":"step-by-step rationale explaining why correct and others are not"}`
@@ -84,9 +112,19 @@ export async function generatePracticeItems(params: {
   } else {
     spec = `Generate ${count} active-recall drills. Each: {"type":"flashcard_drill","question":{"stem":"drill prompt"},"answer":{"expected":"answer"},"rationale":"brief rationale"}`
   }
-  const user = `${common}\n${spec}\nReviewer text:\n${params.text.slice(0, 12000)}`
-  const system = `You create rigorous PRC licensure exam assessment items. No casual trivia. Focus on 75% passing benchmark readiness.`
-  const out = extractJson(await chat(system, user))
+  const body = {
+    model: `models/${GEMINI_MODEL}`,
+    contents: [{
+      parts: [
+        { fileData: { fileUri: params.fileUri, mimeType: params.mimeType } },
+        { text: `${common}\n${spec}\nGenerate items from the uploaded document.` }
+      ]
+    }],
+    generationConfig: { temperature: 0.4 }
+  }
+  const data = await geminiRequest(`models/${GEMINI_MODEL}:generateContent`, body)
+  const text = data.candidates?.[0]?.content?.parts?.[0]?.text || ''
+  const out = extractJson(text)
   const arr = Array.isArray(out) ? out : []
   return arr.map((it: any) => ({
     type: params.type,
@@ -97,3 +135,5 @@ export async function generatePracticeItems(params: {
     rationale: it.rationale || null
   }))
 }
+
+export { uploadFileToGemini }

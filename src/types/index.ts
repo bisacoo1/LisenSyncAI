@@ -30,6 +30,9 @@ export interface ReviewMaterial {
   board_program: BoardProgramKey
   subject: string
   source_filename: string | null
+  file_uri: string | null
+  mime_type: string | null
+  file_size: number | null
   extracted_text: string | null
   created_at: string
 }
