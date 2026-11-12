@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { getProgram } from '@/lib/syllabus'
 import { supabase } from '@/lib/supabase'
@@ -10,6 +10,7 @@ import { Card, CardHeader, CardContent, Button, Badge, Icon, EmptyState, SegCont
 export default function PracticePage() {
   const { profile, user } = useAuth()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const program = profile ? getProgram(profile.board_program) : null
   const [mode, setMode] = useState<'flashcards' | PracticeType>('mcq')
   const [subject, setSubject] = useState<string>('')
@@ -25,6 +26,17 @@ export default function PracticePage() {
   const { addToast } = useToast()
 
   useEffect(() => { if (program) setSubject(program.subjects[0]) }, [program])
+
+  useEffect(() => {
+    const qpMode = searchParams.get('mode')
+    const qpSubject = searchParams.get('subject')
+    if (qpMode && ['flashcards', 'mcq', 'diagnosis', 'sequence'].includes(qpMode)) {
+      setMode(qpMode as 'flashcards' | PracticeType)
+    }
+    if (qpSubject) setSubject(qpSubject)
+    // Clear query params without reload
+    window.history.replaceState({}, '', window.location.pathname)
+  }, [])
 
   useEffect(() => {
     if (!profile || !subject) return

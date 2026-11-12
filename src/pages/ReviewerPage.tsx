@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { getProgram } from '@/lib/syllabus'
 import { aiConfigured, generateFlashcardsFromFile, generatePracticeItemsFromFile, fileToDataUrl, type GeneratedFlashcard } from '@/lib/ai'
@@ -24,6 +25,7 @@ function fileIconColor(mimeType: string | null | undefined) {
 
 export default function ReviewerPage() {
   const { profile, user } = useAuth()
+  const navigate = useNavigate()
   const program = profile ? getProgram(profile.board_program) : null
   const [materials, setMaterials] = useState<ReviewMaterial[]>([])
   const [title, setTitle] = useState('')
@@ -113,6 +115,7 @@ export default function ReviewerPage() {
         }
         addToast({ type: 'success', title: 'Flashcards generated', message: `${cards.length} flashcards for ${mat.subject}` })
         setMsg(`Generated ${cards.length} flashcards for ${mat.subject}.`)
+        navigate(`/practice?mode=flashcards&subject=${encodeURIComponent(mat.subject)}`)
       } else {
         const items = await generatePracticeItemsFromFile({
           dataUrl: mat.file_uri!,
