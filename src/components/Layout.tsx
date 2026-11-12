@@ -1,37 +1,65 @@
-import React from 'react'
-import { NavBar } from './NavBar'
-import { ToastProvider } from '@/components/ui'
+import { useState } from 'react'
+import { Outlet } from 'react-router-dom'
+import { Sidebar } from '@/components/Sidebar'
+import { useAuth } from '@/context/AuthContext'
+import { Button, Icon, Badge } from '@/components/ui'
 
-export function Layout({ children }: { children: React.ReactNode }) {
+export function Layout() {
+  const { profile, signOut } = useAuth()
+  const [mobileOpen, setMobileOpen] = useState(false)
+  const [collapsed, setCollapsed] = useState(false)
+
   return (
-    <ToastProvider>
-      <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-        <NavBar />
-        <main style={{ flex: 1 }}>{children}</main>
-        <footer style={{ borderTop: '1px solid var(--border)', marginTop: 'auto' }}>
-          <div className="container" style={{ padding: '24px 24px' }}>
-            <p style={{ margin: 0, color: 'var(--muted)', fontSize: '12px', textAlign: 'center' }}>
-              LisenSync AI — PRC licensure exam readiness focused on the 75% passing benchmark.
-            </p>
-          </div>
-        </footer>
+    <div className={`app-shell ${collapsed ? 'collapsed' : ''}`}>
+      <div className="mobile-topbar">
+        <button className="mobile-toggle" onClick={() => setMobileOpen(o => !o)} aria-label="Toggle menu">
+          <Icon name="menu" size={22} />
+        </button>
+        <span className="brand">LisenSync AI</span>
+        {profile && (
+          <Badge variant="primary" size="sm" style={{ fontWeight: 500 }}>
+            <Icon name="flag" size={11} />
+            {profile.board_program.replace('_', ' ')}
+          </Badge>
+        )}
       </div>
-    </ToastProvider>
+
+      <Sidebar
+        open={mobileOpen}
+        onToggle={() => {
+          if (window.innerWidth <= 900) setMobileOpen(o => !o)
+          else setCollapsed(c => !c)
+        }}
+      />
+
+      {mobileOpen && (
+        <div className="sidebar-backdrop" onClick={() => setMobileOpen(false)} />
+      )}
+
+      <main className="app-main">
+        <div className="container">
+          <Outlet />
+        </div>
+      </main>
+
+      <div className="auth-actions">
+        {profile && (
+          <Button variant="ghost" size="sm" leftIcon="logout" onClick={async () => { await signOut() }}>
+            Sign out
+          </Button>
+        )}
+      </div>
+    </div>
   )
 }
 
-export function AuthLayout({ children }: { children: React.ReactNode }) {
+export function AuthLayout() {
   return (
-    <ToastProvider>
-      <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', alignItems: 'center', justifyContent: 'center', padding: '48px 24px' }}>
-        <main style={{ width: '100%', maxWidth: 480 }}>{children}</main>
-        <footer style={{ marginTop: '48px', textAlign: 'center' }}>
-          <p style={{ margin: 0, color: 'var(--muted)', fontSize: '12px' }}>
-            LisenSync AI — PRC licensure exam readiness focused on the 75% passing benchmark.
-          </p>
-        </footer>
+    <div className="auth-shell">
+      <div className="auth-card">
+        <Outlet />
       </div>
-    </ToastProvider>
+    </div>
   )
 }
 
