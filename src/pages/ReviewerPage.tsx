@@ -4,7 +4,7 @@ import { getProgram } from '@/lib/syllabus'
 import { aiConfigured, generateFlashcardsFromFile, generatePracticeItemsFromFile, fileToDataUrl, type GeneratedFlashcard } from '@/lib/ai'
 import { supabase } from '@/lib/supabase'
 import type { Flashcard, PracticeType, ReviewMaterial } from '@/types'
-import { Card, CardHeader, CardContent, Button, Badge, Icon, Input, Select, EmptyState, Skeleton, useToast } from '@/components/ui'
+import { Card, CardHeader, CardContent, Button, Badge, Icon, Input, Select, EmptyState, Skeleton, useToast, Modal } from '@/components/ui'
 
 function fileIcon(mimeType: string | null | undefined) {
   if (!mimeType) return 'file-text'
@@ -35,6 +35,7 @@ export default function ReviewerPage() {
   const [err, setErr] = useState<string | null>(null)
   const [flashcards, setFlashcards] = useState<Flashcard[]>([])
   const [selectedMaterial, setSelectedMaterial] = useState<string>('')
+  const [selectedCard, setSelectedCard] = useState<Flashcard | null>(null)
   const { addToast } = useToast()
 
   useEffect(() => { if (program) setSubject(program.subjects[0]) }, [program])
@@ -270,7 +271,7 @@ export default function ReviewerPage() {
               ) : (
                 <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 8 }}>
                   {flashcards.slice(0, 8).map(f => (
-                    <li key={f.id} style={{ padding: 12, background: 'var(--panel-2)', border: '1px solid var(--border)', borderRadius: 8, display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+                    <li key={f.id} style={{ padding: 12, background: 'var(--panel-2)', border: '1px solid var(--border)', borderRadius: 8, display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', transition: 'all 150ms ease' }} onClick={() => { setSelectedCard(f); setSelectedMaterial('') }}>
                       <Badge variant="primary" size="sm" style={{ flexShrink: 0 }}>{f.subject}</Badge>
                       <span style={{ flex: 1, fontSize: 13, lineHeight: 1.5 }}>{f.front}</span>
                     </li>
@@ -281,6 +282,27 @@ export default function ReviewerPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Flashcard Detail Modal */}
+      {selectedCard && (
+        <Modal open={!!selectedCard} onClose={() => setSelectedCard(null)} title="Flashcard" size="md">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+            <div style={{ background: 'var(--panel-2)', border: '1px solid var(--border)', borderRadius: 12, padding: 16 }}>
+              <div style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>Prompt</div>
+              <div style={{ fontSize: 16, lineHeight: 1.6 }}>{selectedCard.front}</div>
+            </div>
+            <div style={{ background: 'var(--success-bg)', border: '1px solid var(--success-border)', borderRadius: 12, padding: 16 }}>
+              <div style={{ fontSize: 12, color: 'var(--success)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>Answer</div>
+              <div style={{ fontSize: 16, lineHeight: 1.6 }}>{selectedCard.back}</div>
+            </div>
+          </div>
+          <footer>
+            <Button variant="primary" onClick={() => setSelectedCard(null)} fullWidth>
+              Close
+            </Button>
+          </footer>
+        </Modal>
+      )}
 
       {/* Saved Materials Table */}
       <Card variant="outlined">
