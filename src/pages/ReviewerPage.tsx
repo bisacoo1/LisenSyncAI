@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { getProgram } from '@/lib/syllabus'
-import { aiConfigured, generateFlashcardsFromFile, generatePracticeItemsFromFile, uploadFileToGemini, type GeneratedFlashcard } from '@/lib/ai'
+import { aiConfigured, generateFlashcardsFromFile, generatePracticeItemsFromFile, fileToDataUrl, type GeneratedFlashcard } from '@/lib/ai'
 import { supabase } from '@/lib/supabase'
 import type { Flashcard, PracticeType, ReviewMaterial } from '@/types'
 import { Card, CardHeader, CardContent, Button, Badge, Icon, Input, Select, EmptyState, Skeleton, useToast } from '@/components/ui'
@@ -57,11 +57,11 @@ export default function ReviewerPage() {
       setErr('Only PDF, DOCX, and PPT/PPTX files are supported.')
       return
     }
-    setErr(null); setMsg(null); setBusy('Uploading file to Gemini...')
+    setErr(null); setMsg(null); setBusy('Reading file...')
     try {
-      const uploaded = await uploadFileToGemini(file)
-      setFileUri(uploaded.uri)
-      setMsg(`File uploaded to Gemini (${(file.size / 1024 / 1024).toFixed(2)} MB). Ready to save.`)
+      const dataUrl = await fileToDataUrl(file)
+      setFileUri(dataUrl)
+      setMsg(`File ready (${(file.size / 1024 / 1024).toFixed(2)} MB). Save to proceed.`)
     } catch (e: any) { setErr(e.message) } finally { setBusy(null) }
   }
 
@@ -95,11 +95,11 @@ export default function ReviewerPage() {
     if (!aiConfigured()) { setErr('AI is not configured. Set VITE_GEMINI_API_KEY in .env.'); return }
     setErr(null); setMsg(null); setBusy(`Generating ${type}...`)
     try {
-      const fileUri = mat.file_uri!
+      const dataUrl = mat.file_uri!
       const mimeType = mat.mime_type || 'application/pdf'
       if (type === 'flashcards') {
         const cards = await generateFlashcardsFromFile({
-          fileUri,
+          dataUrl,
           mimeType,
           subject: mat.subject,
           program: profile.board_program,
@@ -114,7 +114,7 @@ export default function ReviewerPage() {
         setMsg(`Generated ${cards.length} flashcards for ${mat.subject}.`)
       } else {
         const items = await generatePracticeItemsFromFile({
-          fileUri: mat.file_uri!,
+          dataUrl: mat.file_uri!,
           mimeType: mat.mime_type || 'application/pdf',
           subject: mat.subject,
           program: profile.board_program,

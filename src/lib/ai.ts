@@ -11,38 +11,23 @@ export function geminiConfigured() {
 
 export const aiConfigured = geminiConfigured
 
-async function geminiRequest(path: string, body: unknown, options?: RequestInit) {
+async function geminiRequest(path: string, body: unknown) {
   const res = await fetch(`${GEMINI_BASE}/${path}?key=${GEMINI_API_KEY}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...(options?.headers || {}) },
-    body: JSON.stringify(body),
-    ...options
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
   })
   if (!res.ok) throw new Error(`Gemini request failed: ${res.status} ${await res.text()}`)
   return res.json()
 }
 
-async function uploadFileToGemini(file: File): Promise<{ name: string; uri: string; mimeType: string }> {
-  const created = await geminiRequest('files', { displayName: file.name }, {
-    headers: { 'X-Goog-Api-Key': GEMINI_API_KEY! }
+export function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result as string)
+    reader.onerror = () => reject(reader.error)
+    reader.readAsDataURL(file)
   })
-  const fileName = created.name
-  const fileUri = created.uri || fileName
-
-  await fetch(`${GEMINI_BASE}/${fileName}?key=${GEMINI_API_KEY}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': file.type },
-    body: file
-  })
-
-  for (let i = 0; i < 45; i++) {
-    await new Promise(r => setTimeout(r, 1000))
-    const status = await fetch(`${GEMINI_BASE}/${fileName}?key=${GEMINI_API_KEY}`)
-    const data = await status.json()
-    if (data.state === 'ACTIVE') return { name: fileName, uri: fileUri, mimeType: file.type }
-    if (data.state === 'FAILED') throw new Error('Gemini file processing failed')
-  }
-  throw new Error('Gemini file processing timed out')
 }
 
 function extractJson(text: string): any {
@@ -68,7 +53,7 @@ function extractJson(text: string): any {
 export interface GeneratedFlashcard { front: string; back: string }
 
 export async function generateFlashcardsFromFile(params: {
-  fileUri: string
+  dataUrl: string
   mimeType: string
   subject: string
   program: BoardProgramKey
@@ -79,7 +64,7 @@ export async function generateFlashcardsFromFile(params: {
     model: `models/${GEMINI_MODEL}`,
     contents: [{
       parts: [
-        { fileData: { fileUri: params.fileUri, mimeType: params.mimeType } },
+        { inlineData: { mimeType: params.mimeType, data: params.dataUrl.split(',')[1] } },
         { text: `You are an expert PRC licensure exam reviewer for ${prog.name}. Create concise, accurate active-recall flashcards strictly aligned to the official board syllabus. Subject: ${params.subject}. Generate ${params.count || 10} flashcards from the uploaded document. Each item: {"front":"question/prompt","back":"answer with key facts"}. Return ONLY a valid JSON array.` }
       ]
     }],
@@ -92,7 +77,7 @@ export async function generateFlashcardsFromFile(params: {
 }
 
 export async function generatePracticeItemsFromFile(params: {
-  fileUri: string
+  dataUrl: string
   mimeType: string
   subject: string
   program: BoardProgramKey
@@ -116,7 +101,7 @@ export async function generatePracticeItemsFromFile(params: {
     model: `models/${GEMINI_MODEL}`,
     contents: [{
       parts: [
-        { fileData: { fileUri: params.fileUri, mimeType: params.mimeType } },
+        { inlineData: { mimeType: params.mimeType, data: params.dataUrl.split(',')[1] } },
         { text: `${common}\n${spec}\nGenerate items from the uploaded document.` }
       ]
     }],
@@ -135,5 +120,3 @@ export async function generatePracticeItemsFromFile(params: {
     rationale: it.rationale || null
   }))
 }
-
-export { uploadFileToGemini }
