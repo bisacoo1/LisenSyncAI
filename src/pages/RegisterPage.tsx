@@ -4,15 +4,19 @@ import { supabase, supabaseConfigured } from '@/lib/supabase'
 import { PROGRAM_LIST } from '@/lib/syllabus'
 import { upsertProfile } from '@/context/AuthContext'
 import type { BoardProgramKey } from '@/types'
+import { AuthLayout } from '@/components/Layout'
+import { Card, CardHeader, CardContent, Button, Input, Select, Icon, Badge, useToast } from '@/components/ui'
 
 export default function RegisterPage() {
   const nav = useNavigate()
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [program, setProgram] = useState<BoardProgramKey>('criminology')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const { addToast } = useToast()
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -20,13 +24,12 @@ export default function RegisterPage() {
     if (!supabaseConfigured) { setError('Supabase is not configured. Copy .env.example to .env and set your project keys.'); return }
     setLoading(true)
     const { data, error } = await supabase.auth.signUp({ email, password })
-    if (error) { setLoading(false); setError(error.message); return }
+    if (error) { setLoading(false); setError(error.message); addToast({ type: 'error', title: 'Registration failed', message: error.message }); return }
     const user = data.user
     if (user) {
       try {
         await upsertProfile(user.id, program, fullName)
       } catch (err: any) {
-        // If email confirmation is required, profile insert may need a session; user can complete onboarding after confirm.
         console.warn('Profile upsert deferred:', err?.message)
       }
     }
@@ -35,27 +38,84 @@ export default function RegisterPage() {
     else nav('/login')
   }
 
+  const selectedProgram = PROGRAM_LIST.find(p => p.key === program)
+
   return (
-    <div className="container" style={{ maxWidth: 560 }}>
-      <div className="card">
-        <h1 className="section-title">Create your account</h1>
-        <p className="muted">Board Program Onboarding: select your licensure course so subjects, AI prompts, and analytics align with your official board syllabus.</p>
-        {error && <div className="error" style={{ marginBottom: 12 }}>{error}</div>}
-        <form onSubmit={onSubmit}>
-          <div className="field"><label>Full name</label><input value={fullName} onChange={e => setFullName(e.target.value)} /></div>
-          <div className="field"><label>Email</label><input type="email" value={email} onChange={e => setEmail(e.target.value)} required /></div>
-          <div className="field"><label>Password</label><input type="password" value={password} onChange={e => setPassword(e.target.value)} required minLength={6} /></div>
-          <div className="field">
-            <label>PRC Board Program</label>
-            <select value={program} onChange={e => setProgram(e.target.value as BoardProgramKey)}>
-              {PROGRAM_LIST.map(p => <option key={p.key} value={p.key}>{p.name}</option>)}
-            </select>
-            <small className="muted">{PROGRAM_LIST.find(p => p.key === program)?.description}</small>
-          </div>
-          <button className="btn" type="submit" disabled={loading}>{loading ? 'Creating...' : 'Register'}</button>
-        </form>
-        <p className="muted" style={{ marginTop: 12 }}>Already have an account? <Link to="/login">Sign in</Link></p>
-      </div>
-    </div>
+    <AuthLayout>
+      <Card variant="elevated">
+        <CardHeader title="Create your account" subtitle="Board Program Onboarding: select your licensure course so subjects, AI prompts, and analytics align with your official board syllabus." style={{ textAlign: 'center', borderBottom: 'none', paddingBottom: 8 }} />
+        <CardContent style={{ paddingTop: 0 }}>
+          {error && (
+            <div style={{ marginBottom: 20, padding: 12, background: 'var(--danger-bg)', border: '1px solid var(--danger-border)', borderRadius: 10, color: 'var(--danger)', display: 'flex', alignItems: 'center', gap: 10 }}>
+              <Icon name="alert-circle" size={18} />
+              <span>{error}</span>
+            </div>
+          )}
+
+          <form onSubmit={onSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <Input
+              label="Full name"
+              value={fullName}
+              onChange={e => setFullName(e.target.value)}
+              placeholder="Juan Dela Cruz"
+              leftIcon="user"
+              fullWidth
+            />
+            <Input
+              label="Email"
+              type="email"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              required
+              leftIcon="mail"
+              placeholder="you@example.com"
+              fullWidth
+            />
+            <div style={{ position: 'relative' }}>
+              <Input
+                label="Password"
+                type={showPassword ? 'text' : 'password'}
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                required
+                minLength={6}
+                leftIcon="lock"
+                rightElement={
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center' }}
+                  >
+                    <Icon name={showPassword ? 'eye-off' : 'eye'} size={18} />
+                  </button>
+                }
+                placeholder="••••••••"
+                fullWidth
+              />
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: 12, color: 'var(--muted)', marginBottom: 6, fontWeight: 500 }}>PRC BOARD PROGRAM</label>
+              <Select
+                value={program}
+                onChange={e => setProgram(e.target.value as BoardProgramKey)}
+                options={PROGRAM_LIST.map(p => ({ value: p.key, label: p.name }))}
+                leftIcon="flag"
+                fullWidth
+              />
+              <p style={{ marginTop: 6, fontSize: 12, color: 'var(--muted)' }}>{selectedProgram?.description}</p>
+            </div>
+
+            <Button variant="primary" type="submit" fullWidth size="lg" loading={loading} style={{ marginTop: 8 }}>
+              {loading ? 'Creating…' : 'Register'}
+            </Button>
+          </form>
+
+          <p style={{ marginTop: 20, textAlign: 'center', color: 'var(--muted)', fontSize: 14 }}>
+            Already have an account? <Link to="/login" style={{ color: 'var(--primary)', fontWeight: 500 }}>Sign in</Link>
+          </p>
+        </CardContent>
+      </Card>
+    </AuthLayout>
   )
 }

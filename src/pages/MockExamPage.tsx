@@ -2,8 +2,9 @@ import { useEffect, useRef, useState } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { getProgram } from '@/lib/syllabus'
 import { supabase } from '@/lib/supabase'
-import { PASSING_RATE, type DiagnosisAnswer, type DiagnosisQuestion, type McqAnswer, type McqQuestion, type MockExam, type MockExamItem, type PracticeItem, type SequenceAnswer, type SequenceQuestion } from '@/types'
+import { PASSING_RATE, type Attempt, type DiagnosisAnswer, type DiagnosisQuestion, type McqAnswer, type McqQuestion, type MockExam, type MockExamItem, type PracticeItem, type SequenceAnswer, type SequenceQuestion } from '@/types'
 import { checkDiagnosis, checkSequence } from '@/lib/analytics'
+import { Card, CardHeader, CardContent, Button, Badge, ProgressBar, Icon, EmptyState, Skeleton, Modal, useToast } from '@/components/ui'
 
 function formatTime(sec: number) {
   const h = Math.floor(sec / 3600).toString().padStart(2, '0')
@@ -23,7 +24,19 @@ export default function MockExamPage() {
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
   const [err, setErr] = useState<string | null>(null)
+  const [seqOrder, setSeqOrder] = useState<string[]>([])
   const submittedRef = useRef(false)
+  const { addToast } = useToast()
+  const [showSubmitConfirm, setShowSubmitConfirm] = useState(false)
+  const [showResults, setShowResults] = useState(false)
+
+  function moveSeq(i: number, dir: -1 | 1) {
+    const j = i + dir
+    if (j < 0 || j >= seqOrder.length) return
+    const copy = [...seqOrder]
+    ;[copy[i], copy[j]] = [copy[j], copy[i]]
+    setSeqOrder(copy)
+  }
 
   useEffect(() => { if (profile) loadInProgress() }, [profile])
 
@@ -33,6 +46,14 @@ export default function MockExamPage() {
     const t = setTimeout(() => setRemaining(r => (r == null ? r : r - 1)), 1000)
     return () => clearTimeout(t)
   }, [remaining, exam])
+
+  // Update seqOrder when current item changes (for sequence questions)
+  useEffect(() => {
+    if (it && it.type === 'sequence') {
+      const q = it.question as SequenceQuestion
+      setSeqOrder([...(q.items || [])].sort(() => Math.random() - 0.5))
+    }
+  }, [current, items])
 
   async function loadInProgress() {
     if (!profile) return
@@ -82,7 +103,7 @@ export default function MockExamPage() {
       if (ierr) throw ierr
       submittedRef.current = false
       await loadInProgress()
-      setMsg('Mock exam started. Answers and rationales will be revealed only after submission.')
+      addToast({ type: 'success', title: 'Mock exam started', message: 'Answers and rationales will be revealed only after submission.' })
     } catch (e: any) { setErr(e.message) } finally { setBusy(false) }
   }
 
@@ -113,175 +134,379 @@ export default function MockExamPage() {
       setExam(data as MockExam)
       const { data: its } = await supabase.from('mock_exam_items').select('*').eq('exam_id', exam.id).order('position', { ascending: true })
       setItems((its as MockExamItem[]) || [])
-      setMsg(auto ? 'Time is up. Exam auto-submitted.' : 'Exam submitted.')
+      setShowResults(true)
+      addToast({ type: passed ? 'success' : 'warning', title: auto ? 'Time expired' : 'Exam submitted', message: `Score: ${score}% — ${passed ? 'PASSED (≥75%)' : 'Below 75% benchmark'}` })
     } catch (e: any) { setErr(e.message); submittedRef.current = false } finally { setBusy(false) }
+  }
+
+  const handleConfirmSubmit = async () => {
+    setShowSubmitConfirm(false)
+    await submitExam(false)
   }
 
   if (!profile || !program) return null
 
+  const totalDuration = program.mockDurationMinutes * 60
+  const elapsed = totalDuration - (remaining ?? 0)
+  const progress = totalDuration > 0 ? (elapsed / totalDuration) * 100 : 0
+
+  // Setup state
   if (!exam) {
     return (
-      <div className="container">
-        <div className="page-header">
-          <div>
-            <h1 className="section-title">Timed Board Exam Mock Simulation</h1>
-            <p className="muted">Multi-subject mock aligned to the official Table of Specifications (TOS), with countdown timer and no instant answers until submission.</p>
-          </div>
+      <div className="container" style={{ paddingTop: 24, paddingBottom: 48 }}>
+        <div style={{ marginBottom: 24 }}>
+          <h1 style={{ margin: '0 0 8px', fontSize: 32, fontWeight: 700 }}>Timed Board Exam Mock Simulation</h1>
+          <p style={{ margin: 0, color: 'var(--muted)', fontSize: 15 }}>Multi-subject mock aligned to the official Table of Specifications (TOS), with countdown timer and no instant answers until submission.</p>
         </div>
-        {err && <div className="error" style={{ marginBottom: 12 }}>{err}</div>}
-        {msg && <div className="success" style={{ marginBottom: 12 }}>{msg}</div>}
+
+        {err && (
+          <div style={{ marginBottom: 16, padding: 16, background: 'var(--danger-bg)', border: '1px solid var(--danger-border)', borderRadius: 10, color: 'var(--danger)', display: 'flex', alignItems: 'center', gap: 12 }}>
+            <Icon name="alert-circle" size={20} />
+            <span>{err}</span>
+          </div>
+        )}
+
         <div className="grid grid-2">
-          <div className="card">
-            <h3>{program.name}</h3>
-            <p><strong>Duration:</strong> {program.mockDurationMinutes} minutes</p>
-            <p><strong>Passing benchmark:</strong> {PASSING_RATE}%</p>
-            <h4>Table of Specifications (TOS)</h4>
-            <table className="table">
-              <thead><tr><th>Subject</th><th>Items</th><th>Weight</th></tr></thead>
-              <tbody>
-                {program.tos.map(t => <tr key={t.subject}><td>{t.subject}</td><td>{t.items}</td><td>{t.weightPercent}%</td></tr>)}
-              </tbody>
-            </table>
-            <button className="btn" onClick={startExam} disabled={busy} style={{ marginTop: 12 }}>{busy ? 'Starting…' : 'Start Mock Exam'}</button>
-          </div>
-          <div className="card">
-            <h3>Rules</h3>
-            <ul className="list">
-              <li>Strict timed simulation; timer counts down continuously.</li>
-              <li>No instant answers or rationales until you submit (or time expires).</li>
-              <li>Questions are drawn from your generated practice bank per subject allocation.</li>
-              <li>Results update your per-subject readiness analytics and remediation targets.</li>
-            </ul>
-          </div>
+          <Card variant="elevated">
+            <CardHeader title={program.name} icon="timer" subtitle={`${program.mockDurationMinutes} minutes • ${PASSING_RATE}% passing benchmark`} />
+            <CardContent>
+              <div style={{ marginBottom: 20 }}>
+                <h4 style={{ margin: '0 0 12px', fontSize: 14, fontWeight: 600 }}>Table of Specifications (TOS)</h4>
+                <div style={{ overflowX: 'auto' }}>
+                  <table className="table">
+                    <thead><tr><th>Subject</th><th style={{width: 80}}>Items</th><th style={{width: 100}}>Weight</th></tr></thead>
+                    <tbody>
+                      {program.tos.map(t => (
+                        <tr key={t.subject}>
+                          <td>{t.subject}</td>
+                          <td style={{fontVariantNumeric: 'tabular-nums', fontWeight: 600}}>{t.items}</td>
+                          <td style={{fontVariantNumeric: 'tabular-nums', color: 'var(--muted)'}}>{t.weightPercent}%</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              <Button variant="primary" fullWidth size="lg" leftIcon="timer" onClick={startExam} disabled={busy}>
+                {busy ? 'Starting…' : 'Start Mock Exam'}
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card variant="elevated">
+            <CardHeader title="Exam Rules" icon="info" subtitle="Read carefully before starting" />
+            <CardContent>
+              <ul style={{ margin: 0, paddingLeft: 20, display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <li style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                  <Icon name="clock" size={18} style={{ color: 'var(--primary)', flexShrink: 0, marginTop: 2 }} />
+                  <span>Strict timed simulation; timer counts down continuously.</span>
+                </li>
+                <li style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                  <Icon name="eye-off" size={18} style={{ color: 'var(--primary)', flexShrink: 0, marginTop: 2 }} />
+                  <span>No instant answers or rationales until you submit (or time expires).</span>
+                </li>
+                <li style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                  <Icon name="book-open" size={18} style={{ color: 'var(--primary)', flexShrink: 0, marginTop: 2 }} />
+                  <span>Questions drawn from your generated practice bank per subject allocation.</span>
+                </li>
+                <li style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                  <Icon name="bar-chart" size={18} style={{ color: 'var(--primary)', flexShrink: 0, marginTop: 2 }} />
+                  <span>Results update your per-subject readiness analytics and remediation targets.</span>
+                </li>
+              </ul>
+            </CardContent>
+          </Card>
         </div>
       </div>
     )
   }
 
+  // Submitted results
   if (exam.status === 'submitted') {
     const score = exam.score ?? 0
+    const passed = exam.passed ?? false
+
     return (
-      <div className="container">
-        <div className="page-header">
+      <div className="container" style={{ paddingTop: 24, paddingBottom: 48 }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 24, flexWrap: 'wrap', marginBottom: 24 }}>
           <div>
-            <h1 className="section-title">Mock Exam Results</h1>
-            <p className="muted">{exam.title}</p>
+            <h1 style={{ margin: '0 0 4px', fontSize: 32, fontWeight: 700 }}>Mock Exam Results</h1>
+            <p style={{ margin: 0, color: 'var(--muted)', fontSize: 15 }}>{exam.title}</p>
           </div>
-          <span className={`badge ${exam.passed ? 'ok' : 'danger'}`}>{score}% — {exam.passed ? 'PASSED (≥75%)' : 'BELOW 75% BENCHMARK'}</span>
+          <Badge variant={passed ? 'success' : 'danger'} size="lg">
+            <Icon name={passed ? 'check-circle' : 'x-circle'} size={14} />
+            {score}% — {passed ? 'PASSED (≥75%)' : 'BELOW 75% BENCHMARK'}
+          </Badge>
         </div>
-        <div className="card" style={{ marginBottom: 16 }}>
-          <p><strong>Score:</strong> {score}% ({items.filter(i => i.is_correct).length}/{items.length})</p>
-          <p><strong>Submitted:</strong> {exam.submitted_at ? new Date(exam.submitted_at).toLocaleString() : '—'}</p>
-          <button className="btn secondary" onClick={() => { setExam(null); setItems([]); setResponses({}); setCurrent(0); submittedRef.current = false }}>Back to Mock Setup</button>
-        </div>
-        <div className="grid">
-          {items.map((it, i) => (
-            <div key={it.id} className="card">
-              <div className="muted">#{i + 1} — {it.subject} — {it.type} — <span className={it.is_correct ? 'badge ok' : 'badge danger'}>{it.is_correct ? 'Correct' : 'Incorrect'}</span></div>
-              {it.type === 'mcq' && (
-                <>
-                  <p><strong>{(it.question as McqQuestion).stem}</strong></p>
-                  <ul className="list">{(it.question as McqQuestion).options.map((o, j) => <li key={j}>{j === (it.answer as McqAnswer).correctIndex ? '✓ ' : ''}{String.fromCharCode(65 + j)}. {o}</li>)}</ul>
-                </>
-              )}
-              {it.type === 'diagnosis' && (
-                <>
-                  <p><strong>Scenario:</strong> {(it.question as DiagnosisQuestion).scenario}</p>
-                  <p><strong>Prompt:</strong> {(it.question as DiagnosisQuestion).prompt}</p>
-                  <p><strong>Expected:</strong> {(it.answer as DiagnosisAnswer).expected}</p>
-                  <p><strong>Your answer:</strong> {(it.user_response as any)?.text || '—'}</p>
-                </>
-              )}
-              {it.type === 'sequence' && (
-                <>
-                  <p><strong>{(it.question as SequenceQuestion).prompt}</strong></p>
-                  <p><strong>Correct order:</strong> {(it.answer as SequenceAnswer).order.join(' → ')}</p>
-                  <p><strong>Your order:</strong> {((it.user_response as any)?.order || []).join(' → ') || '—'}</p>
-                </>
-              )}
-              <p><strong>Rationale:</strong> {it.rationale || '—'}</p>
+
+        <Card variant="elevated" style={{ marginBottom: 24 }}>
+          <CardContent style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 24, flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 24, flexWrap: 'wrap' }}>
+              <div>
+                <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 4 }}>FINAL SCORE</div>
+                <div style={{ fontSize: 48, fontWeight: 700, color: passed ? 'var(--success)' : 'var(--danger)' }}>{score}%</div>
+              </div>
+              <div>
+                <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 4 }}>CORRECT / TOTAL</div>
+                <div style={{ fontSize: 24, fontWeight: 700 }}>{items.filter(i => i.is_correct).length} / {items.length}</div>
+              </div>
+              <div>
+                <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 4 }}>SUBMITTED</div>
+                <div style={{ fontSize: 14, fontWeight: 500 }}>{exam.submitted_at ? new Date(exam.submitted_at).toLocaleString() : '—'}</div>
+              </div>
             </div>
+            <Button variant="secondary" leftIcon="rotate-ccw" onClick={() => { setExam(null); setItems([]); setResponses({}); setCurrent(0); submittedRef.current = false; setShowResults(false) }}>
+              Back to Mock Setup
+            </Button>
+          </CardContent>
+        </Card>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {items.map((it, i) => (
+            <Card key={it.id} variant="outlined">
+              <CardContent>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
+                  <Badge variant={it.is_correct ? 'success' : 'danger'} size="sm">
+                    <Icon name={it.is_correct ? 'check' : 'x'} size={10} />
+                    #{i + 1} — {it.subject} — {it.type.toUpperCase()}
+                  </Badge>
+                  <Badge variant={it.is_correct ? 'success' : 'danger'} size="sm">
+                    {it.is_correct ? 'Correct' : 'Incorrect'}
+                  </Badge>
+                </div>
+
+                {it.type === 'mcq' && (
+                  <>
+                    <p style={{ marginBottom: 12, fontSize: 15, fontWeight: 500 }}><strong>Question:</strong> {(it.question as McqQuestion).stem}</p>
+                    <ul style={{ margin: 0, paddingLeft: 20, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      {(it.question as McqQuestion).options.map((o, j) => (
+                        <li key={j} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: 10, borderRadius: 8, background: j === (it.answer as McqAnswer).correctIndex ? 'var(--success-bg)' : j === (it.user_response as any)?.selected ? 'var(--danger-bg)' : 'var(--panel-2)', border: `1px solid ${j === (it.answer as McqAnswer).correctIndex ? 'var(--success-border)' : j === (it.user_response as any)?.selected ? 'var(--danger-border)' : 'var(--border)'}` }}>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 24, height: 24, borderRadius: '50%', background: j === (it.answer as McqAnswer).correctIndex ? 'var(--success)' : j === (it.user_response as any)?.selected ? 'var(--danger)' : 'var(--border)', color: j === (it.answer as McqAnswer).correctIndex || j === (it.user_response as any)?.selected ? '#fff' : 'var(--muted)', fontWeight: 600, fontSize: 12, flexShrink: 0 }}>
+                            {String.fromCharCode(65 + j)}
+                          </span>
+                          <span style={{ flex: 1 }}>{o}</span>
+                          {j === (it.answer as McqAnswer).correctIndex && <Icon name="check-circle" size={16} style={{ color: 'var(--success)' }} />}
+                          {j === (it.user_response as any)?.selected && j !== (it.answer as McqAnswer).correctIndex && <Icon name="x-circle" size={16} style={{ color: 'var(--danger)' }} />}
+                        </li>
+                      ))}
+                    </ul>
+                  </>
+                )}
+
+                {it.type === 'diagnosis' && (
+                  <>
+                    <div style={{ marginBottom: 8 }}><strong>Scenario:</strong> {(it.question as DiagnosisQuestion).scenario}</div>
+                    <div style={{ marginBottom: 8 }}><strong>Prompt:</strong> {(it.question as DiagnosisQuestion).prompt}</div>
+                    <div style={{ marginBottom: 8 }}><strong>Expected:</strong> {(it.answer as DiagnosisAnswer).expected}</div>
+                    <div style={{ marginBottom: 8 }}><strong>Your answer:</strong> <span style={{ color: it.is_correct ? 'var(--success)' : 'var(--danger)' }}>{(it.user_response as any)?.text || '—'}</span></div>
+                  </>
+                )}
+
+                {it.type === 'sequence' && (
+                  <>
+                    <p style={{ marginBottom: 12 }}><strong>Prompt:</strong> {(it.question as SequenceQuestion).prompt}</p>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
+                      <div><strong>Correct order:</strong></div>
+                      <ol style={{ paddingLeft: 20, margin: 0 }}>
+                        {(it.answer as SequenceAnswer).order.map((s, idx) => (
+                          <li key={idx} style={{ marginBottom: 4, padding: 8, background: 'var(--success-bg)', borderRadius: 6, border: '1px solid var(--success-border)' }}>{idx + 1}. {s}</li>
+                        ))}
+                      </ol>
+                      <div><strong>Your order:</strong></div>
+                      <ol style={{ paddingLeft: 20, margin: 0 }}>
+                        {((it.user_response as any)?.order || []).map((s: string, idx: number) => (
+                          <li key={idx} style={{ marginBottom: 4, padding: 8, background: ((it.user_response as any)?.order || []).join('|') === (it.answer as SequenceAnswer).order.join('|') ? 'var(--success-bg)' : 'var(--danger-bg)', borderRadius: 6, border: `1px solid ${((it.user_response as any)?.order || []).join('|') === (it.answer as SequenceAnswer).order.join('|') ? 'var(--success-border)' : 'var(--danger-border)'}` }}>{idx + 1}. {s}</li>
+                        ))}
+                      </ol>
+                    </div>
+                  </>
+                )}
+
+                {it.rationale && (
+                  <div style={{ marginTop: 16, padding: 12, background: 'var(--primary-bg)', border: '1px solid var(--primary-border)', borderRadius: 8 }}>
+                    <strong style={{ color: 'var(--primary)' }}>Rationale:</strong> <span style={{ marginLeft: 8 }}>{it.rationale}</span>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           ))}
         </div>
       </div>
     )
   }
 
+  // In-progress exam
   const it = items[current]
   const resp = it ? responses[it.id] : null
+  const answeredCount = items.filter(i => responses[i.id] != null).length
 
   return (
-    <div className="container">
-      <div className="page-header">
+    <div className="container" style={{ paddingTop: 16, paddingBottom: 48, maxWidth: 900 }}>
+      {/* Header with timer */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', marginBottom: 20 }}>
         <div>
-          <h1 className="section-title">Mock Exam (In Progress)</h1>
-          <p className="muted">No answers or rationales shown until submission. Answer all items before time runs out.</p>
+          <h1 style={{ margin: '0 0 4px', fontSize: 24, fontWeight: 700 }}>Mock Exam (In Progress)</h1>
+          <p style={{ margin: 0, color: 'var(--muted)', fontSize: 13 }}>No answers or rationales shown until submission. Answer all items before time runs out.</p>
         </div>
-        <div className="card"><div className="muted">Time Remaining</div><div className="timer" style={{ fontSize: 22 }}>{remaining != null ? formatTime(remaining) : '--:--:--'}</div></div>
+        <Card variant="elevated" style={{ padding: '12px 20px', minWidth: 180 }}>
+          <div style={{ color: 'var(--muted)', fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 2 }}>Time Remaining</div>
+          <div className="timer" style={{ fontSize: 28, fontWeight: 700, color: remaining != null && remaining < 300 ? 'var(--danger)' : 'var(--primary)' }}>
+            {remaining != null ? formatTime(remaining) : '--:--:--'}
+          </div>
+          <ProgressBar value={progress} max={100} size="sm" variant={remaining != null && remaining < 300 ? 'danger' : 'primary'} style={{ marginTop: 8, width: 160 }} />
+        </Card>
       </div>
-      {err && <div className="error" style={{ marginBottom: 12 }}>{err}</div>}
-      {msg && <div className="success" style={{ marginBottom: 12 }}>{msg}</div>}
+
+      {err && (
+        <div style={{ marginBottom: 16, padding: 16, background: 'var(--danger-bg)', border: '1px solid var(--danger-border)', borderRadius: 10, color: 'var(--danger)', display: 'flex', alignItems: 'center', gap: 12 }}>
+          <Icon name="alert-circle" size={20} />
+          <span>{err}</span>
+        </div>
+      )}
+
+      {msg && (
+        <div style={{ marginBottom: 16, padding: 16, background: 'var(--success-bg)', border: '1px solid var(--success-border)', borderRadius: 10, color: 'var(--success)', display: 'flex', alignItems: 'center', gap: 12 }}>
+          <Icon name="check-circle" size={20} />
+          <span>{msg}</span>
+        </div>
+      )}
 
       {it ? (
-        <div className="card">
-          <div className="muted">Item {current + 1} of {items.length} — {it.subject} — {it.type}</div>
-          {it.type === 'mcq' && (
-            <>
-              <h3 style={{ marginTop: 8 }}>{(it.question as McqQuestion).stem}</h3>
-              <div className="grid" style={{ marginTop: 12 }}>
-                {(it.question as McqQuestion).options.map((opt, i) => (
-                  <label key={i} className="pill" style={{ display: 'block', cursor: 'pointer', borderColor: resp?.selected === i ? 'var(--primary)' : undefined }}>
-                    <input type="radio" name={`mcq-${it.id}`} checked={resp?.selected === i} onChange={() => setResponse(it.id, { selected: i })} /> {String.fromCharCode(65 + i)}. {opt}
-                  </label>
-                ))}
+        <Card variant="elevated">
+          <CardContent style={{ padding: 24 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
+              <Badge variant="primary" size="md">
+                Item {current + 1} of {items.length} — {it.subject} — {it.type.toUpperCase()}
+              </Badge>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <Button variant="secondary" size="sm" leftIcon="chevron-left" onClick={() => setCurrent(c => Math.max(0, c - 1))} disabled={current === 0}>Previous</Button>
+                <Button variant="secondary" size="sm" rightIcon="chevron-right" onClick={() => setCurrent(c => Math.min(items.length - 1, c + 1))} disabled={current === items.length - 1}>Next</Button>
+                <Button variant="danger" size="sm" leftIcon="flag" onClick={() => setShowSubmitConfirm(true)} disabled={busy}>Submit Exam</Button>
               </div>
-            </>
-          )}
-          {it.type === 'diagnosis' && (
-            <>
-              <p style={{ marginTop: 8 }}><strong>Scenario:</strong> {(it.question as DiagnosisQuestion).scenario}</p>
-              <p><strong>{(it.question as DiagnosisQuestion).prompt}</strong></p>
-              <div className="field"><label>Your identification</label><input value={resp?.text || ''} onChange={e => setResponse(it.id, { text: e.target.value })} /></div>
-            </>
-          )}
-          {it.type === 'sequence' && (
-            <>
-              <p style={{ marginTop: 8 }}><strong>{(it.question as SequenceQuestion).prompt}</strong></p>
-              {(() => {
-                const q = it.question as SequenceQuestion
-                const order: string[] = resp?.order || q.items
-                const move = (i: number, dir: -1 | 1) => {
-                  const j = i + dir; if (j < 0 || j >= order.length) return
-                  const copy = [...order]; [copy[i], copy[j]] = [copy[j], copy[i]]; setResponse(it.id, { order: copy })
-                }
-                return <div className="grid">{order.map((s, i) => (
-                  <div key={s + i} className="pill" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span><strong>{i + 1}.</strong> {s}</span>
-                    <span>
-                      <button className="btn secondary" onClick={() => move(i, -1)} disabled={i === 0}>↑</button>{' '}
-                      <button className="btn secondary" onClick={() => move(i, 1)} disabled={i === order.length - 1}>↓</button>
-                    </span>
-                  </div>
-                ))}</div>
-              })()}
-            </>
-          )}
-          <div style={{ marginTop: 16, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <button className="btn secondary" onClick={() => setCurrent(c => Math.max(0, c - 1))} disabled={current === 0}>Previous</button>
-            <button className="btn secondary" onClick={() => setCurrent(c => Math.min(items.length - 1, c + 1))} disabled={current === items.length - 1}>Next</button>
-            <button className="btn" onClick={() => submitExam(false)} disabled={busy}>Submit Exam</button>
-          </div>
-        </div>
-      ) : <div className="card">No items in this exam.</div>}
+            </div>
 
-      <div className="card" style={{ marginTop: 16 }}>
-        <h4>Navigator</h4>
-        <div className="pill-list">
-          {items.map((x, i) => (
-            <button key={x.id} className="pill" style={{ borderColor: i === current ? 'var(--primary)' : responses[x.id] ? 'var(--ok)' : undefined }} onClick={() => setCurrent(i)}>{i + 1}</button>
-          ))}
+            {it.type === 'mcq' && (
+              <>
+                <h3 style={{ margin: '0 0 20px', fontSize: 18, fontWeight: 600, lineHeight: 1.5 }}>{(it.question as McqQuestion).stem}</h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {(it.question as McqQuestion).options.map((opt, i) => (
+                    <label key={i} style={{
+                      display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px',
+                      borderRadius: 10, border: '2px solid',
+                      borderColor: resp?.selected === i ? 'var(--primary)' : 'var(--border)',
+                      background: resp?.selected === i ? 'var(--primary-bg)' : 'var(--panel-2)',
+                      cursor: 'pointer', transition: 'all 150ms ease'
+                    }}>
+                      <input type="radio" name={`mcq-${it.id}`} checked={resp?.selected === i} onChange={() => setResponse(it.id, { selected: i })} style={{ accentColor: 'var(--primary)', width: 18, height: 18 }} />
+                      <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 32, borderRadius: '50%', background: resp?.selected === i ? 'var(--primary)' : 'var(--border)', color: resp?.selected === i ? '#041014' : 'var(--muted)', fontWeight: 700, fontSize: 13, flexShrink: 0 }}>
+                        {String.fromCharCode(65 + i)}
+                      </span>
+                      <span style={{ flex: 1, fontSize: 14 }}>{opt}</span>
+                    </label>
+                  ))}
+                </div>
+              </>
+            )}
+
+            {it.type === 'diagnosis' && (
+              <>
+                <div style={{ marginBottom: 12 }}><strong style={{ fontSize: 14 }}>Scenario</strong></div>
+                <p style={{ marginBottom: 16, padding: 16, background: 'var(--panel-2)', border: '1px solid var(--border)', borderRadius: 10, lineHeight: 1.7 }}>{(it.question as DiagnosisQuestion).scenario}</p>
+                <div style={{ marginBottom: 8 }}><strong style={{ fontSize: 14 }}>{(it.question as DiagnosisQuestion).prompt}</strong></div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <input
+                    value={resp?.text || ''}
+                    onChange={e => setResponse(it.id, { text: e.target.value })}
+                    placeholder="Enter the exact concept/principle/law/formula..."
+                    style={{ padding: '14px 16px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel-2)', color: 'var(--text)', fontSize: 14 }}
+                  />
+                </div>
+              </>
+            )}
+
+            {it.type === 'sequence' && (
+              <>
+                <h3 style={{ margin: '0 0 8px', fontSize: 18, fontWeight: 600 }}>{(it.question as SequenceQuestion).prompt}</h3>
+                <p className="muted" style={{ marginBottom: 16 }}>Arrange items in the correct chronological/priority order (top = first).</p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {seqOrder.map((item, i) => (
+                    <div key={item + i} style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                      padding: '12px 16px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel-2)', gap: 12
+                    }}>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1 }}>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 32, borderRadius: '50%', background: 'var(--primary)', color: '#041014', fontWeight: 700, fontSize: 13, flexShrink: 0 }}>{i + 1}</span>
+                        <span style={{ fontSize: 14 }}>{item}</span>
+                      </span>
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        <Button variant="ghost" size="icon" onClick={() => moveSeq(i, -1)} disabled={i === 0}><Icon name="chevron-up" size={16} /></Button>
+                        <Button variant="ghost" size="icon" onClick={() => moveSeq(i, 1)} disabled={i === seqOrder.length - 1}><Icon name="chevron-down" size={16} /></Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+
+            <div style={{ marginTop: 24, display: 'flex', gap: 10, flexWrap: 'wrap', paddingTop: 16, borderTop: '1px solid var(--border)' }}>
+              <Button variant="secondary" leftIcon="chevron-left" onClick={() => setCurrent(c => Math.max(0, c - 1))} disabled={current === 0}>Previous</Button>
+              <Button variant="secondary" rightIcon="chevron-right" onClick={() => setCurrent(c => Math.min(items.length - 1, c + 1))} disabled={current === items.length - 1}>Next</Button>
+              <Button variant="danger" leftIcon="flag" onClick={() => setShowSubmitConfirm(true)} disabled={busy}>Submit Exam</Button>
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
+        <Card variant="outlined"><CardContent><EmptyState icon="alert-circle" title="No items in this exam" /></CardContent></Card>
+      )}
+
+      {/* Navigator */}
+      <Card variant="outlined" style={{ marginTop: 20 }}>
+        <CardContent>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+            <h4 style={{ margin: 0, fontSize: 14, fontWeight: 600 }}>Question Navigator</h4>
+            <Badge variant="default" size="sm">{answeredCount}/{items.length} answered</Badge>
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+            {items.map((x, i) => (
+              <button
+                key={x.id}
+                onClick={() => setCurrent(i)}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                  width: 40, height: 40, borderRadius: 10, border: '2px solid',
+                  borderColor: i === current ? 'var(--primary)' : responses[x.id] ? 'var(--success)' : 'var(--border)',
+                  background: i === current ? 'var(--primary-bg)' : responses[x.id] ? 'var(--success-bg)' : 'var(--panel-2)',
+                  color: i === current ? 'var(--primary)' : responses[x.id] ? 'var(--success)' : 'var(--text)',
+                  fontWeight: 600, fontSize: 13, transition: 'all 150ms ease'
+                }}
+              >
+                {i + 1}
+              </button>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Submit Confirmation Modal */}
+      <Modal
+        open={showSubmitConfirm}
+        onClose={() => setShowSubmitConfirm(false)}
+        title="Submit Exam?"
+        size="sm"
+        footer={
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+            <Button variant="secondary" onClick={() => setShowSubmitConfirm(false)}>Cancel</Button>
+            <Button variant="danger" onClick={handleConfirmSubmit} disabled={busy}>Submit Exam</Button>
+          </div>
+        }
+      >
+        <div style={{ color: 'var(--muted)', lineHeight: 1.6 }}>
+          <p style={{ margin: '0 0 8px' }}>You have answered {answeredCount} of {items.length} questions. Are you sure you want to submit?</p>
+          {answeredCount < items.length ? (
+            <p style={{ margin: 0 }}><strong style={{ color: 'var(--warning)' }}>Unanswered questions will be marked incorrect.</strong></p>
+          ) : null}
         </div>
-      </div>
+      </Modal>
     </div>
   )
 }
