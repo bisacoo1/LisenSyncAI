@@ -2,7 +2,7 @@ import { BoardProgramKey, PracticeItem, PracticeType } from '@/types'
 import { getProgram } from './syllabus'
 
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY as string | undefined
-const GEMINI_MODEL = (import.meta.env.VITE_GEMINI_MODEL as string | undefined) || 'gemini-1.5-flash'
+const GEMINI_MODEL = (import.meta.env.VITE_GEMINI_MODEL as string | undefined) || 'gemini-1.5-flash-latest'
 const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta'
 
 export function geminiConfigured() {
