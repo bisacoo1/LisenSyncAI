@@ -49,6 +49,7 @@ export default function MockExamPage() {
 
   // Update seqOrder when current item changes (for sequence questions)
   useEffect(() => {
+    const it = items[current]
     if (it && it.type === 'sequence') {
       const q = it.question as SequenceQuestion
       setSeqOrder([...(q.items || [])].sort(() => Math.random() - 0.5))
@@ -144,7 +145,16 @@ export default function MockExamPage() {
     await submitExam(false)
   }
 
-  if (!profile || !program) return null
+  if (!profile || !program) {
+    return (
+      <div className="container" style={{ paddingTop: 24 }}>
+        <div style={{ padding: 16, background: 'var(--danger-bg)', border: '1px solid var(--danger-border)', borderRadius: 10, color: 'var(--danger)', display: 'flex', alignItems: 'center', gap: 12 }}>
+          <Icon name="alert-circle" size={20} />
+          <span>Unable to load profile or program. Please complete onboarding first.</span>
+        </div>
+      </div>
+    )
+  }
 
   const totalDuration = program.mockDurationMinutes * 60
   const elapsed = totalDuration - (remaining ?? 0)
