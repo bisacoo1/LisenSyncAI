@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { getProgram } from '@/lib/syllabus'
 import { supabase } from '@/lib/supabase'
@@ -8,6 +9,7 @@ import { Card, CardHeader, CardContent, Button, Badge, Icon, EmptyState, SegCont
 
 export default function PracticePage() {
   const { profile, user } = useAuth()
+  const navigate = useNavigate()
   const program = profile ? getProgram(profile.board_program) : null
   const [mode, setMode] = useState<'flashcards' | PracticeType>('mcq')
   const [subject, setSubject] = useState<string>('')
@@ -175,7 +177,7 @@ export default function PracticePage() {
               icon={mode === 'flashcards' ? 'book-open' : 'file-text'}
               title="No items found"
               description={`No ${mode === 'flashcards' ? 'flashcards' : `${mode.toUpperCase()} questions`} available for this subject. Generate them in Reviewer & Generate.`}
-              action={{ label: 'Go to Reviewer', onClick: () => window.location.href = '/reviewer', variant: 'primary' }}
+              action={{ label: 'Go to Reviewer', onClick: () => navigate('/reviewer'), variant: 'primary' }}
             />
           </CardContent>
         </Card>
