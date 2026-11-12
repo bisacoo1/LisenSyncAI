@@ -107,19 +107,19 @@ alter table public.mock_exam_items enable row level security;
 alter table public.attempts enable row level security;
 
 -- Profiles policies
-create policy "profiles_select_own" on public.profiles for select using (auth.uid() = id);
-create policy "profiles_insert_own" on public.profiles for insert with check (auth.uid() = id);
-create policy "profiles_update_own" on public.profiles for update using (auth.uid() = id);
+create policy if not exists "profiles_select_own" on public.profiles for select using (auth.uid() = id);
+create policy if not exists "profiles_insert_own" on public.profiles for insert with check (auth.uid() = id);
+create policy if not exists "profiles_update_own" on public.profiles for update using (auth.uid() = id);
 
 -- Generic owner policies
-create policy "materials_owner" on public.review_materials for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
-create policy "flashcards_owner" on public.flashcards for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
-create policy "practice_items_owner" on public.practice_items for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
-create policy "mock_exams_owner" on public.mock_exams for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
-create policy "attempts_owner" on public.attempts for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+create policy if not exists "materials_owner" on public.review_materials for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+create policy if not exists "flashcards_owner" on public.flashcards for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+create policy if not exists "practice_items_owner" on public.practice_items for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+create policy if not exists "mock_exams_owner" on public.mock_exams for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+create policy if not exists "attempts_owner" on public.attempts for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
 -- mock_exam_items: access via owning exam
-create policy "mock_exam_items_owner" on public.mock_exam_items for all
+create policy if not exists "mock_exam_items_owner" on public.mock_exam_items for all
 using (exists (select 1 from public.mock_exams e where e.id = exam_id and e.user_id = auth.uid()))
 with check (exists (select 1 from public.mock_exams e where e.id = exam_id and e.user_id = auth.uid()));
 
