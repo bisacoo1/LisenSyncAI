@@ -30,6 +30,17 @@ export default function LoginPage() {
 
   return (
     <AuthLayout>
+      {/* Brand header */}
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20, marginBottom: 32 }}>
+        <div style={{ width: 72, height: 72, borderRadius: 18, background: 'linear-gradient(135deg, var(--primary), var(--primary-2))', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 8px 24px rgba(45, 212, 191, 0.35)' }}>
+          <Icon name="logo" size={36} style={{ color: '#041014' }} />
+        </div>
+        <div>
+          <h1 style={{ margin: 0, fontSize: 32, fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--text)' }}>LisenSync AI</h1>
+          <p style={{ margin: '4px 0 0', fontSize: 15, color: 'var(--muted)' }}>PRC Licensure Exam Reviewer</p>
+        </div>
+      </div>
+
       <Card variant="elevated">
         <CardHeader title="Welcome back" subtitle="Sign in to access your PRC licensure reviewer" style={{ textAlign: 'center', borderBottom: 'none', paddingBottom: 8 }} />
         <CardContent style={{ paddingTop: 0 }}>
@@ -84,6 +95,11 @@ export default function LoginPage() {
           </p>
         </CardContent>
       </Card>
+
+      {/* Footer */}
+      <div style={{ marginTop: 32, textAlign: 'center', color: 'var(--muted-strong)', fontSize: 13 }}>
+        <p style={{ margin: 0 }}>© {new Date().getFullYear()} LisenSync AI. All rights reserved.</p>
+      </div>
     </AuthLayout>
   )
 }
