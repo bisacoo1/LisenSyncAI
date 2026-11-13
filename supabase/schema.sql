@@ -158,5 +158,26 @@ BEGIN
   END IF;
 END $$;
 
--- Storage: create bucket 'reviewers' in dashboard (private). Example policy (apply via dashboard/storage policies):
--- allow authenticated users to manage files under their uid folder.
+-- Document highlights & AI explanations (Side by Side reader)
+create table if not exists public.document_highlights (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  material_id uuid not null references public.review_materials(id) on delete cascade,
+  selected_text text not null,
+  explanation text,
+  ai_model text,
+  created_at timestamptz default now()
+);
+
+create index if not exists idx_document_highlights_material on public.document_highlights(material_id);
+create index if not exists idx_document_highlights_user on public.document_highlights(user_id);
+
+-- Row Level Security
+alter table public.document_highlights enable row level security;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'document_highlights' AND policyname = 'highlights_owner') THEN
+    CREATE POLICY "highlights_owner" ON public.document_highlights FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+  END IF;
+END $$;

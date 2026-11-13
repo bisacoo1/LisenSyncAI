@@ -10,6 +10,7 @@ import PracticePage from '@/pages/PracticePage'
 import MockExamPage from '@/pages/MockExamPage'
 import AnalyticsPage from '@/pages/AnalyticsPage'
 import LandingPage from '@/pages/LandingPage'
+import SideBySideReader from '@/pages/SideBySideReader'
 
 export default function App() {
   return (
@@ -39,6 +40,9 @@ export default function App() {
       </Route>
       <Route element={<Layout><ProtectedRoute><AnalyticsPage /></ProtectedRoute></Layout>}>
         <Route path="/analytics" />
+      </Route>
+      <Route element={<Layout><ProtectedRoute><SideBySideReader /></ProtectedRoute></Layout>}>
+        <Route path="/side-by-side/:materialId" />
       </Route>
 
       {/* 404 */}

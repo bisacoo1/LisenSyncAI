@@ -138,4 +138,14 @@ export interface SubjectStat {
   weak: boolean
 }
 
+export interface DocumentHighlight {
+  id: string
+  user_id: string
+  material_id: string
+  selected_text: string
+  explanation: string | null
+  ai_model: string | null
+  created_at: string
+}
+
 export const PASSING_RATE = 75

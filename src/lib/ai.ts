@@ -149,7 +149,7 @@ export async function generatePracticeItemsFromFile(params: {
   const text = data.candidates?.[0]?.content?.parts?.[0]?.text || ''
   const out = extractJson(text)
   const arr = Array.isArray(out) ? out : []
-  return arr.map((it: any) => ({
+  return     arr.map((it: any) => ({
     type: params.type,
     subject: params.subject,
     board_program: params.program,
@@ -157,4 +157,30 @@ export async function generatePracticeItemsFromFile(params: {
     answer: it.answer,
     rationale: it.rationale || null
   }))
+}
+
+export async function explainText(params: {
+  selectedText: string
+  followUp?: string
+  program: BoardProgramKey
+  subject: string
+}): Promise<{ explanation: string; model: string }> {
+  const prog = getProgram(params.program)
+  const context = params.followUp
+    ? `The user previously asked about this text and you explained it. Now they have a follow-up question. Selected text: "${params.selectedText}". Follow-up question: "${params.followUp}". Answer the follow-up question based on the context of the selected text. Be concise and educational.`
+    : `You are an expert ${prog.name} board exam reviewer. Explain the following selected text from a review document. Subject: ${params.subject}. Provide a clear, educational explanation that helps the student understand the concept. Include key points, definitions, and any important details. Selected text: "${params.selectedText}"`
+
+  const body = {
+    model: `models/${GEMINI_MODEL}`,
+    contents: [{
+      parts: [
+        { text: context }
+      ]
+    }],
+    generationConfig: { temperature: 0.5 }
+  }
+
+  const data = await geminiRequestWithFallback(GEMINI_MODEL, body)
+  const explanation = data.candidates?.[0]?.content?.parts?.[0]?.text || 'No explanation generated.'
+  return { explanation, model: GEMINI_MODEL }
 }
