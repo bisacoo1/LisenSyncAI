@@ -238,7 +238,7 @@ export default function SideBySideReader() {
   }
 
   return (
-    <div className="container" style={{ paddingTop: 20, paddingBottom: 48, display: 'flex', flexDirection: 'column' }}>
+    <div className="container" style={{ paddingTop: 20, paddingBottom: 48, display: 'flex', flexDirection: 'column', minHeight: 'calc(100vh - 108px)' }}>
       {/* Header */}
       <div style={{ marginBottom: 24, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -263,7 +263,7 @@ export default function SideBySideReader() {
       </div>
 
       {/* Main reader area */}
-      <div style={{ display: 'flex', gap: 0, minHeight: 'calc(100vh - 200px)', overflow: 'hidden' }}>
+      <div style={{ display: 'flex', flexDirection: 'row', gap: 0, flex: 1, minHeight: 0, overflow: 'hidden' }}>
         {/* Left: Document viewer */}
         <div
           style={{
