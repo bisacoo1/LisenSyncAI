@@ -337,29 +337,6 @@ export default function SideBySideReader() {
                 </div>
               )}
 
-              {highlights.length > 0 && (
-                <div style={{ marginTop: 32, paddingTop: 24, borderTop: '1px solid var(--border)' }}>
-                  <h4 style={{ margin: '0 0 12px', fontSize: 14, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                    Your Highlights & Explanations
-                  </h4>
-                  <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 10 }}>
-                    {highlights.map(h => (
-                      <li key={h.id} style={{ padding: 12, background: 'var(--panel-2)', border: '1px solid var(--border)', borderRadius: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                        <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text)' }}>{h.selected_text}</div>
-                        {h.explanation && (
-                          <div style={{ fontSize: 12, color: 'var(--primary)', fontWeight: 500 }}>
-                            <Icon name="brain" size={14} style={{ marginRight: 6 }} />
-                            AI explained
-                          </div>
-                        )}
-                        {!h.explanation && (
-                          <div style={{ fontSize: 12, color: 'var(--muted)' }}>Highlighted (no explanation yet)</div>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
             </CardContent>
           </Card>
         </div>
