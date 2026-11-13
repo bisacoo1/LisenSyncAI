@@ -1,70 +1,126 @@
-import { Link, useLocation } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
-import { Icon, Tooltip } from '@/components/ui'
+import { Brand } from '@/components/Brand'
+import { Icon, Tooltip, type IconName } from '@/components/ui'
 
-export function Sidebar({ open = false, onToggle, collapsed = false }: { open?: boolean; onToggle?: () => void; collapsed?: boolean }) {
-  const { profile } = useAuth()
+const navItems: { path: string; label: string; icon: IconName }[] = [
+  { path: '/dashboard', label: 'Overview', icon: 'dashboard' },
+  { path: '/reviewer', label: 'My reviewers', icon: 'reviewer' },
+  { path: '/practice', label: 'Practice', icon: 'practice' },
+  { path: '/mock', label: 'Mock exam', icon: 'mock' },
+  { path: '/analytics', label: 'Analytics', icon: 'analytics' }
+]
+
+export function Sidebar({
+  open = false,
+  onToggle,
+  onNavigate,
+  collapsed = false
+}: {
+  open?: boolean
+  onToggle?: () => void
+  onNavigate?: () => void
+  collapsed?: boolean
+}) {
+  const { profile, user, signOut } = useAuth()
   const location = useLocation()
-
-  const navItems = [
-    { path: '/dashboard', label: 'Dashboard', icon: 'dashboard' },
-    { path: '/reviewer', label: 'Reviewer', icon: 'reviewer' },
-    { path: '/practice', label: 'Practice', icon: 'practice' },
-    { path: '/mock', label: 'Mock Exam', icon: 'mock' },
-    { path: '/analytics', label: 'Analytics', icon: 'analytics' },
-  ]
+  const navigate = useNavigate()
+  const isCompact = collapsed && !open
+  const initials = (profile?.full_name || 'LisenSync Candidate')
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join('')
+    .toUpperCase()
 
   return (
-    <aside className={`sidebar ${open ? 'open' : ''}`} aria-label="Main sidebar">
+    <aside
+      id="main-sidebar"
+      className={`sidebar${open ? ' open' : ''}${isCompact ? ' collapsed' : ''}`}
+      aria-label="Main sidebar"
+    >
       <div className="sidebar-brand">
-        <Icon name="logo" size={26} style={{ color: 'var(--primary)' }} />
-        <span className="sidebar-brand-text">LisenSync AI</span>
+        <Brand inverse compact={isCompact} />
+      </div>
+      <div className="sidebar-nav-heading">
+        <span>YOUR WORKSPACE</span>
         {onToggle && (
-          <Tooltip content={collapsed ? 'Expand sidebar' : 'Collapse sidebar'} position="right">
+          <Tooltip content={open ? 'Close menu' : isCompact ? 'Expand sidebar' : 'Collapse sidebar'} position="right">
             <button
               className="sidebar-toggle"
               onClick={onToggle}
-              aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-              style={{ background: 'transparent', border: '1px solid var(--border)', color: 'var(--muted)', padding: 6, borderRadius: 8, cursor: 'pointer', marginLeft: 'auto' }}
+              aria-label={open ? 'Close menu' : isCompact ? 'Expand sidebar' : 'Collapse sidebar'}
             >
-              <Icon name={collapsed ? 'chevron-right' : 'chevron-left'} size={16} aria-hidden="true" />
+              <Icon name={open ? 'x' : isCompact ? 'chevron-right' : 'chevron-left'} size={16} />
             </button>
           </Tooltip>
         )}
       </div>
 
-      <nav className="sidebar-nav">
+      <nav className="sidebar-nav" aria-label="Workspace navigation">
         <ul className="sidebar-list">
           {navItems.map((item) => {
-            const active = location.pathname === item.path
+            const active =
+              location.pathname === item.path ||
+              (item.path === '/reviewer' && location.pathname.startsWith('/side-by-side/'))
+            const link = (
+              <Link
+                to={item.path}
+                className={`sidebar-item${active ? ' active' : ''}`}
+                aria-label={item.label}
+                aria-current={active ? 'page' : undefined}
+                onClick={onNavigate}
+              >
+                <Icon name={item.icon} size={19} />
+                <span className="sidebar-label">{item.label}</span>
+                {active && <span className="sidebar-active-dot" aria-hidden="true" />}
+              </Link>
+            )
             return (
               <li key={item.path}>
-                <Tooltip content={item.label} position="right" delay={300}>
-                  <Link
-                    to={item.path}
-                    className={`sidebar-item ${active ? 'active' : ''}`}
-                    aria-label={item.label}
-                  >
-                    <span className="sidebar-icon">
-                      <Icon name={item.icon as any} size={20} aria-hidden="true" />
-                    </span>
-                    <span className="sidebar-label">{item.label}</span>
-                  </Link>
-                </Tooltip>
+                {isCompact ? (
+                  <Tooltip content={item.label} position="right" delay={300}>
+                    {link}
+                  </Tooltip>
+                ) : (
+                  link
+                )}
               </li>
             )
           })}
         </ul>
       </nav>
 
-      <div className="sidebar-footer">
-        {profile && (
+      <div className="sidebar-bottom">
+        <div className="sidebar-note">
+          <Icon name="sparkles" size={17} />
+          <span>
+            <strong>A little, every day.</strong>
+            <small>It all adds up to exam day.</small>
+          </span>
+        </div>
+        {user && (
           <div className="sidebar-profile">
-            <Icon name="user" size={16} />
+            <span className="sidebar-avatar">{initials}</span>
             <div className="sidebar-profile-text">
-              <span className="sidebar-profile-name">{profile.full_name || 'Licensure Candidate'}</span>
-              <span className="sidebar-profile-program">{profile.board_program.replace('_', ' ')}</span>
+              <span className="sidebar-profile-name">{profile?.full_name || 'Licensure candidate'}</span>
+              <span className="sidebar-profile-program">
+                {profile ? profile.board_program.replace(/_/g, ' ') : 'Set up your profile'}
+              </span>
             </div>
+            <Tooltip content="Sign out" position="right">
+              <button
+                className="sidebar-signout"
+                aria-label="Sign out"
+                onClick={async () => {
+                  await signOut()
+                  navigate('/login')
+                }}
+              >
+                <Icon name="logout" size={17} />
+              </button>
+            </Tooltip>
           </div>
         )}
       </div>

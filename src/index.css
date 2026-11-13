@@ -1,71 +1,53 @@
+/* LisenSync study-space palette */
 :root {
-  /* === Colors === */
-  /* Base */
-  --bg: #0a0f1a;
-  --bg-elevated: #0e1526;
-  --panel: #11192b;
-  --panel-2: #162038;
-  --panel-3: #1c2a4a;
-
-  /* Text */
-  --text: #f0f5fa;
-  --text-dim: #b8c5d6;
-  --muted: #8b9bb3;
-  --muted-strong: #6b7a8f;
-
-  /* Brand / Primary (Teal) */
-  --primary: #2dd4bf;
-  --primary-2: #14b8a6;
-  --primary-3: #0d9488;
-  --primary-bg: rgba(45, 212, 191, 0.1);
-  --primary-border: rgba(45, 212, 191, 0.3);
-
-  /* Secondary (Amber - warm accent for warnings/highlights) */
-  --accent: #fbbf24;
-  --accent-2: #f59e0b;
-  --accent-bg: rgba(251, 191, 36, 0.1);
-  --accent-border: rgba(251, 191, 36, 0.3);
-
-  /* Semantic */
-  --success: #22c55e;
-  --success-2: #16a34a;
-  --success-bg: rgba(34, 197, 94, 0.15);
-  --success-border: rgba(34, 197, 94, 0.3);
-
-  --warning: #f59e0b;
-  --warning-2: #d97706;
-  --warning-bg: rgba(245, 158, 11, 0.15);
-  --warning-border: rgba(245, 158, 11, 0.3);
-
-  --danger: #ef4444;
-  --danger-2: #dc2626;
-  --danger-bg: rgba(239, 68, 68, 0.15);
-  --danger-border: rgba(239, 68, 68, 0.3);
-
-  --info: #3b82f6;
-  --info-2: #2563eb;
-  --info-bg: rgba(59, 130, 246, 0.15);
-  --info-border: rgba(59, 130, 246, 0.3);
-
-  /* Borders & Dividers */
-  --border: #233048;
-  --border-strong: #2d3d58;
-  --divider: rgba(139, 155, 179, 0.12);
-
-  /* Shadows */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.25);
-  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.35);
-  --shadow-xl: 0 24px 48px rgba(0, 0, 0, 0.4);
-
-  /* Radius */
+  color-scheme: light;
+  --bg: #f5f6f0;
+  --bg-elevated: #ffffff;
+  --panel: #ffffff;
+  --panel-2: #f4f6f1;
+  --panel-3: #e8eee7;
+  --text: #20352d;
+  --text-dim: #556a5f;
+  --muted: #607265;
+  --muted-strong: #5b6f61;
+  --primary: #315f4e;
+  --primary-2: #244c3e;
+  --primary-3: #193d31;
+  --on-primary: #ffffff;
+  --primary-bg: #e8f0e8;
+  --primary-border: #c8dbcb;
+  --accent: #c9df92;
+  --accent-2: #abc76f;
+  --accent-bg: #f1f5df;
+  --accent-border: #d7e4af;
+  --success: #387a56;
+  --success-2: #286344;
+  --success-bg: #e8f3e9;
+  --success-border: #c6dfc9;
+  --warning: #8a5a2b;
+  --warning-2: #855124;
+  --warning-bg: #fbf1df;
+  --warning-border: #ead5af;
+  --danger: #a7473d;
+  --danger-2: #9f433b;
+  --danger-bg: #f9eae7;
+  --danger-border: #edc9c2;
+  --info: #4d7190;
+  --info-2: #3b5f7d;
+  --info-bg: #eaf1f7;
+  --info-border: #cbdce9;
+  --border: #e1e8df;
+  --border-strong: #cdd9cd;
+  --divider: rgba(32, 53, 45, 0.09);
+  --shadow-sm: 0 2px 6px rgba(32, 53, 45, 0.04);
+  --shadow-md: 0 8px 24px rgba(32, 53, 45, 0.06);
+  --shadow-lg: 0 16px 40px rgba(32, 53, 45, 0.12);
+  --shadow-xl: 0 24px 56px rgba(32, 53, 45, 0.16);
   --radius-sm: 6px;
   --radius-md: 10px;
-  --radius-lg: 12px;
-  --radius-xl: 16px;
+  --radius-lg: 14px;
+  --radius-xl: 18px;
   --radius-full: 999px;
-
-  /* Spacing (4px base) */
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
@@ -75,11 +57,9 @@
   --space-8: 32px;
   --space-10: 40px;
   --space-12: 48px;
-
-  /* Typography */
-  --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
-
+  --font-sans: 'DM Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-display: 'DM Serif Display', Georgia, serif;
+  --font-mono: 'SFMono-Regular', Consolas, monospace;
   --text-xs: 11px;
   --text-sm: 13px;
   --text-base: 14px;
@@ -88,60 +68,23 @@
   --text-2xl: 22px;
   --text-3xl: 28px;
   --text-4xl: 36px;
-
   --font-normal: 400;
   --font-medium: 500;
   --font-semibold: 600;
   --font-bold: 700;
-
   --leading-tight: 1.2;
   --leading-normal: 1.5;
   --leading-relaxed: 1.7;
-
-  /* Transitions */
   --transition-fast: 100ms ease;
   --transition-base: 150ms ease;
   --transition-slow: 250ms ease;
-
-  /* Z-index */
   --z-dropdown: 100;
   --z-sticky: 200;
   --z-modal: 9999;
   --z-toast: 9999;
-
-  /* Focus ring */
-  --focus-ring: 0 0 0 3px rgba(45, 212, 191, 0.2);
-
-  /* Aliases for legacy component names (ProgressBar/Badge) */
+  --focus-ring: 0 0 0 3px rgba(76, 125, 92, 0.22);
   --ok: var(--success);
   --warn: var(--warning);
-}
-
-/* === Light mode (optional) === */
-@media (prefers-color-scheme: light) {
-  :root:not(.dark) {
-    --bg: #f8fafc;
-    --bg-elevated: #ffffff;
-    --panel: #ffffff;
-    --panel-2: #f1f5f9;
-    --panel-3: #e2e8f0;
-    --text: #0f172a;
-    --text-dim: #475569;
-    --muted: #64748b;
-    --muted-strong: #94a3b8;
-    --border: #e2e8f0;
-    --border-strong: #cbd5e1;
-    --divider: rgba(15, 23, 42, 0.08);
-    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
-    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
-    --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.1);
-    --shadow-xl: 0 24px 48px rgba(0, 0, 0, 0.12);
-  }
-}
-
-/* Force dark mode for now */
-.dark, :root {
-  color-scheme: dark;
 }
 
 /* === Reset & Base === */
@@ -290,7 +233,7 @@ li:last-child { margin-bottom: 0; }
   white-space: nowrap;
 }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; pointer-events: none; }
-.btn-primary { background: linear-gradient(135deg, var(--primary), var(--primary-2)); color: #041014; box-shadow: var(--shadow-sm); }
+.btn-primary { background: linear-gradient(135deg, var(--primary), var(--primary-2)); color: var(--on-primary); box-shadow: var(--shadow-sm); }
 .btn-primary:hover:not(:disabled) { background: linear-gradient(135deg, var(--primary-2), var(--primary)); transform: translateY(-1px); box-shadow: 0 4px 16px rgba(45, 212, 191, 0.4); }
 .btn-secondary { background: var(--panel-2); color: var(--text); border: 1px solid var(--border); }
 .btn-secondary:hover:not(:disabled) { background: var(--border); border-color: var(--primary); }
@@ -907,7 +850,7 @@ footer {
   margin-bottom: 18px;
   transition: all var(--transition-base);
 }
-.feature-card:hover .feature-icon { background: var(--primary); color: #041014; transform: scale(1.05); }
+.feature-card:hover .feature-icon { background: var(--primary); color: var(--on-primary); transform: scale(1.05); }
 .feature-card h3 { font-size: 18px; font-weight: 700; margin-bottom: 8px; color: var(--text); }
 .feature-card p { font-size: 14px; color: var(--muted); line-height: 1.6; margin: 0; }
 
@@ -968,7 +911,7 @@ footer {
   left: -9999px;
   top: 0;
   background: var(--primary);
-  color: #041014;
+  color: var(--on-primary);
   padding: 10px 16px;
   z-index: 10000;
   border-radius: 0 0 var(--radius-md) 0;

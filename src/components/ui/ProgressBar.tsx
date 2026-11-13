@@ -7,6 +7,7 @@ export interface ProgressBarProps {
   variant?: 'default' | 'success' | 'warning' | 'danger' | 'primary'
   showLabel?: boolean
   label?: string
+  ariaLabel?: string
   animated?: boolean
   striped?: boolean
   className?: string
@@ -20,6 +21,7 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
   variant = 'default',
   showLabel = false,
   label,
+  ariaLabel,
   animated = false,
   striped = false,
   className = '',
@@ -47,7 +49,7 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
     borderRadius: 999,
     overflow: 'hidden',
     ...sizeStyles[size],
-    boxShadow: 'inset 0 1px 3px rgba(0, 0, 0, 0.3)',
+    boxShadow: 'none',
   }
 
   const fillStyle: React.CSSProperties = {
@@ -79,7 +81,7 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
           <span style={{ color: 'var(--muted)' }}>{Math.round(percentage)}%</span>
         </div>
       )}
-      <div style={trackStyle} role="progressbar" aria-valuenow={Math.round(percentage)} aria-valuemin={0} aria-valuemax={100}>
+      <div style={trackStyle} role="progressbar" aria-label={ariaLabel || label || 'Progress'} aria-valuenow={Math.round(percentage)} aria-valuemin={0} aria-valuemax={100}>
         <div style={fillStyle}>
           {striped && <div style={stripeStyle} />}
         </div>

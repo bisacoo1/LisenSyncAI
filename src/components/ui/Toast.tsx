@@ -54,7 +54,7 @@ const ToastContainer: React.FC<{ toasts: Toast[]; onRemove: (id: string) => void
     success: { borderLeftColor: 'var(--success)' },
     error: { borderLeftColor: 'var(--danger)' },
     warning: { borderLeftColor: 'var(--warning)' },
-    info: { borderLeftColor: '#3b82f6' },
+    info: { borderLeftColor: 'var(--info)' },
     default: { borderLeftColor: 'var(--primary)' },
   }
 
@@ -70,7 +70,7 @@ const ToastContainer: React.FC<{ toasts: Toast[]; onRemove: (id: string) => void
     success: 'var(--success)',
     error: 'var(--danger)',
     warning: 'var(--warning)',
-    info: '#93c5fd',
+    info: 'var(--info)',
     default: 'var(--primary)',
   }
 
@@ -106,7 +106,7 @@ const ToastItem: React.FC<{ toast: Toast; onRemove: (id: string) => void }> = ({
     success: { borderLeftColor: 'var(--success)' },
     error: { borderLeftColor: 'var(--danger)' },
     warning: { borderLeftColor: 'var(--warning)' },
-    info: { borderLeftColor: '#3b82f6' },
+    info: { borderLeftColor: 'var(--info)' },
     default: { borderLeftColor: 'var(--primary)' },
   }
 
@@ -122,7 +122,7 @@ const ToastItem: React.FC<{ toast: Toast; onRemove: (id: string) => void }> = ({
     success: 'var(--success)',
     error: 'var(--danger)',
     warning: 'var(--warning)',
-    info: '#93c5fd',
+    info: 'var(--info)',
     default: 'var(--primary)',
   }
 
@@ -139,7 +139,7 @@ const ToastItem: React.FC<{ toast: Toast; onRemove: (id: string) => void }> = ({
     borderRadius: 10,
     borderLeftWidth: 4,
     ...typeStyles[toast.type],
-    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3), 0 2px 8px rgba(0, 0, 0, 0.15)',
+    boxShadow: 'var(--shadow-lg)',
     transform: exiting ? 'translateX(120%)' : visible ? 'translateX(0)' : 'translateX(120%)',
     opacity: exiting ? 0 : visible ? 1 : 0,
     transition: 'all 200ms ease',

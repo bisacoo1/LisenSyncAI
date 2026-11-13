@@ -25,7 +25,7 @@ function HighlightBubble({ text, onExplain, onHighlight, onClose, style }: Highl
         borderRadius: 10,
         boxShadow: '0 8px 24px rgba(0, 0, 0, 0.3)',
         padding: 12,
-        minWidth: 160,
+        width: 'min(320px, calc(100vw - 24px))',
         ...style,
       }}
     >
@@ -45,6 +45,7 @@ function HighlightBubble({ text, onExplain, onHighlight, onClose, style }: Highl
       </div>
       <div style={{ marginTop: 8, textAlign: 'right' }}>
         <button
+          aria-label="Close selection actions"
           onClick={onClose}
           style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: 12, padding: 0 }}
         >
@@ -127,7 +128,7 @@ export default function SideBySideReader() {
   const totalPages = Math.max(1, Math.ceil(paragraphs.length / ITEMS_PER_PAGE))
   const pageParagraphs = paragraphs.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE)
 
-  function handleSelectionChange(e: React.UIEvent) {
+  function handleSelectionChange() {
     if (selectionTimeout.current) clearTimeout(selectionTimeout.current)
     selectionTimeout.current = setTimeout(() => {
       const sel = window.getSelection()
@@ -135,8 +136,8 @@ export default function SideBySideReader() {
       if (text.length > 3 && textRef.current && textRef.current.contains(sel?.anchorNode as Node)) {
         const rect = sel?.getRangeAt(0).getBoundingClientRect()
         setBubble({
-          x: rect?.left ?? 0,
-          y: (rect?.top ?? 0) - 80,
+          x: Math.max(12, Math.min(rect?.left ?? 12, window.innerWidth - Math.min(320, window.innerWidth - 24) - 12)),
+          y: Math.max(12, Math.min((rect?.top ?? 0) - 130, window.innerHeight - 200)),
           text,
         })
         setSelectedText(text)
@@ -258,7 +259,7 @@ export default function SideBySideReader() {
   return (
     <div className="container" style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', overflow: 'auto' }}>
       {/* Header */}
-      <div style={{ padding: '24px 0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
+      <div className="reader-header" style={{ padding: '24px 0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <Button variant="ghost" size="icon" onClick={() => nav('/reviewer')} leftIcon="chevron-left" aria-label="Back to reviewer" />
           <div>
@@ -268,7 +269,7 @@ export default function SideBySideReader() {
             </p>
           </div>
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div className="reader-badges" style={{ display: 'flex', gap: 8 }}>
           <Badge variant="primary" size="sm">
             <Icon name="file-text" size={12} style={{ marginRight: 6 }} />
             {mat.mime_type || 'Document'}
@@ -281,9 +282,10 @@ export default function SideBySideReader() {
       </div>
 
       {/* Main reader area - document left, AI panel right */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 400px', gap: 0, flex: 1, minHeight: 0, overflow: 'auto' }}>
+      <div className="reader-grid" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 400px', gap: 0, flex: 1, minHeight: 0, overflow: 'auto' }}>
         {/* Left: Document viewer */}
         <div
+          className="reader-document"
           style={{
             background: 'var(--bg)',
             overflow: 'auto',
@@ -291,11 +293,12 @@ export default function SideBySideReader() {
             minHeight: 0,
           }}
         >
-          <Card variant="outlined" style={{ margin: 16, borderRadius: 12 }}>
+          <Card variant="outlined" className="reader-document-card">
             <CardContent style={{ padding: 0 }}>
               <div
                 ref={textRef}
                 onMouseUp={handleSelectionChange}
+                onTouchEnd={handleSelectionChange}
                 style={{
                   lineHeight: 1.8,
                   fontSize: 16,
@@ -327,30 +330,13 @@ export default function SideBySideReader() {
 
               {/* Page navigation */}
               {totalPages > 1 && (
-                <div style={{ padding: 16, borderTop: '1px solid var(--border)', background: 'var(--panel-2)', borderRadius: '0 0 12px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => goToPage(currentPage - 1)}
-                    disabled={currentPage === 1}
-                    fullWidth
-                    style={{ minWidth: 100 }}
-                  >
-                    <Icon name="chevron-left" size={16} style={{ marginRight: 6 }} />
+                <div className="reader-pagination" aria-label="Document pagination">
+                  <Button variant="outline" size="sm" leftIcon="chevron-left" aria-label="Previous page" onClick={() => goToPage(currentPage - 1)} disabled={currentPage === 1}>
                     Previous
                   </Button>
-                  <div style={{ fontSize: 13, color: 'var(--muted)', fontWeight: 600 }}>
-                    {currentPage} / {totalPages}
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => goToPage(currentPage + 1)}
-                    disabled={currentPage === totalPages}
-                    fullWidth
-                    style={{ minWidth: 100 }}
-                  >
-                    Next <Icon name="chevron-right" size={16} style={{ marginLeft: 6 }} />
+                  <span aria-label={`Page ${currentPage} of ${totalPages}`}>{currentPage} / {totalPages}</span>
+                  <Button variant="outline" size="sm" rightIcon="chevron-right" aria-label="Next page" onClick={() => goToPage(currentPage + 1)} disabled={currentPage === totalPages}>
+                    Next
                   </Button>
                 </div>
               )}
@@ -360,6 +346,7 @@ export default function SideBySideReader() {
 
         {/* Right: AI panel */}
         <div
+          className="reader-side-panel"
           style={{
             width: 400,
             minWidth: 400,
@@ -406,22 +393,15 @@ export default function SideBySideReader() {
               ) : (
                 <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 8 }}>
                   {highlights.map(h => (
-                    <li
-                      key={h.id}
-                      style={{ padding: 10, background: 'var(--panel-2)', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', transition: 'all 150ms ease' }}
-                      onClick={() => setCurrentExplanation(h.explanation ? { text: h.selected_text, explanation: h.explanation, model: h.ai_model || 'unknown' } : null)}
-                    >
-                      <div style={{ fontSize: 12.5, fontWeight: 500, color: 'var(--text)', maxHeight: 48, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box' }}>
-                        {h.selected_text}
-                      </div>
-                      {h.explanation ? (
-                        <div style={{ fontSize: 11, color: 'var(--primary)', fontWeight: 600, marginTop: 4 }}>
-                          <Icon name="brain" size={12} style={{ marginRight: 4 }} />
-                          AI explained — tap to view
-                        </div>
-                      ) : (
-                        <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>Highlighted (no explanation)</div>
-                      )}
+                    <li key={h.id}>
+                      <button type="button" className="reader-highlight" onClick={() => setCurrentExplanation(h.explanation ? { text: h.selected_text, explanation: h.explanation, model: h.ai_model || 'unknown' } : null)}>
+                        <span className="reader-highlight-text">{h.selected_text}</span>
+                        {h.explanation ? (
+                          <span className="reader-highlight-meta"><Icon name="brain" size={12} /> AI explained — tap to view</span>
+                        ) : (
+                          <span className="reader-highlight-meta">Highlighted (no explanation)</span>
+                        )}
+                      </button>
                     </li>
                   ))}
                 </ul>
@@ -452,6 +432,7 @@ export default function SideBySideReader() {
                 <div style={{ display: 'flex', gap: 8 }}>
                   <Input
                     placeholder="Ask a follow-up question…"
+                    aria-label="Ask a follow-up question"
                     value={followUpInput}
                     onChange={e => setFollowUpInput(e.target.value)}
                     onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendFollowUp()}
@@ -481,6 +462,7 @@ export default function SideBySideReader() {
                               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                                 <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--primary)' }}>You:</div>
                                 <button
+                                  aria-label="Delete follow-up"
                                   onClick={() => removeFollowUp(i)}
                                   style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', padding: 2, borderRadius: 4 }}
                                 >

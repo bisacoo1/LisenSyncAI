@@ -48,7 +48,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
 
     const focusStyles: React.CSSProperties = {
       borderColor: 'var(--primary)',
-      boxShadow: '0 0 0 3px rgba(45, 212, 191, 0.15)',
+      boxShadow: 'var(--focus-ring)',
     }
 
     const errorStyles: React.CSSProperties = {
@@ -128,7 +128,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
                 alignItems: 'center',
               }}
             >
-              {rightIcon ? <Icon name={rightIcon as any} size={18} /> : rightElement}
+              {rightElement || (rightIcon && <Icon name={rightIcon as any} size={18} />)}
             </div>
           )}
         </div>
@@ -178,7 +178,7 @@ export const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
 
     const combinedStyle: React.CSSProperties = {
       ...baseStyles,
-      ...(focused && !error && { borderColor: 'var(--primary)', boxShadow: '0 0 0 3px rgba(45, 212, 191, 0.15)' }),
+      ...(focused && !error && { borderColor: 'var(--primary)', boxShadow: 'var(--focus-ring)' }),
       ...(error && { borderColor: 'var(--danger)', boxShadow: '0 0 0 3px rgba(239, 68, 68, 0.15)' }),
       ...(disabled && { opacity: 0.5, cursor: 'not-allowed' }),
       ...style,

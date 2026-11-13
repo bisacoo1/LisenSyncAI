@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { WorkspacePageHeader } from '@/components/WorkspacePageHeader'
 import { useAuth } from '@/context/AuthContext'
 import { getProgram } from '@/lib/syllabus'
 import { aiConfigured, generateFlashcardsFromFile, generatePracticeItemsFromFile, extractTextFromFile, type MaterialSource } from '@/lib/ai'
@@ -107,7 +108,7 @@ export default function ReviewerPage() {
       }).select().single()
       if (error) throw error
       storagePath = ''
-      setMsg(extractError ? 'Material saved. Text extraction failed, so generation will read the stored file.' : 'Material saved and text extracted.')
+      setMsg(extractedText ? 'Material saved and text extracted.' : extractError ? 'Material saved. Text extraction failed, so generation will read the stored file.' : aiConfigured() ? 'Material saved, but no text was extracted. Generation can use the stored file.' : 'Material saved. Configure AI to extract text and generate study items.')
       if (extractError) setErr(extractError)
       addToast({ type: 'success', title: 'Material saved', message: title })
       setTitle(''); setFile(null); setFileReady(false)
@@ -123,7 +124,7 @@ export default function ReviewerPage() {
     if (!profile || !user || !program) return
     const mat = materials.find(m => m.id === selectedMaterial)
     if (!mat || (!mat.file_uri && !mat.extracted_text)) { setErr('Select a saved material with an uploaded file.'); return }
-    if (!aiConfigured()) { setErr('Supabase is not configured, so AI cannot run.'); return }
+    if (!aiConfigured()) { setErr('AI is not configured. Set VITE_GEMINI_API_KEY in your environment.'); return }
     setErr(null); setMsg(null); setBusy(`Generating ${type}...`)
     try {
       const source = sourceForMaterial(mat)
@@ -165,19 +166,12 @@ export default function ReviewerPage() {
   if (!profile || !program) return null
 
   return (
-    <div className="container" style={{ paddingTop: 24, paddingBottom: 48 }}>
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 24, flexWrap: 'wrap', marginBottom: 24 }}>
-        <div>
-          <h1 style={{ margin: '0 0 8px', fontSize: 32, fontWeight: 700 }}>Reviewer-to-Flashcard & Drill Generator</h1>
-          <p style={{ margin: 0, color: 'var(--muted)', fontSize: 15 }}>Upload review handouts (PDF, DOCX, PPT/PPTX). Gemini processes the document and converts it into active-recall flashcards and situational drills tagged by board subject.</p>
-        </div>
-        {!aiConfigured() && (
-          <Badge variant="warning" size="md">
-            <Icon name="alert-triangle" size={12} />
-            AI not configured
-          </Badge>
-        )}
-      </div>
+    <div className="container workspace-page">
+      <WorkspacePageHeader
+        eyebrow="YOUR STUDY LIBRARY" index="02" title={<>Your <em>reviewers.</em></>}
+        description="Give your notes a new life. Upload a reviewer to create flashcards and practice drills for your board subjects."
+        action={!aiConfigured() && <Badge variant="warning" size="md"><Icon name="alert-triangle" size={12} /> AI not configured</Badge>}
+      />
 
       {err && (
         <div role="alert" style={{ marginBottom: 16, padding: 16, background: 'var(--danger-bg)', border: '1px solid var(--danger-border)', borderRadius: 10, color: 'var(--danger)', display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -214,6 +208,7 @@ export default function ReviewerPage() {
                 onChange={e => setTitle(e.target.value)}
                 placeholder="e.g. Crim Law Handout - Revised Penal Code"
                 leftIcon="file-text"
+                fullWidth
               />
 
               <Select
@@ -222,6 +217,7 @@ export default function ReviewerPage() {
                 onChange={e => setSubject(e.target.value)}
                 options={program.subjects.map(s => ({ value: s, label: s }))}
                 leftIcon="book-open"
+                fullWidth
               />
 
               <div>
@@ -272,6 +268,7 @@ export default function ReviewerPage() {
               onChange={e => setSelectedMaterial(e.target.value)}
               options={[{ value: '', label: 'Select material...' }, ...materials.map(m => ({ value: m.id, label: `${m.title} — ${m.subject}` }))]}
               leftIcon="book-open"
+              fullWidth
               style={{ marginBottom: 16 }}
             />
 
@@ -294,15 +291,18 @@ export default function ReviewerPage() {
               <h4 style={{ margin: '0 0 16px', fontSize: 14, fontWeight: 600 }}>Recent Flashcards</h4>
               {flashcards.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: 24, color: 'var(--muted)' }}>
-                  <Icon name="book-open" size={32} style={{ marginBottom: 8, opacity: 0.5 }} />
+                  <Icon name="book-open" size={32} style={{ margin: '0 auto 8px', opacity: 0.5 }} />
                   <p>No flashcards yet. Generate some from your materials above.</p>
                 </div>
               ) : (
                 <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 8 }}>
                   {flashcards.slice(0, 8).map(f => (
-                    <li key={f.id} style={{ padding: 12, background: 'var(--panel-2)', border: '1px solid var(--border)', borderRadius: 8, display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', transition: 'all 150ms ease' }} onClick={() => { setSelectedCard(f); setSelectedMaterial('') }}>
-                      <Badge variant="primary" size="sm" style={{ flexShrink: 0 }}>{f.subject}</Badge>
-                      <span style={{ flex: 1, fontSize: 13, lineHeight: 1.5 }}>{f.front}</span>
+                    <li key={f.id}>
+                      <button type="button" className="reviewer-flashcard" onClick={() => { setSelectedCard(f); setSelectedMaterial('') }}>
+                        <Badge variant="primary" size="sm">{f.subject}</Badge>
+                        <span>{f.front}</span>
+                        <Icon name="arrow-up-right" size={16} />
+                      </button>
                     </li>
                   ))}
                 </ul>
@@ -329,7 +329,7 @@ export default function ReviewerPage() {
               Generated from: {selectedCard.material_id ? 'Saved material' : 'AI generation'}
             </p>
           </div>
-          <footer>
+          <div className="ui-card-footer">
             <div style={{ display: 'flex', gap: 8, width: '100%' }}>
               <Button variant="secondary" onClick={() => setSelectedCard(null)} style={{ flex: 1 }}>
                 Close
@@ -338,7 +338,7 @@ export default function ReviewerPage() {
                 Practice this subject
               </Button>
             </div>
-          </footer>
+          </div>
         </Modal>
       )}
 
@@ -353,7 +353,7 @@ export default function ReviewerPage() {
               description="Upload a reviewer above to get started."
             />
           ) : (
-            <div className="table-wrapper" style={{ overflowX: 'auto' }}>
+            <div className="table-wrapper" role="region" aria-label="Saved review materials, scrollable table" tabIndex={0} style={{ overflowX: 'auto' }}>
               <table className="table" style={{ minWidth: 700 }}>
                 <thead>
                   <tr>

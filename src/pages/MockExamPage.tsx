@@ -1,3 +1,4 @@
+import { WorkspacePageHeader } from '@/components/WorkspacePageHeader'
 import { useEffect, useRef, useState } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { getProgram } from '@/lib/syllabus'
@@ -38,6 +39,8 @@ export default function MockExamPage() {
     const copy = [...seqOrder]
     ;[copy[i], copy[j]] = [copy[j], copy[i]]
     setSeqOrder(copy)
+    const item = items[current]
+    if (item?.type === 'sequence') setResponse(item.id, { order: copy })
   }
 
   useEffect(() => { if (profile) loadInProgress() }, [profile?.id])
@@ -54,7 +57,8 @@ export default function MockExamPage() {
     const it = items[current]
     if (it && it.type === 'sequence') {
       const q = it.question as SequenceQuestion
-      setSeqOrder([...(q.items || [])].sort(() => Math.random() - 0.5))
+      const savedOrder = responses[it.id]?.order as string[] | undefined
+      setSeqOrder(savedOrder ? [...savedOrder] : [...(q.items || [])].sort(() => Math.random() - 0.5))
     }
   }, [current, items])
 
@@ -175,11 +179,8 @@ export default function MockExamPage() {
   // Setup state
   if (!exam) {
     return (
-      <div className="container" style={{ paddingTop: 24, paddingBottom: 48 }}>
-        <div style={{ marginBottom: 24 }}>
-          <h1 style={{ margin: '0 0 8px', fontSize: 32, fontWeight: 700 }}>Timed Board Exam Mock Simulation</h1>
-          <p style={{ margin: 0, color: 'var(--muted)', fontSize: 15 }}>Multi-subject mock aligned to the official Table of Specifications (TOS), with countdown timer and no instant answers until submission.</p>
-        </div>
+      <div className="container workspace-page">
+        <WorkspacePageHeader eyebrow="PRACTICE FOR THE BIG DAY" index="04" title={<>Your <em>mock exam.</em></>} description="Get a feel for exam day with a timed, multi-subject simulation. Answers and rationales appear after you submit." />
 
         {err && (
           <div role="alert" style={{ marginBottom: 16, padding: 16, background: 'var(--danger-bg)', border: '1px solid var(--danger-border)', borderRadius: 10, color: 'var(--danger)', display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -194,7 +195,7 @@ export default function MockExamPage() {
             <CardContent>
               <div style={{ marginBottom: 20 }}>
                 <h4 style={{ margin: '0 0 12px', fontSize: 14, fontWeight: 600 }}>Table of Specifications (TOS)</h4>
-                <div className="table-wrapper" style={{ overflowX: 'auto' }}>
+                <div className="table-wrapper" role="region" aria-label="Exam specifications, scrollable table" tabIndex={0} style={{ overflowX: 'auto' }}>
                   <table className="table">
                     <thead><tr><th>Subject</th><th style={{width: 80}}>Items</th><th style={{width: 100}}>Weight</th></tr></thead>
                     <tbody>
@@ -377,7 +378,7 @@ export default function MockExamPage() {
           <div className="timer" style={{ fontSize: 28, fontWeight: 700, color: remaining != null && remaining < 300 ? 'var(--danger)' : 'var(--primary)' }}>
             {remaining != null ? formatTime(remaining) : '--:--:--'}
           </div>
-          <ProgressBar value={progress} max={100} size="sm" variant={remaining != null && remaining < 300 ? 'danger' : 'primary'} style={{ marginTop: 8, width: 160 }} />
+          <ProgressBar value={progress} max={100} size="sm" ariaLabel="Exam time elapsed" variant={remaining != null && remaining < 300 ? 'danger' : 'primary'} style={{ marginTop: 8, width: 160 }} />
         </Card>
       </div>
 
@@ -426,7 +427,7 @@ export default function MockExamPage() {
                         cursor: 'pointer', transition: 'all 150ms ease'
                       }}>
                         <input type="radio" name={`mcq-${it.id}`} checked={resp?.selected === i} onChange={() => setResponse(it.id, { selected: i })} style={{ accentColor: 'var(--primary)', width: 18, height: 18 }} />
-                        <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 32, borderRadius: '50%', background: resp?.selected === i ? 'var(--primary)' : 'var(--border)', color: resp?.selected === i ? '#041014' : 'var(--muted)', fontWeight: 700, fontSize: 13, flexShrink: 0 }}>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 32, borderRadius: '50%', background: resp?.selected === i ? 'var(--primary)' : 'var(--border)', color: resp?.selected === i ? 'var(--on-primary)' : 'var(--muted)', fontWeight: 700, fontSize: 13, flexShrink: 0 }}>
                           {String.fromCharCode(65 + i)}
                         </span>
                         <span style={{ flex: 1, fontSize: 14 }}>{opt}</span>
@@ -444,6 +445,7 @@ export default function MockExamPage() {
                 <div style={{ marginBottom: 8 }}><strong style={{ fontSize: 14 }}>{(it.question as DiagnosisQuestion).prompt}</strong></div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   <input
+                    aria-label="Your identification"
                     value={resp?.text || ''}
                     onChange={e => setResponse(it.id, { text: e.target.value })}
                     placeholder="Enter the exact concept/principle/law/formula..."
@@ -464,7 +466,7 @@ export default function MockExamPage() {
                       padding: '12px 16px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel-2)', gap: 12
                     }}>
                       <span style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1 }}>
-                        <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 32, borderRadius: '50%', background: 'var(--primary)', color: '#041014', fontWeight: 700, fontSize: 13, flexShrink: 0 }}>{i + 1}</span>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 32, borderRadius: '50%', background: 'var(--primary)', color: 'var(--on-primary)', fontWeight: 700, fontSize: 13, flexShrink: 0 }}>{i + 1}</span>
                         <span style={{ fontSize: 14 }}>{item}</span>
                       </span>
                       <div style={{ display: 'flex', gap: 6 }}>
@@ -473,6 +475,10 @@ export default function MockExamPage() {
                       </div>
                     </div>
                   ))}
+                </div>
+                <div style={{ marginTop: 12, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                  <Button variant="secondary" size="sm" onClick={() => setResponse(it.id, { order: [...seqOrder] })}>Use this order</Button>
+                  {resp?.order && <span style={{ color: 'var(--muted)', fontSize: 12 }}>Order selected for this session</span>}
                 </div>
               </>
             )}
@@ -523,7 +529,6 @@ export default function MockExamPage() {
         onClose={() => setShowSubmitConfirm(false)}
         title="Submit Exam?"
         size="sm"
-        onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && !busy) handleConfirmSubmit(); if (e.key === 'Escape') setShowSubmitConfirm(false); }}
         footer={
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
             <Button variant="secondary" onClick={() => setShowSubmitConfirm(false)}>Cancel</Button>

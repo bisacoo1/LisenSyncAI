@@ -91,14 +91,15 @@ export default function AiHelper({ contextText, program, subject, itemKey }: AiH
         </div>
       ))}
 
-      <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 14 }}>
         <input
           value={question}
           onChange={e => setQuestion(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && !e.shiftKey && ask()}
           placeholder="Ask a follow-up question…"
+          aria-label="Ask a follow-up question"
           disabled={loading}
-          style={{ flex: 1, padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--panel)', color: 'var(--text)', fontSize: 13 }}
+          style={{ flex: '1 1 160px', minWidth: 0, padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--panel)', color: 'var(--text)', fontSize: 13 }}
         />
         <Button variant="primary" size="sm" onClick={ask} loading={loading} disabled={!question.trim()}>
           Ask

@@ -58,7 +58,7 @@ export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
 
     const combinedStyle: React.CSSProperties = {
       ...baseStyle,
-      ...(focused && !error && { borderColor: 'var(--primary)', boxShadow: '0 0 0 3px rgba(45, 212, 191, 0.15)' }),
+      ...(focused && !error && { borderColor: 'var(--primary)', boxShadow: 'var(--focus-ring)' }),
       ...(error && { borderColor: 'var(--danger)', boxShadow: '0 0 0 3px rgba(239, 68, 68, 0.15)' }),
       ...(disabled && { opacity: 0.5, cursor: 'not-allowed' }),
       ...style,

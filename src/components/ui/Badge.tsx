@@ -33,29 +33,29 @@ export const Badge = React.forwardRef<HTMLSpanElement, BadgeProps>(
         border: '1px solid var(--border)',
       },
       success: {
-        background: 'rgba(34, 197, 94, 0.15)',
+        background: 'var(--success-bg)',
         color: 'var(--ok)',
-        border: '1px solid rgba(34, 197, 94, 0.3)',
+        border: '1px solid var(--success-border)',
       },
       warning: {
-        background: 'rgba(245, 158, 11, 0.15)',
+        background: 'var(--warning-bg)',
         color: 'var(--warn)',
-        border: '1px solid rgba(245, 158, 11, 0.3)',
+        border: '1px solid var(--warning-border)',
       },
       danger: {
-        background: 'rgba(239, 68, 68, 0.15)',
+        background: 'var(--danger-bg)',
         color: 'var(--danger)',
-        border: '1px solid rgba(239, 68, 68, 0.3)',
+        border: '1px solid var(--danger-border)',
       },
       info: {
-        background: 'rgba(59, 130, 246, 0.15)',
-        color: '#93c5fd',
-        border: '1px solid rgba(59, 130, 246, 0.3)',
+        background: 'var(--info-bg)',
+        color: 'var(--info)',
+        border: '1px solid var(--info-border)',
       },
       primary: {
-        background: 'rgba(45, 212, 191, 0.15)',
+        background: 'var(--primary-bg)',
         color: 'var(--primary)',
-        border: '1px solid rgba(45, 212, 191, 0.3)',
+        border: '1px solid var(--primary-border)',
       },
     }
 

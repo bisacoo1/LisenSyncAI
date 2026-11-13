@@ -1,12 +1,13 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import { WorkspacePageHeader } from '@/components/WorkspacePageHeader'
 import { useAuth } from '@/context/AuthContext'
 import { getProgram } from '@/lib/syllabus'
 import { supabase } from '@/lib/supabase'
 import { checkDiagnosis, checkSequence, computeProfileStatsUpdate } from '@/lib/analytics'
 import { isCardDue, scheduleReview, type ReviewQuality } from '@/lib/srs'
 import type { Flashcard, McqAnswer, McqQuestion, PracticeItem, PracticeType, SequenceAnswer, SequenceQuestion, DiagnosisAnswer, DiagnosisQuestion, Profile } from '@/types'
-import { Card, CardHeader, CardContent, Button, Badge, Icon, EmptyState, SegControl, Tabs, TabPanels, TabPanel, Skeleton, useToast, type TabItem } from '@/components/ui'
+import { Card, CardHeader, CardContent, Button, Badge, Icon, EmptyState, Tabs, useToast, type TabItem } from '@/components/ui'
 import LevelUpCelebration from '@/components/LevelUpCelebration'
 import AiHelper from '@/components/AiHelper'
 
@@ -26,6 +27,7 @@ export default function PracticePage() {
   const [seqOrder, setSeqOrder] = useState<string[]>([])
   const [feedback, setFeedback] = useState<{ correct: boolean; text: string } | null>(null)
   const [loading, setLoading] = useState(false)
+  const loadRequest = useRef(0)
   const [levelUp, setLevelUp] = useState<number | null>(null)
   const { addToast } = useToast()
 
@@ -45,18 +47,22 @@ export default function PracticePage() {
   useEffect(() => {
     if (!profile || !subject) return
     load()
+    return () => { loadRequest.current += 1 }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile?.id, subject, mode])
 
   async function load() {
     if (!profile) return
+    const request = ++loadRequest.current
     setLoading(true); setIdx(0); setReveal(false); setFeedback(null); setSelected(null); setDiagInput('')
     if (mode === 'flashcards') {
       const { data } = await supabase.from('flashcards').select('*').eq('user_id', profile.id).eq('subject', subject).order('next_review_at', { ascending: true, nullsFirst: true }).limit(50)
+      if (request !== loadRequest.current) return
       setFlashcards((data as Flashcard[]) || [])
       setItems([])
     } else {
       const { data } = await supabase.from('practice_items').select('*').eq('user_id', profile.id).eq('subject', subject).eq('type', mode).limit(50)
+      if (request !== loadRequest.current) return
       const list = (data as PracticeItem[]) || []
       setItems(list)
       setFlashcards([])
@@ -69,15 +75,23 @@ export default function PracticePage() {
   }
 
   useEffect(() => {
-    if (mode === 'sequence' && items[idx]) {
+    if (mode === 'sequence' && items[idx]?.type === 'sequence') {
       const q = items[idx].question as SequenceQuestion
       setSeqOrder([...(q.items || [])].sort(() => Math.random() - 0.5))
       setFeedback(null)
     }
   }, [idx, mode, items])
 
-  const current = useMemo(() => items[idx], [items, idx])
-  const currentCard = useMemo(() => flashcards[idx], [flashcards, idx])
+  // The selected mode can change before its new items finish loading. Never
+  // render an item from the previous mode as if it had the new question shape.
+  const current = useMemo(() => {
+    const item = items[idx]
+    return item?.type === mode && item.subject === subject ? item : undefined
+  }, [items, idx, mode, subject])
+  const currentCard = useMemo(() => {
+    const card = flashcards[idx]
+    return card?.subject === subject ? card : undefined
+  }, [flashcards, idx, subject])
 
   async function bumpProfileStats(isCorrect: boolean) {
     if (!user || !profile) return
@@ -206,18 +220,16 @@ export default function PracticePage() {
   ]
 
   return (
-    <div className="container" style={{ paddingTop: 24, paddingBottom: 48 }}>
-      <div style={{ marginBottom: 24 }}>
-        <h1 style={{ margin: '0 0 8px', fontSize: 32, fontWeight: 700 }}>PRC-Style Practice</h1>
-        <p style={{ margin: 0, color: 'var(--muted)', fontSize: 15 }}>Situational MCQs, case/concept diagnosis, and priority/sequence ordering aligned to your board syllabus.</p>
-      </div>
+    <div className="container workspace-page">
+      <WorkspacePageHeader eyebrow="YOUR DAILY PRACTICE" index="03" title={<>Practice, <em>your way.</em></>} description="Choose a subject, pick a mode, and build confidence one question at a time." />
 
       <Card variant="elevated" style={{ marginBottom: 20 }}>
-        <CardContent style={{ padding: 20 }}>
+        <CardContent>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16, alignItems: 'end', marginBottom: 16 }}>
             <div>
               <span style={{ display: 'block', fontSize: 12, color: 'var(--muted)', marginBottom: 6, fontWeight: 500 }}>MODE</span>
-              <Tabs tabs={modeTabs} value={mode} onChange={(v) => setMode(v as 'flashcards' | PracticeType)} variant="scrollable" fullWidth />
+              <Tabs tabs={modeTabs} value={mode} onChange={(v) => setMode(v as 'flashcards' | PracticeType)} variant="scrollable" ariaLabel="Practice mode" fullWidth />
+              <span className="practice-scroll-hint">Scroll for more modes <Icon name="arrow-right" size={13} /></span>
             </div>
             <div>
               <label htmlFor="practice-subject" style={{ display: 'block', fontSize: 12, color: 'var(--muted)', marginBottom: 6, fontWeight: 500 }}>BOARD SUBJECT</label>
@@ -237,6 +249,7 @@ export default function PracticePage() {
         </CardContent>
       </Card>
 
+      <div role="tabpanel" id={`panel-${mode}`} aria-labelledby={`tab-${mode}`} tabIndex={0}>
       {loading && (
         <Card variant="outlined">
           <CardContent style={{ padding: 48, textAlign: 'center' }}>
@@ -250,7 +263,7 @@ export default function PracticePage() {
 
       {!loading && empty && (
         <Card variant="outlined">
-          <CardContent style={{ padding: 48 }}>
+          <CardContent>
             <EmptyState
               icon={mode === 'flashcards' ? 'book-open' : 'file-text'}
               title="No items found"
@@ -365,7 +378,7 @@ export default function PracticePage() {
                     opacity: feedback && selected !== i && i !== (current.answer as McqAnswer).correctIndex ? 0.5 : 1,
                   }}>
                     <input type="radio" name={`mcq-${current.id}`} checked={selected === i} onChange={() => !feedback && setSelected(i)} disabled={!!feedback} style={{ accentColor: 'var(--primary)', width: 18, height: 18 }} />
-                    <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 32, borderRadius: '50%', background: selected === i ? 'var(--primary)' : feedback ? (i === (current.answer as McqAnswer).correctIndex ? 'var(--success)' : selected === i ? 'var(--danger)' : 'var(--border)') : 'var(--border)', color: selected === i ? '#041014' : feedback ? (i === (current.answer as McqAnswer).correctIndex ? '#fff' : selected === i ? '#fff' : 'var(--muted)') : 'var(--muted)', fontWeight: 700, fontSize: 13, flexShrink: 0 }}>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 32, borderRadius: '50%', background: selected === i ? 'var(--primary)' : feedback ? (i === (current.answer as McqAnswer).correctIndex ? 'var(--success)' : selected === i ? 'var(--danger)' : 'var(--border)') : 'var(--border)', color: selected === i ? 'var(--on-primary)' : feedback ? (i === (current.answer as McqAnswer).correctIndex ? '#fff' : selected === i ? '#fff' : 'var(--muted)') : 'var(--muted)', fontWeight: 700, fontSize: 13, flexShrink: 0 }}>
                       {String.fromCharCode(65 + i)}
                     </span>
                     <span style={{ flex: 1, fontSize: 14 }}>{opt}</span>
@@ -486,7 +499,7 @@ export default function PracticePage() {
                   padding: '14px 16px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel-2)', gap: 12
                 }}>
                   <span style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1 }}>
-                    <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 36, height: 36, borderRadius: '50%', background: 'var(--primary)', color: '#041014', fontWeight: 700, fontSize: 14, flexShrink: 0 }}>{i + 1}</span>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 36, height: 36, borderRadius: '50%', background: 'var(--primary)', color: 'var(--on-primary)', fontWeight: 700, fontSize: 14, flexShrink: 0 }}>{i + 1}</span>
                     <span style={{ fontSize: 15 }}>{item}</span>
                   </span>
                   <div style={{ display: 'flex', gap: 6 }}>
@@ -532,6 +545,10 @@ export default function PracticePage() {
       )}
 
       {levelUp != null && <LevelUpCelebration level={levelUp} onClose={() => setLevelUp(null)} />}
+      </div>
+      {modeTabs.filter(tab => tab.value !== mode).map(tab => (
+        <div key={tab.value} role="tabpanel" id={`panel-${tab.value}`} aria-labelledby={`tab-${tab.value}`} hidden />
+      ))}
     </div>
   )
 }
