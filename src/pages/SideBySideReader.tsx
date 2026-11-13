@@ -238,7 +238,7 @@ export default function SideBySideReader() {
   }
 
   return (
-    <div className="container" style={{ paddingTop: 20, paddingBottom: 48, display: 'flex', flexDirection: 'column', minHeight: 'calc(100vh - 108px)' }}>
+    <div className="container" style={{ paddingTop: 20, paddingBottom: 48, display: 'flex', flexDirection: 'column', height: 'calc(100vh - 108px)', overflow: 'hidden' }}>
       {/* Header */}
       <div style={{ marginBottom: 24, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -263,16 +263,14 @@ export default function SideBySideReader() {
       </div>
 
       {/* Main reader area */}
-      <div style={{ display: 'flex', flexDirection: 'row', gap: 0, flex: 1, minHeight: 0, overflow: 'hidden' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: sidePanelOpen ? `calc(100% - 400px) 400px` : '1fr', gap: 0, flex: 1, minHeight: 0, overflow: 'hidden' }}>
         {/* Left: Document viewer */}
         <div
           style={{
-            flex: 1,
-            minWidth: 0,
             background: 'var(--bg)',
             overflow: 'auto',
             borderRight: sidePanelOpen ? '1px solid var(--border)' : 'none',
-            transition: 'flex 250ms ease',
+            minHeight: 0,
           }}
         >
           <Card variant="outlined" style={{ margin: 16, borderRadius: 12 }}>
@@ -369,13 +367,10 @@ export default function SideBySideReader() {
         {/* Right: AI side panel */}
         <div
           style={{
-            width: sidePanelOpen ? 400 : 0,
-            minWidth: sidePanelOpen ? 400 : 0,
-            maxWidth: sidePanelOpen ? 400 : 0,
             background: 'var(--panel)',
-            borderLeft: '1px solid var(--border)',
+            borderLeft: sidePanelOpen ? '1px solid var(--border)' : 'none',
             boxShadow: sidePanelOpen ? '-4px 0 16px rgba(0, 0, 0, 0.2)' : 'none',
-            transition: 'width 250ms ease, min-width 250ms ease, max-width 250ms ease',
+            transition: 'box-shadow 250ms ease',
             display: 'flex',
             flexDirection: 'column',
             overflow: 'hidden',
