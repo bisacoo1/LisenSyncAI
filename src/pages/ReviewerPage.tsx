@@ -42,7 +42,7 @@ export default function ReviewerPage() {
   const { addToast } = useToast()
 
   useEffect(() => { if (program) setSubject(program.subjects[0]) }, [program])
-  useEffect(() => { if (profile) loadMaterials() }, [profile])
+  useEffect(() => { if (profile) loadMaterials() }, [profile?.id])
 
   async function loadMaterials() {
     if (!profile) return

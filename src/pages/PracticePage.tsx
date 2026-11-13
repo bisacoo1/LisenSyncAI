@@ -45,7 +45,8 @@ export default function PracticePage() {
   useEffect(() => {
     if (!profile || !subject) return
     load()
-  }, [profile, subject, mode])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile?.id, subject, mode])
 
   async function load() {
     if (!profile) return

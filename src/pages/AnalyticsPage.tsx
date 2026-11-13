@@ -26,7 +26,7 @@ export default function AnalyticsPage() {
       setExams((e as MockExam[]) || [])
       setLoading(false)
     })()
-  }, [profile])
+  }, [profile?.id])
 
   const stats = useMemo(() => program ? computeSubjectStats(attempts, program.subjects) : [], [attempts, program])
   const overall = useMemo(() => overallPercent(attempts), [attempts])

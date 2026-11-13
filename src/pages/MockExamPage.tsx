@@ -40,7 +40,7 @@ export default function MockExamPage() {
     setSeqOrder(copy)
   }
 
-  useEffect(() => { if (profile) loadInProgress() }, [profile])
+  useEffect(() => { if (profile) loadInProgress() }, [profile?.id])
 
   useEffect(() => {
     if (!exam || exam.status !== 'in_progress' || remaining == null) return

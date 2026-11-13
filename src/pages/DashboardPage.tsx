@@ -29,7 +29,7 @@ export default function DashboardPage() {
       setDueCards(count || 0)
       setLoading(false)
     })()
-  }, [profile])
+  }, [profile?.id])
 
   if (!profile || !program) return null
 
