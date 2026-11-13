@@ -27,12 +27,26 @@ export default function AnalyticsPage() {
       setExams((e as MockExam[]) || [])
       setLoading(false)
     })()
-  }, [profile])
+  }, [profile?.id])
 
   const stats = useMemo(() => program ? computeSubjectStats(attempts, program.subjects) : [], [attempts, program])
   const overall = useMemo(() => overallPercent(attempts), [attempts])
   const readiness = readinessLabel(overall)
   const weakSubjects = stats.filter(s => s.weak && s.total > 0)
+
+  const trend = useMemo(() => {
+    const byDay: Record<string, { correct: number; total: number }> = {}
+    for (const a of attempts) {
+      const d = (a.created_at || '').slice(0, 10)
+      if (!d) continue
+      byDay[d] = byDay[d] || { correct: 0, total: 0 }
+      byDay[d].total += 1
+      if (a.is_correct) byDay[d].correct += 1
+    }
+    return Object.entries(byDay)
+      .sort(([a], [b]) => (a < b ? -1 : 1))
+      .map(([date, v]) => ({ date, percent: Math.round((v.correct / v.total) * 100), total: v.total }))
+  }, [attempts])
 
   useEffect(() => {
     if (!profile || !weakSubjects.length) { setWeakDrills([]); return }
@@ -236,17 +250,76 @@ export default function AnalyticsPage() {
         </Card>
       </div>
 
-      {/* Readiness Trend (placeholder for future chart) */}
+      {/* Readiness Trend */}
       <Card variant="outlined">
-        <CardHeader title="Readiness Trend" icon="trending-up" subtitle="Track your progress over time" />
+        <CardHeader title="Readiness Trend" icon="trending-up" subtitle="Daily accuracy across all practice and mock attempts" />
         <CardContent>
-          <div style={{ padding: 40, textAlign: 'center' }}>
-            <Icon name="activity" size={48} style={{ color: 'var(--muted)', margin: '0 auto 16px', opacity: 0.5 }} />
-            <h4 style={{ margin: '0 0 8px' }}>Chart visualization coming soon</h4>
-            <p style={{ margin: 0, color: 'var(--muted)' }}>Historical readiness tracking and trend analysis will be available in a future update.</p>
-          </div>
+          {trend.length === 0 ? (
+            <EmptyState
+              icon="trending-up"
+              title="No activity yet"
+              description="Complete practice questions or a mock exam to start tracking your readiness over time."
+            />
+          ) : trend.length === 1 ? (
+            <div style={{ padding: 40, textAlign: 'center' }}>
+              <Icon name="trending-up" size={40} style={{ color: 'var(--muted)', margin: '0 auto 12px', opacity: 0.6 }} />
+              <p style={{ margin: 0, color: 'var(--muted)' }}>
+                {trend[0].percent}% on {new Date(trend[0].date).toLocaleDateString()} ({trend[0].total} items) — check back after more sessions to see your trend.
+              </p>
+            </div>
+          ) : (
+            <TrendChart data={trend} />
+          )}
         </CardContent>
       </Card>
+    </div>
+  )
+}
+
+function TrendChart({ data }: { data: { date: string; percent: number; total: number }[] }) {
+  const W = 720, H = 220, PAD = { top: 20, right: 16, bottom: 32, left: 40 }
+  const iw = W - PAD.left - PAD.right
+  const ih = H - PAD.top - PAD.bottom
+  const n = data.length
+  const x = (i: number) => PAD.left + (n === 1 ? iw / 2 : (i / (n - 1)) * iw)
+  const y = (p: number) => PAD.top + ih - (p / 100) * ih
+
+  const points = data.map((d, i) => `${x(i)},${y(d.percent)}`).join(' ')
+  const area = `${PAD.left},${PAD.top + ih} ${points} ${PAD.left + iw},${PAD.top + ih}`
+  const last = data[n - 1]
+  const first = data[0]
+  const tickEvery = Math.max(1, Math.ceil(n / 6))
+
+  return (
+    <div>
+      <div className="table-wrapper" role="region" aria-label="Readiness trend, scrollable chart" tabIndex={0}>
+        <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', minWidth: 600, maxWidth: 'none', height: 'auto', display: 'block' }} role="img" aria-label={`Readiness trend: ${first.percent}% on ${first.date} to ${last.percent}% on ${last.date}`}>
+          {[0, 25, 50, 75, 100].map(v => (
+            <g key={v}>
+              <line x1={PAD.left} x2={W - PAD.right} y1={y(v)} y2={y(v)} stroke="var(--border)" strokeWidth="1" strokeDasharray={v === 75 ? '6 4' : undefined} />
+              <text x={PAD.left - 8} y={y(v) + 4} textAnchor="end" fontSize="10" fill="var(--muted)">{v}%</text>
+            </g>
+          ))}
+          <text x={W - PAD.right} y={y(75) - 6} textAnchor="end" fontSize="10" fill="var(--warning)">75% pass mark</text>
+          <polygon points={area} fill="var(--primary)" opacity="0.12" />
+          <polyline points={points} fill="none" stroke="var(--primary)" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
+          {data.map((d, i) => (
+            <circle key={d.date} cx={x(i)} cy={y(d.percent)} r={i === n - 1 ? 5 : 3} fill={d.percent >= PASSING_RATE ? 'var(--success)' : 'var(--primary)'} stroke="var(--panel)" strokeWidth="2">
+              <title>{`${new Date(d.date).toLocaleDateString()}: ${d.percent}% (${d.total} items)`}</title>
+            </circle>
+          ))}
+          {data.map((d, i) => i % tickEvery === 0 || i === n - 1 ? (
+            <text key={`t-${d.date}`} x={x(i)} y={H - 10} textAnchor="middle" fontSize="10" fill="var(--muted)">
+              {new Date(d.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+            </text>
+          ) : null)}
+        </svg>
+      </div>
+      <div style={{ display: 'flex', gap: 20, marginTop: 8, fontSize: 12, color: 'var(--muted)', flexWrap: 'wrap' }}>
+        <span><strong style={{ color: 'var(--text)' }}>{data.length}</strong> active days</span>
+        <span>Latest: <strong style={{ color: last.percent >= PASSING_RATE ? 'var(--success)' : 'var(--danger)' }}>{last.percent}%</strong></span>
+        <span>Best day: <strong style={{ color: 'var(--text)' }}>{Math.max(...data.map(d => d.percent))}%</strong></span>
+      </div>
     </div>
   )
 }

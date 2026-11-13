@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { WorkspacePageHeader } from '@/components/WorkspacePageHeader'
 import { useAuth } from '@/context/AuthContext'
@@ -9,6 +9,7 @@ import { isCardDue, scheduleReview, type ReviewQuality } from '@/lib/srs'
 import type { Flashcard, McqAnswer, McqQuestion, PracticeItem, PracticeType, SequenceAnswer, SequenceQuestion, DiagnosisAnswer, DiagnosisQuestion, Profile } from '@/types'
 import { Card, CardHeader, CardContent, Button, Badge, Icon, EmptyState, Tabs, useToast, type TabItem } from '@/components/ui'
 import LevelUpCelebration from '@/components/LevelUpCelebration'
+import AiHelper from '@/components/AiHelper'
 
 export default function PracticePage() {
   const { profile, user, refreshProfile } = useAuth()
@@ -26,6 +27,7 @@ export default function PracticePage() {
   const [seqOrder, setSeqOrder] = useState<string[]>([])
   const [feedback, setFeedback] = useState<{ correct: boolean; text: string } | null>(null)
   const [loading, setLoading] = useState(false)
+  const loadRequest = useRef(0)
   const [levelUp, setLevelUp] = useState<number | null>(null)
   const { addToast } = useToast()
 
@@ -45,17 +47,22 @@ export default function PracticePage() {
   useEffect(() => {
     if (!profile || !subject) return
     load()
-  }, [profile, subject, mode])
+    return () => { loadRequest.current += 1 }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile?.id, subject, mode])
 
   async function load() {
     if (!profile) return
+    const request = ++loadRequest.current
     setLoading(true); setIdx(0); setReveal(false); setFeedback(null); setSelected(null); setDiagInput('')
     if (mode === 'flashcards') {
       const { data } = await supabase.from('flashcards').select('*').eq('user_id', profile.id).eq('subject', subject).order('next_review_at', { ascending: true, nullsFirst: true }).limit(50)
+      if (request !== loadRequest.current) return
       setFlashcards((data as Flashcard[]) || [])
       setItems([])
     } else {
       const { data } = await supabase.from('practice_items').select('*').eq('user_id', profile.id).eq('subject', subject).eq('type', mode).limit(50)
+      if (request !== loadRequest.current) return
       const list = (data as PracticeItem[]) || []
       setItems(list)
       setFlashcards([])
@@ -68,15 +75,23 @@ export default function PracticePage() {
   }
 
   useEffect(() => {
-    if (mode === 'sequence' && items[idx]) {
+    if (mode === 'sequence' && items[idx]?.type === 'sequence') {
       const q = items[idx].question as SequenceQuestion
       setSeqOrder([...(q.items || [])].sort(() => Math.random() - 0.5))
       setFeedback(null)
     }
   }, [idx, mode, items])
 
-  const current = useMemo(() => items[idx], [items, idx])
-  const currentCard = useMemo(() => flashcards[idx], [flashcards, idx])
+  // The selected mode can change before its new items finish loading. Never
+  // render an item from the previous mode as if it had the new question shape.
+  const current = useMemo(() => {
+    const item = items[idx]
+    return item?.type === mode && item.subject === subject ? item : undefined
+  }, [items, idx, mode, subject])
+  const currentCard = useMemo(() => {
+    const card = flashcards[idx]
+    return card?.subject === subject ? card : undefined
+  }, [flashcards, idx, subject])
 
   async function bumpProfileStats(isCorrect: boolean) {
     if (!user || !profile) return
@@ -155,6 +170,28 @@ export default function PracticePage() {
     setFeedback({ correct, text: current.rationale || '' })
     await recordAttempt(correct, { order: seqOrder })
     addToast({ type: correct ? 'success' : 'error', title: correct ? 'Correct order!' : 'Incorrect order', message: current.rationale || `Correct: ${ans.order.join(' → ')}`, duration: 3000 })
+  }
+
+  function questionContext(): string {
+    const it = items[idx]
+    if (!it) return ''
+    const subj = `Board subject: ${it.subject}`
+    if (mode === 'mcq') {
+      const q = it.question as McqQuestion
+      const a = it.answer as McqAnswer
+      return `${subj}\nQuestion: ${q.stem}\nOptions:\n${q.options.map((o, i) => `${String.fromCharCode(65 + i)}. ${o}`).join('\n')}\nCorrect answer: ${String.fromCharCode(65 + a.correctIndex)} — ${q.options[a.correctIndex]}\nRationale: ${it.rationale || 'none'}`
+    }
+    if (mode === 'diagnosis') {
+      const q = it.question as DiagnosisQuestion
+      const a = it.answer as DiagnosisAnswer
+      return `${subj}\nScenario: ${q.scenario}\nPrompt: ${q.prompt}\nExpected answer: ${a.expected}${a.acceptable?.length ? ` (also acceptable: ${a.acceptable.join(', ')})` : ''}\nRationale: ${it.rationale || 'none'}`
+    }
+    if (mode === 'sequence') {
+      const q = it.question as SequenceQuestion
+      const a = it.answer as SequenceAnswer
+      return `${subj}\nPrompt: ${q.prompt}\nItems: ${q.items.join(' | ')}\nCorrect order: ${a.order.join(' → ')}\nRationale: ${it.rationale || 'none'}`
+    }
+    return ''
   }
 
   function moveSeq(i: number, dir: -1 | 1) {
@@ -376,6 +413,7 @@ export default function PracticePage() {
                 </div>
               </div>
             )}
+            {feedback && <AiHelper contextText={questionContext()} program={profile.board_program} subject={subject} itemKey={current.id} />}
           </CardContent>
         </Card>
       )}
@@ -438,6 +476,7 @@ export default function PracticePage() {
                 </div>
               </div>
             )}
+            {feedback && <AiHelper contextText={questionContext()} program={profile.board_program} subject={subject} itemKey={current.id} />}
           </CardContent>
         </Card>
       )}
@@ -500,6 +539,7 @@ export default function PracticePage() {
                 </div>
               </div>
             )}
+            {feedback && <AiHelper contextText={questionContext()} program={profile.board_program} subject={subject} itemKey={current.id} />}
           </CardContent>
         </Card>
       )}

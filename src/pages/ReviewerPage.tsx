@@ -43,7 +43,7 @@ export default function ReviewerPage() {
   const { addToast } = useToast()
 
   useEffect(() => { if (program) setSubject(program.subjects[0]) }, [program])
-  useEffect(() => { if (profile) loadMaterials() }, [profile])
+  useEffect(() => { if (profile) loadMaterials() }, [profile?.id])
 
   async function loadMaterials() {
     if (!profile) return
@@ -124,7 +124,7 @@ export default function ReviewerPage() {
     if (!profile || !user || !program) return
     const mat = materials.find(m => m.id === selectedMaterial)
     if (!mat || (!mat.file_uri && !mat.extracted_text)) { setErr('Select a saved material with an uploaded file.'); return }
-    if (!aiConfigured()) { setErr('Supabase is not configured, so AI cannot run.'); return }
+    if (!aiConfigured()) { setErr('AI is not configured. Set VITE_GEMINI_API_KEY in your environment.'); return }
     setErr(null); setMsg(null); setBusy(`Generating ${type}...`)
     try {
       const source = sourceForMaterial(mat)
