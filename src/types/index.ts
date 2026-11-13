@@ -54,6 +54,12 @@ export interface Flashcard {
   subject: string
   front: string
   back: string
+  ease_factor?: number
+  interval_minutes?: number
+  repetitions?: number
+  next_review_at?: string
+  last_reviewed_at?: string | null
+  last_quality?: number | null
 }
 
 export type PracticeType = 'mcq' | 'diagnosis' | 'sequence' | 'flashcard_drill'

@@ -11,6 +11,7 @@ export default function DashboardPage() {
   const { profile } = useAuth()
   const program = profile ? getProgram(profile.board_program) : null
   const [attempts, setAttempts] = useState<Attempt[]>([])
+  const [dueCards, setDueCards] = useState(0)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -18,6 +19,12 @@ export default function DashboardPage() {
     ;(async () => {
       const { data } = await supabase.from('attempts').select('*').eq('user_id', profile.id).limit(500)
       setAttempts((data as Attempt[]) || [])
+      const { count } = await supabase
+        .from('flashcards')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', profile.id)
+        .lte('next_review_at', new Date().toISOString())
+      setDueCards(count || 0)
       setLoading(false)
     })()
   }, [profile])
@@ -106,6 +113,13 @@ export default function DashboardPage() {
                   {(profile.daily_items_completed || 0) >= (profile.daily_goal || 20) ? 'Goal reached! 🎉' : `${Math.max(0, (profile.daily_goal || 20) - (profile.daily_items_completed || 0))} items left`}
                 </div>
               </div>
+              <Link to="/practice?mode=flashcards" style={{ textDecoration: 'none' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: 16, background: 'var(--panel-2)', borderRadius: 12, border: `1px solid ${dueCards > 0 ? 'var(--warning-border, var(--border))' : 'var(--border)'}`, cursor: 'pointer' }}>
+                  <div style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Flashcards Due</div>
+                  <div style={{ fontSize: 32, fontWeight: 700, color: dueCards > 0 ? 'var(--warning)' : 'var(--success)' }}>{loading ? '—' : dueCards}</div>
+                  <div style={{ fontSize: 12, color: 'var(--muted)' }}>{dueCards > 0 ? 'Review now to keep them fresh' : 'All caught up'}</div>
+                </div>
+              </Link>
             </div>
           </CardContent>
         </Card>

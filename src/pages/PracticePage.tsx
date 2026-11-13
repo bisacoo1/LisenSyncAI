@@ -4,6 +4,7 @@ import { useAuth } from '@/context/AuthContext'
 import { getProgram } from '@/lib/syllabus'
 import { supabase } from '@/lib/supabase'
 import { checkDiagnosis, checkSequence, computeProfileStatsUpdate } from '@/lib/analytics'
+import { isCardDue, scheduleReview, type ReviewQuality } from '@/lib/srs'
 import type { Flashcard, McqAnswer, McqQuestion, PracticeItem, PracticeType, SequenceAnswer, SequenceQuestion, DiagnosisAnswer, DiagnosisQuestion, Profile } from '@/types'
 import { Card, CardHeader, CardContent, Button, Badge, Icon, EmptyState, SegControl, Tabs, TabPanels, TabPanel, Skeleton, useToast, type TabItem } from '@/components/ui'
 
@@ -47,7 +48,7 @@ export default function PracticePage() {
     if (!profile) return
     setLoading(true); setIdx(0); setReveal(false); setFeedback(null); setSelected(null); setDiagInput('')
     if (mode === 'flashcards') {
-      const { data } = await supabase.from('flashcards').select('*').eq('user_id', profile.id).eq('subject', subject).limit(50)
+      const { data } = await supabase.from('flashcards').select('*').eq('user_id', profile.id).eq('subject', subject).order('next_review_at', { ascending: true, nullsFirst: true }).limit(50)
       setFlashcards((data as Flashcard[]) || [])
       setItems([])
     } else {
@@ -74,6 +75,21 @@ export default function PracticePage() {
   const current = useMemo(() => items[idx], [items, idx])
   const currentCard = useMemo(() => flashcards[idx], [flashcards, idx])
 
+  async function bumpProfileStats(isCorrect: boolean) {
+    if (!user || !profile) return
+    try {
+      const { data: fresh, error: readError } = await supabase.from('profiles').select('*').eq('id', profile.id).single()
+      if (readError) throw new Error(readError.message)
+      const today = new Date().toISOString().slice(0, 10)
+      const updates = computeProfileStatsUpdate((fresh as Profile) || profile, isCorrect, today)
+      const { error: updateError } = await supabase.from('profiles').update(updates).eq('id', profile.id)
+      if (updateError) throw new Error(updateError.message)
+      await refreshProfile()
+    } catch (e: any) {
+      addToast({ type: 'error', title: 'Could not save progress', message: e.message })
+    }
+  }
+
   async function recordAttempt(correct: boolean, response: unknown) {
     if (!user || !profile) return
     try {
@@ -88,16 +104,24 @@ export default function PracticePage() {
         is_correct: correct
       })
       if (attemptError) throw new Error(attemptError.message)
-      const { data: fresh, error: readError } = await supabase.from('profiles').select('*').eq('id', profile.id).single()
-      if (readError) throw new Error(readError.message)
-      const today = new Date().toISOString().slice(0, 10)
-      const updates = computeProfileStatsUpdate((fresh as Profile) || profile, correct, today)
-      const { error: updateError } = await supabase.from('profiles').update(updates).eq('id', profile.id)
-      if (updateError) throw new Error(updateError.message)
-      await refreshProfile()
     } catch (e: any) {
       addToast({ type: 'error', title: 'Could not save progress', message: e.message })
+      return
     }
+    await bumpProfileStats(correct)
+  }
+
+  async function rateCard(quality: ReviewQuality) {
+    if (!currentCard || !profile) return
+    const sched = scheduleReview(currentCard, quality)
+    const { error } = await supabase.from('flashcards').update(sched).eq('id', currentCard.id)
+    if (error) {
+      addToast({ type: 'error', title: 'Could not save review', message: error.message })
+      return
+    }
+    setFlashcards(prev => prev.map(c => (c.id === currentCard.id ? { ...c, ...sched } : c)))
+    await bumpProfileStats(quality !== 'again')
+    next()
   }
 
   async function submitMcq() {
@@ -225,8 +249,16 @@ export default function PracticePage() {
       {!loading && !empty && !done && mode === 'flashcards' && currentCard && (
         <Card variant="elevated">
           <CardContent style={{ padding: 32, textAlign: 'center' }}>
-            <div style={{ marginBottom: 24 }}>
+            <div style={{ marginBottom: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, flexWrap: 'wrap' }}>
               <Badge variant="primary" size="sm">Card {idx + 1} of {flashcards.length} — {currentCard.subject}</Badge>
+              {isCardDue(currentCard) ? (
+                <Badge variant="warning" size="sm" dot>Due for review</Badge>
+              ) : currentCard.next_review_at ? (
+                <Badge variant="default" size="sm">Next: {new Date(currentCard.next_review_at).toLocaleDateString()}</Badge>
+              ) : null}
+              {(currentCard.repetitions ?? 0) > 0 && (
+                <Badge variant="default" size="sm">Seen {currentCard.repetitions}×</Badge>
+              )}
             </div>
             <div
               className="flashcard"
@@ -251,14 +283,28 @@ export default function PracticePage() {
                 </div>
               </div>
             </div>
-            <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
+            <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
               <Button variant="secondary" size="lg" leftIcon={reveal ? 'chevron-left' : 'eye'} onClick={() => setReveal(r => !r)}>
                 {reveal ? 'Show Prompt' : 'Flip Card'}
               </Button>
-              <Button variant="primary" size="lg" rightIcon="chevron-right" onClick={next}>
-                Next
-              </Button>
+              {reveal ? (
+                <>
+                  <Button variant="danger" size="lg" onClick={() => rateCard('again')}>Again</Button>
+                  <Button variant="secondary" size="lg" onClick={() => rateCard('hard')}>Hard</Button>
+                  <Button variant="primary" size="lg" onClick={() => rateCard('good')}>Good</Button>
+                  <Button variant="primary" size="lg" onClick={() => rateCard('easy')}>Easy</Button>
+                </>
+              ) : (
+                <Button variant="primary" size="lg" rightIcon="chevron-right" onClick={next}>
+                  Skip
+                </Button>
+              )}
             </div>
+            {reveal && (
+              <p style={{ margin: '16px 0 0', fontSize: 12, color: 'var(--muted)' }}>
+                Rate your recall to schedule the next review — Again resets the card, Easy pushes it furthest out.
+              </p>
+            )}
           </CardContent>
         </Card>
       )}

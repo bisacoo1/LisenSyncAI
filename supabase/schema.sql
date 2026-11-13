@@ -172,6 +172,17 @@ create table if not exists public.document_highlights (
 create index if not exists idx_document_highlights_material on public.document_highlights(material_id);
 create index if not exists idx_document_highlights_user on public.document_highlights(user_id);
 
+-- Spaced repetition scheduling for flashcards (SM-2 style)
+alter table public.flashcards
+  add column if not exists ease_factor numeric not null default 2.5,
+  add column if not exists interval_minutes integer not null default 0,
+  add column if not exists repetitions integer not null default 0,
+  add column if not exists next_review_at timestamptz not null default now(),
+  add column if not exists last_reviewed_at timestamptz,
+  add column if not exists last_quality integer;
+
+create index if not exists idx_flashcards_user_review on public.flashcards(user_id, next_review_at);
+
 -- Row Level Security
 alter table public.document_highlights enable row level security;
 
