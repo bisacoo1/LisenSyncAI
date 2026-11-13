@@ -46,7 +46,7 @@ export default function LoginPage() {
         <CardHeader title="Welcome back" subtitle="Sign in to access your PRC licensure reviewer" style={{ textAlign: 'center', borderBottom: 'none', paddingBottom: 8 }} />
         <CardContent style={{ paddingTop: 0 }}>
           {error && (
-            <div style={{ marginBottom: 20, padding: 12, background: 'var(--danger-bg)', border: '1px solid var(--danger-border)', borderRadius: 10, color: 'var(--danger)', display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div role="alert" style={{ marginBottom: 20, padding: 12, background: 'var(--danger-bg)', border: '1px solid var(--danger-border)', borderRadius: 10, color: 'var(--danger)', display: 'flex', alignItems: 'center', gap: 10 }}>
               <Icon name="alert-circle" size={18} />
               <span>{error}</span>
             </div>
@@ -76,6 +76,7 @@ export default function LoginPage() {
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
                     style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center' }}
                   >
                     <Icon name={showPassword ? 'eye-off' : 'eye'} size={18} />

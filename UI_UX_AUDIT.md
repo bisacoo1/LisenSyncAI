@@ -1,5 +1,7 @@
 # UI/UX Audit Report - LisenSync AI
 
+> **Status update (2026-11-13):** Most critical items below are now resolved — ProgressBar uses correct CSS vars, Modal has a focus trap, Toasts have `role="alert"`/`aria-live`, sidebar has collapsed-state tooltips, skip link exists, toasts sit top-right (no auth-button conflict), practice tabs are scrollable, tables use `.table-wrapper`, and form controls have label associations. Remaining nice-to-haves: inline-style → utility-class migration, skeleton loaders in Reviewer tables, drag-to-reorder, command palette.
+
 ## Executive Summary
 
 Your app has a **solid foundation** with a well-designed dark-mode design system, consistent component library, and good architecture. However, there are **critical accessibility gaps**, **mobile usability issues**, and **inconsistent patterns** that need addressing.

@@ -58,7 +58,7 @@ export default function RegisterPage() {
         <CardHeader title="Create your account" subtitle="Select your licensure course so subjects, AI prompts, and analytics align with your official board syllabus." style={{ textAlign: 'center', borderBottom: 'none', paddingBottom: 8 }} />
         <CardContent style={{ paddingTop: 0 }}>
           {error && (
-            <div style={{ marginBottom: 20, padding: 12, background: 'var(--danger-bg)', border: '1px solid var(--danger-border)', borderRadius: 10, color: 'var(--danger)', display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div role="alert" style={{ marginBottom: 20, padding: 12, background: 'var(--danger-bg)', border: '1px solid var(--danger-border)', borderRadius: 10, color: 'var(--danger)', display: 'flex', alignItems: 'center', gap: 10 }}>
               <Icon name="alert-circle" size={18} />
               <span>{error}</span>
             </div>
@@ -96,6 +96,7 @@ export default function RegisterPage() {
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
                     style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center' }}
                   >
                     <Icon name={showPassword ? 'eye-off' : 'eye'} size={18} />
@@ -107,8 +108,8 @@ export default function RegisterPage() {
             </div>
 
             <div>
-              <label style={{ display: 'block', fontSize: 12, color: 'var(--muted)', marginBottom: 6, fontWeight: 500 }}>PRC BOARD PROGRAM</label>
               <Select
+                label="PRC Board Program"
                 value={program}
                 onChange={e => setProgram(e.target.value as BoardProgramKey)}
                 options={PROGRAM_LIST.map(p => ({ value: p.key, label: p.name }))}

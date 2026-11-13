@@ -180,14 +180,14 @@ export default function ReviewerPage() {
       </div>
 
       {err && (
-        <div style={{ marginBottom: 16, padding: 16, background: 'var(--danger-bg)', border: '1px solid var(--danger-border)', borderRadius: 10, color: 'var(--danger)', display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div role="alert" style={{ marginBottom: 16, padding: 16, background: 'var(--danger-bg)', border: '1px solid var(--danger-border)', borderRadius: 10, color: 'var(--danger)', display: 'flex', alignItems: 'center', gap: 12 }}>
           <Icon name="alert-circle" size={20} />
           <span>{err}</span>
         </div>
       )}
 
       {msg && (
-        <div style={{ marginBottom: 16, padding: 16, background: 'var(--success-bg)', border: '1px solid var(--success-border)', borderRadius: 10, color: 'var(--success)', display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div role="status" style={{ marginBottom: 16, padding: 16, background: 'var(--success-bg)', border: '1px solid var(--success-border)', borderRadius: 10, color: 'var(--success)', display: 'flex', alignItems: 'center', gap: 12 }}>
           <Icon name="check-circle" size={20} />
           <span>{msg}</span>
         </div>
@@ -225,9 +225,10 @@ export default function ReviewerPage() {
               />
 
               <div>
-                <label style={{ display: 'block', fontSize: 12, color: 'var(--muted)', marginBottom: 6, fontWeight: 500 }}>FILE</label>
+                <label htmlFor="review-file-input" style={{ display: 'block', fontSize: 12, color: 'var(--muted)', marginBottom: 6, fontWeight: 500 }}>FILE</label>
                 <div style={{ position: 'relative' }}>
                   <input
+                    id="review-file-input"
                     type="file"
                     accept="application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/vnd.ms-powerpoint"
                     onChange={e => { setFile(e.target.files?.[0] || null); setFileReady(false) }}

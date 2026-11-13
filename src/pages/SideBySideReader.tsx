@@ -260,7 +260,7 @@ export default function SideBySideReader() {
       {/* Header */}
       <div style={{ padding: '24px 0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <Button variant="ghost" size="icon" onClick={() => nav('/reviewer')} leftIcon="chevron-left" />
+          <Button variant="ghost" size="icon" onClick={() => nav('/reviewer')} leftIcon="chevron-left" aria-label="Back to reviewer" />
           <div>
             <h1 style={{ margin: 0, fontSize: 28, fontWeight: 800, color: 'var(--text)' }}>Side by Side Reader</h1>
             <p style={{ margin: '4px 0 0', color: 'var(--muted)', fontSize: 14 }}>

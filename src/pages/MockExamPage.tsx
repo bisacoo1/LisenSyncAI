@@ -160,7 +160,7 @@ export default function MockExamPage() {
   if (!profile || !program) {
     return (
       <div className="container" style={{ paddingTop: 24 }}>
-        <div style={{ padding: 16, background: 'var(--danger-bg)', border: '1px solid var(--danger-border)', borderRadius: 10, color: 'var(--danger)', display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div role="alert" style={{ padding: 16, background: 'var(--danger-bg)', border: '1px solid var(--danger-border)', borderRadius: 10, color: 'var(--danger)', display: 'flex', alignItems: 'center', gap: 12 }}>
           <Icon name="alert-circle" size={20} />
           <span>Unable to load profile or program. Please complete onboarding first.</span>
         </div>
@@ -182,7 +182,7 @@ export default function MockExamPage() {
         </div>
 
         {err && (
-          <div style={{ marginBottom: 16, padding: 16, background: 'var(--danger-bg)', border: '1px solid var(--danger-border)', borderRadius: 10, color: 'var(--danger)', display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div role="alert" style={{ marginBottom: 16, padding: 16, background: 'var(--danger-bg)', border: '1px solid var(--danger-border)', borderRadius: 10, color: 'var(--danger)', display: 'flex', alignItems: 'center', gap: 12 }}>
             <Icon name="alert-circle" size={20} />
             <span>{err}</span>
           </div>
@@ -382,14 +382,14 @@ export default function MockExamPage() {
       </div>
 
       {err && (
-        <div style={{ marginBottom: 16, padding: 16, background: 'var(--danger-bg)', border: '1px solid var(--danger-border)', borderRadius: 10, color: 'var(--danger)', display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div role="alert" style={{ marginBottom: 16, padding: 16, background: 'var(--danger-bg)', border: '1px solid var(--danger-border)', borderRadius: 10, color: 'var(--danger)', display: 'flex', alignItems: 'center', gap: 12 }}>
           <Icon name="alert-circle" size={20} />
           <span>{err}</span>
         </div>
       )}
 
       {msg && (
-        <div style={{ marginBottom: 16, padding: 16, background: 'var(--success-bg)', border: '1px solid var(--success-border)', borderRadius: 10, color: 'var(--success)', display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div role="status" style={{ marginBottom: 16, padding: 16, background: 'var(--success-bg)', border: '1px solid var(--success-border)', borderRadius: 10, color: 'var(--success)', display: 'flex', alignItems: 'center', gap: 12 }}>
           <Icon name="check-circle" size={20} />
           <span>{msg}</span>
         </div>

@@ -192,12 +192,13 @@ export default function PracticePage() {
         <CardContent style={{ padding: 20 }}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16, alignItems: 'end', marginBottom: 16 }}>
             <div>
-              <label style={{ display: 'block', fontSize: 12, color: 'var(--muted)', marginBottom: 6, fontWeight: 500 }}>MODE</label>
+              <span style={{ display: 'block', fontSize: 12, color: 'var(--muted)', marginBottom: 6, fontWeight: 500 }}>MODE</span>
               <Tabs tabs={modeTabs} value={mode} onChange={(v) => setMode(v as 'flashcards' | PracticeType)} variant="scrollable" fullWidth />
             </div>
             <div>
-              <label style={{ display: 'block', fontSize: 12, color: 'var(--muted)', marginBottom: 6, fontWeight: 500 }}>BOARD SUBJECT</label>
+              <label htmlFor="practice-subject" style={{ display: 'block', fontSize: 12, color: 'var(--muted)', marginBottom: 6, fontWeight: 500 }}>BOARD SUBJECT</label>
               <select
+                id="practice-subject"
                 value={subject}
                 onChange={e => setSubject(e.target.value)}
                 style={{ width: '100%', padding: '10px 14px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel-2)', color: 'var(--text)', fontSize: 14 }}
@@ -402,8 +403,9 @@ export default function PracticePage() {
             </div>
 
             <div style={{ marginBottom: 16 }}>
-              <label style={{ display: 'block', fontSize: 12, color: 'var(--muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>Your Identification</label>
+              <label htmlFor="diagnosis-input" style={{ display: 'block', fontSize: 12, color: 'var(--muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>Your Identification</label>
               <input
+                id="diagnosis-input"
                 value={diagInput}
                 onChange={e => setDiagInput(e.target.value)}
                 placeholder="Identify the concept, principle, or law..."

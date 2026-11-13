@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { getProgram } from '@/lib/syllabus'
 import { supabase } from '@/lib/supabase'
@@ -8,6 +9,7 @@ import { Card, CardHeader, CardContent, Badge, Icon, ProgressBar, CircularProgre
 
 export default function AnalyticsPage() {
   const { profile, user } = useAuth()
+  const navigate = useNavigate()
   const program = profile ? getProgram(profile.board_program) : null
   const [attempts, setAttempts] = useState<Attempt[]>([])
   const [exams, setExams] = useState<MockExam[]>([])
@@ -195,10 +197,10 @@ export default function AnalyticsPage() {
                 icon="timer"
                 title="No mock exams yet"
                 description="Start a timed simulation to track your exam readiness."
-                action={{ label: 'Start Mock Exam', onClick: () => window.location.href = '/mock', variant: 'primary' }}
+                action={{ label: 'Start Mock Exam', onClick: () => navigate('/mock'), variant: 'primary' }}
               />
             ) : (
-              <div style={{ overflowX: 'auto' }}>
+              <div className="table-wrapper">
                 <table className="table" style={{ minWidth: 500 }}>
                   <thead>
                     <tr>

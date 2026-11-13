@@ -41,7 +41,7 @@ export default function OnboardingPage() {
         <CardHeader title="Board Program Onboarding" subtitle="Select your specific licensure course. All subjects, AI prompts, and analytics will align with your official board syllabus and the 75% PRC passing benchmark." style={{ textAlign: 'center', borderBottom: 'none', paddingBottom: 8 }} />
         <CardContent style={{ paddingTop: 0 }}>
           {error && (
-            <div style={{ marginBottom: 20, padding: 12, background: 'var(--danger-bg)', border: '1px solid var(--danger-border)', borderRadius: 10, color: 'var(--danger)', display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div role="alert" style={{ marginBottom: 20, padding: 12, background: 'var(--danger-bg)', border: '1px solid var(--danger-border)', borderRadius: 10, color: 'var(--danger)', display: 'flex', alignItems: 'center', gap: 10 }}>
               <Icon name="alert-circle" size={18} />
               <span>{error}</span>
             </div>
@@ -58,8 +58,8 @@ export default function OnboardingPage() {
             />
 
             <div>
-              <label style={{ display: 'block', fontSize: 12, color: 'var(--muted)', marginBottom: 6, fontWeight: 500 }}>PRC BOARD PROGRAM</label>
               <Select
+                label="PRC Board Program"
                 value={program}
                 onChange={e => setProgram(e.target.value as BoardProgramKey)}
                 options={PROGRAM_LIST.map(p => ({ value: p.key, label: p.name }))}
