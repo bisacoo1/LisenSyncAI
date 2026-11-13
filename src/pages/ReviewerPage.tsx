@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { getProgram } from '@/lib/syllabus'
-import { aiConfigured, generateFlashcardsFromFile, generatePracticeItemsFromFile, fileToDataUrl, type GeneratedFlashcard } from '@/lib/ai'
+import { aiConfigured, generateFlashcardsFromFile, generatePracticeItemsFromFile, fileToDataUrl, extractTextFromFile, type GeneratedFlashcard } from '@/lib/ai'
 import { supabase } from '@/lib/supabase'
 import type { Flashcard, PracticeType, ReviewMaterial } from '@/types'
 import { Card, CardHeader, CardContent, Button, Badge, Icon, Input, Select, EmptyState, Skeleton, useToast, Modal } from '@/components/ui'
@@ -72,18 +72,26 @@ export default function ReviewerPage() {
     if (!profile || !user || !program) return
     if (!title || !subject) { setErr('Title and subject are required.'); return }
     if (!fileUri) { setErr('Please upload a file first.'); return }
-    setErr(null); setMsg(null); setBusy('Saving material...')
+    setErr(null); setMsg(null); setBusy('Extracting text from document...')
     try {
+      let extractedText = ''
+      if (aiConfigured() && fileUri) {
+        extractedText = await extractTextFromFile({
+          dataUrl: fileUri,
+          mimeType: file?.type || 'application/pdf',
+        })
+      }
+
       const { data, error } = await supabase.from('review_materials').insert({
         user_id: user.id, title, board_program: profile.board_program, subject,
         source_filename: file?.name || null,
         file_uri: fileUri,
         mime_type: file?.type || null,
         file_size: file?.size || null,
-        extracted_text: null
+        extracted_text: extractedText || null
       }).select().single()
       if (error) throw error
-      setMsg('Reviewer material saved.')
+      setMsg('Material saved and text extracted.')
       addToast({ type: 'success', title: 'Material saved', message: title })
       setTitle(''); setFile(null); setFileUri(null)
       await loadMaterials()

@@ -184,3 +184,21 @@ export async function explainText(params: {
   const explanation = data.candidates?.[0]?.content?.parts?.[0]?.text || 'No explanation generated.'
   return { explanation, model: GEMINI_MODEL }
 }
+
+export async function extractTextFromFile(params: {
+  dataUrl: string
+  mimeType: string
+}): Promise<string> {
+  const body = {
+    model: `models/${GEMINI_MODEL}`,
+    contents: [{
+      parts: [
+        { inlineData: { mimeType: params.mimeType, data: params.dataUrl.split(',')[1] } },
+        { text: 'Extract all the text content from this document. Return ONLY the raw text content, preserving paragraphs and line breaks. Do not add any commentary, formatting, or analysis — just the raw text as it appears in the document.' }
+      ]
+    }],
+    generationConfig: { temperature: 0.1 }
+  }
+  const data = await geminiRequestWithFallback(GEMINI_MODEL, body)
+  return data.candidates?.[0]?.content?.parts?.[0]?.text || ''
+}
