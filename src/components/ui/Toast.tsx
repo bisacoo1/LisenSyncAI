@@ -80,6 +80,7 @@ const ToastContainer: React.FC<{ toasts: Toast[]; onRemove: (id: string) => void
       role="region"
       aria-label="Notifications"
       aria-live="polite"
+      aria-atomic="true"
     >
       {toasts.map((toast) => (
         <ToastItem key={toast.id} toast={toast} onRemove={onRemove} />
@@ -125,6 +126,9 @@ const ToastItem: React.FC<{ toast: Toast; onRemove: (id: string) => void }> = ({
     default: 'var(--primary)',
   }
 
+  // Use role="alert" for error and success toasts to ensure they're announced
+  const isAlert = toast.type === 'error' || toast.type === 'success'
+
   const style: React.CSSProperties = {
     display: 'flex',
     alignItems: 'flex-start',
@@ -144,7 +148,7 @@ const ToastItem: React.FC<{ toast: Toast; onRemove: (id: string) => void }> = ({
   }
 
   return (
-    <div style={style}>
+    <div style={style} role={isAlert ? 'alert' : undefined} aria-live={isAlert ? 'assertive' : undefined} aria-atomic={isAlert ? true : undefined}>
       <Icon name={typeIcons[toast.type] as any} size={20} style={{ color: typeTitleColors[toast.type], flexShrink: 0, marginTop: 2 }} />
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontWeight: 600, fontSize: 14, color: typeTitleColors[toast.type] }}>{toast.title}</div>
@@ -162,6 +166,7 @@ const ToastItem: React.FC<{ toast: Toast; onRemove: (id: string) => void }> = ({
       </div>
       <button
         onClick={() => { setExiting(true); setTimeout(() => onRemove(toast.id), 200) }}
+        aria-label="Dismiss notification"
         style={{
           display: 'flex',
           alignItems: 'center',
@@ -180,7 +185,7 @@ const ToastItem: React.FC<{ toast: Toast; onRemove: (id: string) => void }> = ({
         onMouseOver={(e) => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.background = 'var(--panel-2)' }}
         onMouseOut={(e) => { e.currentTarget.style.opacity = '0.6'; e.currentTarget.style.background = 'transparent' }}
       >
-        <Icon name="x" size={14} strokeWidth={2.5} />
+        <Icon name="x" size={14} strokeWidth={2.5} aria-hidden="true" />
       </button>
     </div>
   )

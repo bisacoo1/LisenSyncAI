@@ -36,7 +36,7 @@ export default function PracticePage() {
     if (qpSubject) setSubject(qpSubject)
     // Clear query params without reload
     window.history.replaceState({}, '', window.location.pathname)
-  }, [])
+  }, [searchParams])
 
   useEffect(() => {
     if (!profile || !subject) return
@@ -244,7 +244,7 @@ export default function PracticePage() {
             </div>
             <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
               <Button variant="secondary" size="lg" leftIcon={reveal ? 'chevron-left' : 'eye'} onClick={() => setReveal(r => !r)}>
-                {reveal ? 'Show Prompt' : 'Reveal Answer'}
+                {reveal ? 'Show Prompt' : 'Flip Card'}
               </Button>
               <Button variant="primary" size="lg" rightIcon="chevron-right" onClick={next}>
                 Next
@@ -346,7 +346,7 @@ export default function PracticePage() {
               <input
                 value={diagInput}
                 onChange={e => setDiagInput(e.target.value)}
-                placeholder="Enter the exact concept/principle/law/formula..."
+                placeholder="Identify the concept, principle, or law..."
                 disabled={!!feedback}
                 style={{ width: '100%', padding: '14px 16px', borderRadius: 10, border: `1px solid ${feedback ? (feedback.correct ? 'var(--success)' : 'var(--danger)') : 'var(--border)'}`, background: 'var(--panel-2)', color: 'var(--text)', fontSize: 14 }}
               />
@@ -402,8 +402,8 @@ export default function PracticePage() {
                     <span style={{ fontSize: 15 }}>{item}</span>
                   </span>
                   <div style={{ display: 'flex', gap: 6 }}>
-                    <Button variant="ghost" size="icon" onClick={() => !feedback && moveSeq(i, -1)} disabled={i === 0 || !!feedback}><Icon name="chevron-up" size={16} /></Button>
-                    <Button variant="ghost" size="icon" onClick={() => !feedback && moveSeq(i, 1)} disabled={i === seqOrder.length - 1 || !!feedback}><Icon name="chevron-down" size={16} /></Button>
+                    <Button variant="ghost" size="icon" onClick={() => !feedback && moveSeq(i, -1)} disabled={i === 0 || !!feedback} aria-label="Move up"><Icon name="chevron-up" size={16} aria-hidden="true" /></Button>
+                    <Button variant="ghost" size="icon" onClick={() => !feedback && moveSeq(i, 1)} disabled={i === seqOrder.length - 1 || !!feedback} aria-label="Move down"><Icon name="chevron-down" size={16} aria-hidden="true" /></Button>
                   </div>
                 </div>
               ))}

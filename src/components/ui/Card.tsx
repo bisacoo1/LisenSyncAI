@@ -41,6 +41,7 @@ export const Card = React.forwardRef<HTMLDivElement, CardProps>(
       ...variantStyles[variant],
       ...paddingStyles[padding],
       transition: 'all 200ms ease',
+      cursor: hoverable ? 'pointer' : undefined,
       ...style,
     }
 

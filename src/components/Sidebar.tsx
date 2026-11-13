@@ -27,7 +27,7 @@ export function Sidebar({ open = false, onToggle, collapsed = false }: { open?: 
               aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
               style={{ background: 'transparent', border: '1px solid var(--border)', color: 'var(--muted)', padding: 6, borderRadius: 8, cursor: 'pointer', marginLeft: 'auto' }}
             >
-              <Icon name={collapsed ? 'chevron-right' : 'chevron-left'} size={16} />
+              <Icon name={collapsed ? 'chevron-right' : 'chevron-left'} size={16} aria-hidden="true" />
             </button>
           </Tooltip>
         )}
@@ -46,7 +46,7 @@ export function Sidebar({ open = false, onToggle, collapsed = false }: { open?: 
                     aria-label={item.label}
                   >
                     <span className="sidebar-icon">
-                      <Icon name={item.icon as any} size={20} />
+                      <Icon name={item.icon as any} size={20} aria-hidden="true" />
                     </span>
                     <span className="sidebar-label">{item.label}</span>
                   </Link>

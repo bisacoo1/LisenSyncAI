@@ -454,8 +454,8 @@ export default function MockExamPage() {
                         <span style={{ fontSize: 14 }}>{item}</span>
                       </span>
                       <div style={{ display: 'flex', gap: 6 }}>
-                        <Button variant="ghost" size="icon" onClick={() => moveSeq(i, -1)} disabled={i === 0}><Icon name="chevron-up" size={16} /></Button>
-                        <Button variant="ghost" size="icon" onClick={() => moveSeq(i, 1)} disabled={i === seqOrder.length - 1}><Icon name="chevron-down" size={16} /></Button>
+                        <Button variant="ghost" size="icon" onClick={() => moveSeq(i, -1)} disabled={i === 0} aria-label="Move up"><Icon name="chevron-up" size={16} aria-hidden="true" /></Button>
+                        <Button variant="ghost" size="icon" onClick={() => moveSeq(i, 1)} disabled={i === seqOrder.length - 1} aria-label="Move down"><Icon name="chevron-down" size={16} aria-hidden="true" /></Button>
                       </div>
                     </div>
                   ))}
@@ -481,18 +481,19 @@ export default function MockExamPage() {
             <h4 style={{ margin: 0, fontSize: 14, fontWeight: 600 }}>Question Navigator</h4>
             <Badge variant="default" size="sm">{answeredCount}/{items.length} answered</Badge>
           </div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
             {items.map((x, i) => (
               <button
                 key={x.id}
                 onClick={() => setCurrent(i)}
+                aria-label={`Go to question ${i + 1}${responses[x.id] ? ' (answered)' : ''}${i === current ? ' (current)' : ''}`}
                 style={{
                   display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                  width: 40, height: 40, borderRadius: 10, border: '2px solid',
+                  width: 44, height: 44, borderRadius: 10, border: '2px solid',
                   borderColor: i === current ? 'var(--primary)' : responses[x.id] ? 'var(--success)' : 'var(--border)',
                   background: i === current ? 'var(--primary-bg)' : responses[x.id] ? 'var(--success-bg)' : 'var(--panel-2)',
                   color: i === current ? 'var(--primary)' : responses[x.id] ? 'var(--success)' : 'var(--text)',
-                  fontWeight: 600, fontSize: 13, transition: 'all 150ms ease'
+                  fontWeight: 600, fontSize: 13, transition: 'all 150ms ease', minWidth: 44
                 }}
               >
                 {i + 1}

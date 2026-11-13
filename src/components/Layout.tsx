@@ -14,12 +14,12 @@ export function Layout({ children }: { children?: ReactNode }) {
     <div className={`app-shell ${collapsed ? 'collapsed' : ''}`}>
       <div className="mobile-topbar">
         <button className="mobile-toggle" onClick={() => setMobileOpen(o => !o)} aria-label="Toggle menu">
-          <Icon name="menu" size={22} />
+          <Icon name="menu" size={22} aria-hidden="true" />
         </button>
         <span className="brand">LisenSync AI</span>
         {profile && (
           <Badge variant="primary" size="sm" style={{ fontWeight: 500 }}>
-            <Icon name="flag" size={11} />
+            <Icon name="flag" size={11} aria-hidden="true" />
             {profile.board_program.replace('_', ' ')}
           </Badge>
         )}
@@ -39,7 +39,8 @@ export function Layout({ children }: { children?: ReactNode }) {
       )}
 
       <main className="app-main">
-        <div className="container">
+        <a href="#main-content" className="skip-link sr-only">Skip to main content</a>
+        <div className="container" id="main-content">
           <Outlet />
           {children}
         </div>
@@ -47,7 +48,7 @@ export function Layout({ children }: { children?: ReactNode }) {
 
       <div className="auth-actions">
         {profile && (
-          <Button variant="ghost" size="sm" leftIcon="logout" onClick={async () => { await signOut() }}>
+          <Button variant="ghost" size="sm" leftIcon="logout" onClick={async () => { await signOut() }} aria-label="Sign out">
             Sign out
           </Button>
         )}

@@ -207,7 +207,7 @@ export const Modal: React.FC<ModalProps> = ({
                 onMouseOut={(e) => { e.currentTarget.style.opacity = '0.7'; e.currentTarget.style.background = 'transparent' }}
                 aria-label="Close"
               >
-                <Icon name="x" size={18} strokeWidth={2.5} />
+                <Icon name="x" size={18} strokeWidth={2.5} aria-hidden="true" />
               </button>
             )}
           </div>

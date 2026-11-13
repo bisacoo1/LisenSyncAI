@@ -78,7 +78,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         boxShadow: '0 2px 8px rgba(239, 68, 68, 0.3)',
       },
       success: {
-        background: 'linear-gradient(135deg, var(--ok) 0%, #16a34a 100%)',
+        background: 'linear-gradient(135deg, var(--success) 0%, #16a34a 100%)',
         color: '#fff',
         boxShadow: '0 2px 8px rgba(34, 197, 94, 0.3)',
       },
@@ -90,7 +90,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       outline: { background: 'rgba(45, 212, 191, 0.1)' },
       ghost: { background: 'var(--panel-2)' },
       danger: { background: 'linear-gradient(135deg, #dc2626 0%, var(--danger) 100%)', transform: 'translateY(-1px)' },
-      success: { background: 'linear-gradient(135deg, #16a34a 0%, var(--ok) 100%)', transform: 'translateY(-1px)' },
+      success: { background: 'linear-gradient(135deg, #16a34a 0%, var(--success) 100%)', transform: 'translateY(-1px)' },
     }
 
     const activeStyles: Record<string, React.CSSProperties> = {
