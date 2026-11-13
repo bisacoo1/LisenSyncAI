@@ -20,6 +20,17 @@ create table if not exists public.profiles (
   updated_at timestamptz default now()
 );
 
+-- Columns added after initial release; safe to re-run on existing databases
+alter table public.profiles
+  add column if not exists xp integer default 0,
+  add column if not exists level integer default 1,
+  add column if not exists current_streak integer default 0,
+  add column if not exists longest_streak integer default 0,
+  add column if not exists last_activity_date date,
+  add column if not exists daily_goal integer default 20,
+  add column if not exists daily_items_completed integer default 0,
+  add column if not exists daily_goal_date date;
+
 -- Review materials uploaded by users
 create table if not exists public.review_materials (
   id uuid primary key default gen_random_uuid(),
@@ -34,6 +45,10 @@ create table if not exists public.review_materials (
   extracted_text text,
   created_at timestamptz default now()
 );
+
+-- Columns added after initial release; safe to re-run on existing databases
+alter table public.review_materials
+  add column if not exists extracted_text text;
 
 -- Flashcards generated from materials
 create table if not exists public.flashcards (
