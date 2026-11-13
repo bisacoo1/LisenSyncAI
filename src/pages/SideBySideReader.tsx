@@ -230,6 +230,26 @@ export default function SideBySideReader() {
     }
   }
 
+  async function removeFollowUp(index: number) {
+    if (!currentExplanation) return
+    setFollowUps(followUps.filter((_, i) => i !== index))
+    addToast({ type: 'success', title: 'Deleted', message: 'Follow-up removed' })
+  }
+
+  async function clearAllHighlights() {
+    if (!profile || !user) return
+    try {
+      const { error } = await supabase.from('document_highlights').delete().eq('material_id', mat.id).eq('user_id', user.id)
+      if (error) throw error
+      setHighlights([])
+      setCurrentExplanation(null)
+      setFollowUps([])
+      addToast({ type: 'success', title: 'Cleared', message: 'All highlights deleted' })
+    } catch (e: any) {
+      addToast({ type: 'error', title: 'Delete failed', message: e.message })
+    }
+  }
+
   const goToPage = (page: number) => {
     if (page < 1 || page > totalPages) return
     setCurrentPage(page)
@@ -366,9 +386,19 @@ export default function SideBySideReader() {
           <div style={{ flex: 1, overflow: 'auto', padding: 20, display: 'flex', flexDirection: 'column', gap: 16 }}>
             {/* Saved highlights section */}
             <div>
-              <h4 style={{ margin: '0 0 12px', fontSize: 13, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                Saved Highlights ({highlights.length})
-              </h4>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                <h4 style={{ margin: 0, fontSize: 13, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  Saved Highlights ({highlights.length})
+                </h4>
+                {highlights.length > 0 && (
+                  <button
+                    onClick={clearAllHighlights}
+                    style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', padding: 4, borderRadius: 4, fontSize: 11, fontWeight: 600 }}
+                  >
+                    Clear all
+                  </button>
+                )}
+              </div>
               {highlights.length === 0 ? (
                 <div style={{ fontSize: 13, color: 'var(--muted)', textAlign: 'center', padding: 24 }}>
                   No highlights yet. Select text in the document and tap 'Highlight'.
@@ -440,23 +470,31 @@ export default function SideBySideReader() {
                   </Button>
                 </div>
 
-                {followUps.length > 0 && (
-                  <div>
-                    <h4 style={{ margin: '16px 0 12px', fontSize: 13, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                      Conversation
-                    </h4>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                      {followUps.map((f, i) => (
-                        <div key={i} style={{ padding: 10, background: 'var(--panel-2)', borderRadius: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--primary)' }}>You:</div>
-                          <div style={{ fontSize: 12.5, color: 'var(--text)' }}>{f.question}</div>
-                          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', marginTop: 4 }}>AI:</div>
-                          <div style={{ fontSize: 12.5, color: 'var(--text-dim)', lineHeight: 1.6 }}>{f.answer}</div>
+                    {followUps.length > 0 && (
+                      <div>
+                        <h4 style={{ margin: '16px 0 12px', fontSize: 13, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                          Conversation
+                        </h4>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                          {followUps.map((f, i) => (
+                            <div key={i} style={{ padding: 10, background: 'var(--panel-2)', borderRadius: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--primary)' }}>You:</div>
+                                <button
+                                  onClick={() => removeFollowUp(i)}
+                                  style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', padding: 2, borderRadius: 4 }}
+                                >
+                                  <Icon name="trash" size={14} />
+                                </button>
+                              </div>
+                              <div style={{ fontSize: 12.5, color: 'var(--text)' }}>{f.question}</div>
+                              <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', marginTop: 4 }}>AI:</div>
+                              <div style={{ fontSize: 12.5, color: 'var(--text-dim)', lineHeight: 1.6 }}>{f.answer}</div>
+                            </div>
+                          ))}
                         </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
+                      </div>
+                    )}
               </>
             )}
 

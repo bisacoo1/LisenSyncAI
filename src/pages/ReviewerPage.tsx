@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { getProgram } from '@/lib/syllabus'
-import { aiConfigured, generateFlashcardsFromFile, generatePracticeItemsFromFile, fileToDataUrl, extractTextFromFile, type GeneratedFlashcard } from '@/lib/ai'
+import { aiConfigured, generateFlashcardsFromFile, generatePracticeItemsFromFile, extractTextFromFile, type MaterialSource } from '@/lib/ai'
+import { removeReviewFile, uploadReviewFile, assertReviewFile } from '@/lib/storage'
 import { supabase } from '@/lib/supabase'
 import type { Flashcard, PracticeType, ReviewMaterial } from '@/types'
 import { Card, CardHeader, CardContent, Button, Badge, Icon, Input, Select, EmptyState, Skeleton, useToast, Modal } from '@/components/ui'
@@ -31,7 +32,7 @@ export default function ReviewerPage() {
   const [title, setTitle] = useState('')
   const [subject, setSubject] = useState('')
   const [file, setFile] = useState<File | null>(null)
-  const [fileUri, setFileUri] = useState<string | null>(null)
+  const [fileReady, setFileReady] = useState(false)
   const [busy, setBusy] = useState<string | null>(null)
   const [msg, setMsg] = useState<string | null>(null)
   const [err, setErr] = useState<string | null>(null)
@@ -53,65 +54,82 @@ export default function ReviewerPage() {
     setFlashcards((fc as Flashcard[]) || [])
   }
 
+  function sourceForMaterial(mat: ReviewMaterial): MaterialSource {
+    if (mat.extracted_text?.trim()) return { documentText: mat.extracted_text }
+    if (!mat.file_uri) throw new Error('Select a saved material with an uploaded file.')
+    if (mat.file_uri.startsWith('data:')) {
+      const comma = mat.file_uri.indexOf(',')
+      return { inlineData: mat.file_uri.slice(comma + 1), mimeType: mat.mime_type || 'application/pdf' }
+    }
+    return { storagePath: mat.file_uri, mimeType: mat.mime_type || 'application/pdf' }
+  }
+
   async function handleUpload() {
     if (!file) return
-    const allowed = ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/vnd.openxmlformats-officedocument.presentationml.openxmlformats-officedocument.presentationml.document']
-    if (!allowed.includes(file.type)) {
-      setErr('Only PDF, DOCX, and PPT/PPTX files are supported.')
-      return
-    }
-    setErr(null); setMsg(null); setBusy('Reading file...')
+    setErr(null); setMsg(null)
     try {
-      const dataUrl = await fileToDataUrl(file)
-      setFileUri(dataUrl)
-      setMsg(`File ready (${(file.size / 1024 / 1024).toFixed(2)} MB). Save to proceed.`)
-    } catch (e: any) { setErr(e.message) } finally { setBusy(null) }
+      assertReviewFile(file)
+      setFileReady(true)
+      setMsg(`File ready (${(file.size / 1024 / 1024).toFixed(2)} MB). Save to upload it.`)
+    } catch (e: any) {
+      setFileReady(false)
+      setErr(e.message)
+    }
   }
 
   async function saveMaterial() {
-    if (!profile || !user || !program) return
+    if (!profile || !user || !program || !file) return
     if (!title || !subject) { setErr('Title and subject are required.'); return }
-    if (!fileUri) { setErr('Please upload a file first.'); return }
-    setErr(null); setMsg(null); setBusy('Extracting text from document...')
+    setErr(null); setMsg(null)
+    let storagePath = ''
     try {
+      assertReviewFile(file)
+      setBusy('Uploading file...')
+      storagePath = await uploadReviewFile(user.id, file)
       let extractedText = ''
-      if (aiConfigured() && fileUri) {
-        extractedText = await extractTextFromFile({
-          dataUrl: fileUri,
-          mimeType: file?.type || 'application/pdf',
-        })
+      let extractError: string | null = null
+      if (aiConfigured()) {
+        setBusy('Extracting text from document...')
+        try {
+          extractedText = await extractTextFromFile({ storagePath, mimeType: file.type })
+        } catch (e: any) {
+          extractError = e.message
+        }
       }
 
       const { data, error } = await supabase.from('review_materials').insert({
         user_id: user.id, title, board_program: profile.board_program, subject,
-        source_filename: file?.name || null,
-        file_uri: fileUri,
-        mime_type: file?.type || null,
-        file_size: file?.size || null,
+        source_filename: file.name,
+        file_uri: storagePath,
+        mime_type: file.type,
+        file_size: file.size,
         extracted_text: extractedText || null
       }).select().single()
       if (error) throw error
-      setMsg('Material saved and text extracted.')
+      storagePath = ''
+      setMsg(extractError ? 'Material saved. Text extraction failed, so generation will read the stored file.' : 'Material saved and text extracted.')
+      if (extractError) setErr(extractError)
       addToast({ type: 'success', title: 'Material saved', message: title })
-      setTitle(''); setFile(null); setFileUri(null)
+      setTitle(''); setFile(null); setFileReady(false)
       await loadMaterials()
-      if (data) setSelectedMaterial((data as any).id)
-    } catch (e: any) { setErr(e.message) } finally { setBusy(null) }
+      if (data) setSelectedMaterial((data as ReviewMaterial).id)
+    } catch (e: any) {
+      if (storagePath) await removeReviewFile(storagePath)
+      setErr(e.message)
+    } finally { setBusy(null) }
   }
 
   async function generate(type: 'flashcards' | PracticeType) {
     if (!profile || !user || !program) return
     const mat = materials.find(m => m.id === selectedMaterial)
-    if (!mat || !mat.file_uri) { setErr('Select a saved material with an uploaded file.'); return }
-    if (!aiConfigured()) { setErr('AI is not configured. Set VITE_GEMINI_API_KEY in .env.'); return }
+    if (!mat || (!mat.file_uri && !mat.extracted_text)) { setErr('Select a saved material with an uploaded file.'); return }
+    if (!aiConfigured()) { setErr('Supabase is not configured, so AI cannot run.'); return }
     setErr(null); setMsg(null); setBusy(`Generating ${type}...`)
     try {
-      const dataUrl = mat.file_uri!
-      const mimeType = mat.mime_type || 'application/pdf'
+      const source = sourceForMaterial(mat)
       if (type === 'flashcards') {
         const cards = await generateFlashcardsFromFile({
-          dataUrl,
-          mimeType,
+          ...source,
           subject: mat.subject,
           program: profile.board_program,
           count: 10
@@ -126,8 +144,7 @@ export default function ReviewerPage() {
         navigate(`/practice?mode=flashcards&subject=${encodeURIComponent(mat.subject)}`)
       } else {
         const items = await generatePracticeItemsFromFile({
-          dataUrl: mat.file_uri!,
-          mimeType: mat.mime_type || 'application/pdf',
+          ...source,
           subject: mat.subject,
           program: profile.board_program,
           type,
@@ -212,8 +229,8 @@ export default function ReviewerPage() {
                 <div style={{ position: 'relative' }}>
                   <input
                     type="file"
-                    accept="application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.presentationml.openxmlformats-officedocument.presentationml.document,application/vnd.ms-powerpoint"
-                    onChange={e => setFile(e.target.files?.[0] || null)}
+                    accept="application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/vnd.ms-powerpoint"
+                    onChange={e => { setFile(e.target.files?.[0] || null); setFileReady(false) }}
                     style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer', width: '100%' }}
                   />
                   <div style={{
@@ -234,9 +251,9 @@ export default function ReviewerPage() {
 
               <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                 <Button variant="secondary" size="lg" leftIcon="upload" onClick={handleUpload} disabled={!file || !!busy} fullWidth style={{ maxWidth: 200 }}>
-                  Upload to Gemini
+                  {fileReady ? 'File ready' : 'Check file'}
                 </Button>
-                <Button variant="primary" size="lg" leftIcon="save" onClick={saveMaterial} disabled={!!busy || !title || !fileUri} fullWidth style={{ maxWidth: 200 }}>
+                <Button variant="primary" size="lg" leftIcon="save" onClick={saveMaterial} disabled={!!busy || !title || !file} fullWidth style={{ maxWidth: 200 }}>
                   Save Material
                 </Button>
               </div>

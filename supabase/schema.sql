@@ -181,3 +181,38 @@ BEGIN
     CREATE POLICY "highlights_owner" ON public.document_highlights FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
   END IF;
 END $$;
+
+-- Private bucket for reviewer uploads. Objects live at {user_id}/{file_id}/{filename}.
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values (
+  'review-materials',
+  'review-materials',
+  false,
+  10485760,
+  array[
+    'application/pdf',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    'application/vnd.ms-powerpoint'
+  ]
+)
+on conflict (id) do update
+set public = false,
+    file_size_limit = excluded.file_size_limit,
+    allowed_mime_types = excluded.allowed_mime_types;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'storage' AND tablename = 'objects' AND policyname = 'review_materials_select_own') THEN
+    CREATE POLICY "review_materials_select_own" ON storage.objects FOR SELECT
+    USING (bucket_id = 'review-materials' AND auth.uid()::text = (storage.foldername(name))[1]);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'storage' AND tablename = 'objects' AND policyname = 'review_materials_insert_own') THEN
+    CREATE POLICY "review_materials_insert_own" ON storage.objects FOR INSERT
+    WITH CHECK (bucket_id = 'review-materials' AND auth.uid()::text = (storage.foldername(name))[1]);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'storage' AND tablename = 'objects' AND policyname = 'review_materials_delete_own') THEN
+    CREATE POLICY "review_materials_delete_own" ON storage.objects FOR DELETE
+    USING (bucket_id = 'review-materials' AND auth.uid()::text = (storage.foldername(name))[1]);
+  END IF;
+END $$;

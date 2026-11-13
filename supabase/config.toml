@@ -1,0 +1,4 @@
+project_id = "lisensync"
+
+[functions.gemini]
+verify_jwt = true

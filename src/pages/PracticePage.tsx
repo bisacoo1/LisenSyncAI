@@ -4,11 +4,11 @@ import { useAuth } from '@/context/AuthContext'
 import { getProgram } from '@/lib/syllabus'
 import { supabase } from '@/lib/supabase'
 import { checkDiagnosis, checkSequence, computeProfileStatsUpdate } from '@/lib/analytics'
-import type { Flashcard, McqAnswer, McqQuestion, PracticeItem, PracticeType, SequenceAnswer, SequenceQuestion, DiagnosisAnswer, DiagnosisQuestion } from '@/types'
+import type { Flashcard, McqAnswer, McqQuestion, PracticeItem, PracticeType, SequenceAnswer, SequenceQuestion, DiagnosisAnswer, DiagnosisQuestion, Profile } from '@/types'
 import { Card, CardHeader, CardContent, Button, Badge, Icon, EmptyState, SegControl, Tabs, TabPanels, TabPanel, Skeleton, useToast, type TabItem } from '@/components/ui'
 
 export default function PracticePage() {
-  const { profile, user } = useAuth()
+  const { profile, user, refreshProfile } = useAuth()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const program = profile ? getProgram(profile.board_program) : null
@@ -76,19 +76,28 @@ export default function PracticePage() {
 
   async function recordAttempt(correct: boolean, response: unknown) {
     if (!user || !profile) return
-    const it = items[idx]
-    await supabase.from('attempts').insert({
-      user_id: user.id,
-      practice_item_id: it?.id || null,
-      board_program: profile.board_program,
-      subject,
-      type: mode,
-      user_response: response,
-      is_correct: correct
-    })
-    const today = new Date().toISOString().slice(0, 10)
-    const updates = computeProfileStatsUpdate(profile, correct, today)
-    await supabase.from('profiles').update(updates).eq('id', profile.id)
+    try {
+      const it = items[idx]
+      const { error: attemptError } = await supabase.from('attempts').insert({
+        user_id: user.id,
+        practice_item_id: it?.id || null,
+        board_program: profile.board_program,
+        subject,
+        type: mode,
+        user_response: response,
+        is_correct: correct
+      })
+      if (attemptError) throw new Error(attemptError.message)
+      const { data: fresh, error: readError } = await supabase.from('profiles').select('*').eq('id', profile.id).single()
+      if (readError) throw new Error(readError.message)
+      const today = new Date().toISOString().slice(0, 10)
+      const updates = computeProfileStatsUpdate((fresh as Profile) || profile, correct, today)
+      const { error: updateError } = await supabase.from('profiles').update(updates).eq('id', profile.id)
+      if (updateError) throw new Error(updateError.message)
+      await refreshProfile()
+    } catch (e: any) {
+      addToast({ type: 'error', title: 'Could not save progress', message: e.message })
+    }
   }
 
   async function submitMcq() {
