@@ -236,9 +236,9 @@ export default function SideBySideReader() {
   }
 
   return (
-    <div className="container" style={{ paddingTop: 20, paddingBottom: 48, display: 'flex', flexDirection: 'column', height: 'calc(100vh - 108px)', overflow: 'hidden' }}>
+    <div className="container" style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', overflow: 'auto' }}>
       {/* Header */}
-      <div style={{ marginBottom: 24, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
+      <div style={{ padding: '24px 0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <Button variant="ghost" size="icon" onClick={() => nav('/reviewer')} leftIcon="chevron-left" />
           <div>
@@ -261,7 +261,7 @@ export default function SideBySideReader() {
       </div>
 
       {/* Main reader area - document left, AI panel right */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 400px', gap: 0, flex: 1, minHeight: 0, overflow: 'hidden' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 400px', gap: 0, flex: 1, minHeight: 0, overflow: 'auto' }}>
         {/* Left: Document viewer */}
         <div
           style={{
