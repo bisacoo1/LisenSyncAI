@@ -8,11 +8,13 @@ import { PASSING_RATE, type Attempt, type Profile } from '@/types'
 import { Card, CardHeader, CardContent, Button, Badge, ProgressBar, Icon, EmptyState, Skeleton } from '@/components/ui'
 
 export default function DashboardPage() {
-  const { profile } = useAuth()
+  const { profile, refreshProfile } = useAuth()
   const program = profile ? getProgram(profile.board_program) : null
   const [attempts, setAttempts] = useState<Attempt[]>([])
   const [dueCards, setDueCards] = useState(0)
   const [loading, setLoading] = useState(true)
+  const [examDateInput, setExamDateInput] = useState('')
+  const [savingDate, setSavingDate] = useState(false)
 
   useEffect(() => {
     if (!profile) return
@@ -35,6 +37,20 @@ export default function DashboardPage() {
   const readiness = readinessLabel(overall)
   const weak = computeSubjectStats(attempts, program.subjects).filter(s => s.weak && s.total > 0)
   const subjectStats = computeSubjectStats(attempts, program.subjects)
+
+  const daysLeft = profile.target_exam_date
+    ? Math.ceil((new Date(profile.target_exam_date).getTime() - Date.now()) / 86400000)
+    : null
+
+  async function saveExamDate() {
+    if (!profile || !examDateInput) return
+    setSavingDate(true)
+    const { error } = await supabase.from('profiles').update({ target_exam_date: examDateInput }).eq('id', profile.id)
+    setSavingDate(false)
+    if (error) return
+    await refreshProfile()
+    setExamDateInput('')
+  }
 
   return (
     <div className="container" style={{ paddingTop: 24, paddingBottom: 48 }}>
@@ -124,6 +140,52 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Exam Countdown */}
+      <Card
+        variant="elevated"
+        style={{
+          marginBottom: 24,
+          borderColor: daysLeft != null && daysLeft <= 30 ? 'var(--warning-border, var(--border))' : 'var(--border)',
+          background: daysLeft != null && daysLeft <= 30
+            ? 'linear-gradient(135deg, var(--panel) 0%, var(--warning-bg) 100%)'
+            : 'linear-gradient(135deg, var(--panel) 0%, var(--panel-2) 100%)',
+        }}
+      >
+        <CardContent>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 24, flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 20, flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 56, height: 56, borderRadius: 14, background: 'var(--primary-bg)', color: 'var(--primary)', flexShrink: 0 }}>
+                <Icon name="calendar" size={28} />
+              </div>
+              <div>
+                <div style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Board Exam Countdown</div>
+                {daysLeft == null ? (
+                  <div style={{ fontSize: 15, color: 'var(--muted)' }}>Set your target exam date to start the countdown</div>
+                ) : daysLeft < 0 ? (
+                  <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--danger)' }}>Your target exam date has passed — set a new one</div>
+                ) : (
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: 40, fontWeight: 800, letterSpacing: '-0.02em', color: daysLeft <= 30 ? 'var(--warning)' : 'var(--text)' }}>{daysLeft}</span>
+                    <span style={{ color: 'var(--muted)', fontSize: 14 }}>{daysLeft === 1 ? 'day' : 'days'} until {new Date(profile.target_exam_date!).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <input
+                type="date"
+                value={examDateInput}
+                onChange={e => setExamDateInput(e.target.value)}
+                style={{ padding: '10px 14px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel-2)', color: 'var(--text)', fontSize: 14 }}
+              />
+              <Button variant="secondary" size="md" onClick={saveExamDate} loading={savingDate} disabled={!examDateInput}>
+                {profile.target_exam_date ? 'Update' : 'Set date'}
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Quick Stats Grid */}
       <div className="grid grid-3" style={{ marginBottom: 24 }}>

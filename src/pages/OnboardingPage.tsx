@@ -11,6 +11,7 @@ export default function OnboardingPage() {
   const nav = useNavigate()
   const [fullName, setFullName] = useState(profile?.full_name || '')
   const [program, setProgram] = useState<BoardProgramKey>((profile?.board_program as BoardProgramKey) || 'criminology')
+  const [examDate, setExamDate] = useState(profile?.target_exam_date || '')
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const { addToast } = useToast()
@@ -20,7 +21,7 @@ export default function OnboardingPage() {
     if (!user) return
     setError(null); setSaving(true)
     try {
-      await upsertProfile(user.id, program, fullName)
+      await upsertProfile(user.id, program, fullName, examDate || null)
       await refreshProfile()
       addToast({ type: 'success', title: 'Profile saved', message: 'Welcome to LisenSync AI!' })
       nav('/dashboard')
@@ -67,6 +68,16 @@ export default function OnboardingPage() {
               />
               <p style={{ marginTop: 6, fontSize: 12, color: 'var(--muted)' }}>{selectedProgram?.description}</p>
             </div>
+
+            <Input
+              label="Target exam date (optional)"
+              type="date"
+              value={examDate}
+              onChange={e => setExamDate(e.target.value)}
+              leftIcon="calendar"
+              fullWidth
+            />
+            <p style={{ marginTop: -8, fontSize: 12, color: 'var(--muted)' }}>We'll show a countdown on your dashboard to keep you on track.</p>
 
             <Button variant="primary" type="submit" fullWidth size="lg" loading={saving} style={{ marginTop: 8 }}>
               {saving ? 'Saving…' : 'Save and continue'}

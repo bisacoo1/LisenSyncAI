@@ -54,15 +54,7 @@ export interface ProfileStatsUpdate {
   daily_goal_date?: string
 }
 
-export function computeProfileStatsUpdate(
-  profile: Profile,
-  isCorrect: boolean,
-  today: string
-): ProfileStatsUpdate {
-  const xpGain = isCorrect ? 10 : 2
-  const newXp = (profile.xp || 0) + xpGain
-  const newLevel = Math.floor(newXp / 100) + 1
-
+function streakFields(profile: Profile, today: string) {
   const lastDate = profile.last_activity_date
   const sameDay = lastDate === today
   let newStreak = sameDay ? (profile.current_streak || 0) : (profile.current_streak || 0) + 1
@@ -74,16 +66,39 @@ export function computeProfileStatsUpdate(
     }
   }
 
-  const newLongest = Math.max(profile.longest_streak || 0, newStreak)
+  return {
+    current_streak: newStreak,
+    longest_streak: Math.max(profile.longest_streak || 0, newStreak),
+    last_activity_date: today,
+  }
+}
 
-  let dailyCompleted = profile.daily_goal_date === today ? (profile.daily_items_completed || 0) + 1 : 1
+export function computeProfileStatsUpdate(
+  profile: Profile,
+  isCorrect: boolean,
+  today: string
+): ProfileStatsUpdate {
+  return computeBulkStatsUpdate(profile, isCorrect ? 1 : 0, 1, today)
+}
+
+export function computeBulkStatsUpdate(
+  profile: Profile,
+  correct: number,
+  total: number,
+  today: string
+): ProfileStatsUpdate {
+  const xpGain = correct * 10 + Math.max(0, total - correct) * 2
+  const newXp = (profile.xp || 0) + xpGain
+  const newLevel = Math.floor(newXp / 100) + 1
+
+  const dailyCompleted = profile.daily_goal_date === today
+    ? (profile.daily_items_completed || 0) + total
+    : total
 
   return {
     xp: newXp,
     level: newLevel,
-    current_streak: newStreak,
-    longest_streak: newLongest,
-    last_activity_date: today,
+    ...streakFields(profile, today),
     daily_items_completed: dailyCompleted,
     daily_goal_date: today,
   }

@@ -2,8 +2,9 @@ import { useEffect, useRef, useState } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { getProgram } from '@/lib/syllabus'
 import { supabase } from '@/lib/supabase'
-import { PASSING_RATE, type Attempt, type DiagnosisAnswer, type DiagnosisQuestion, type McqAnswer, type McqQuestion, type MockExam, type MockExamItem, type PracticeItem, type SequenceAnswer, type SequenceQuestion } from '@/types'
-import { checkDiagnosis, checkSequence } from '@/lib/analytics'
+import { PASSING_RATE, type Attempt, type DiagnosisAnswer, type DiagnosisQuestion, type McqAnswer, type McqQuestion, type MockExam, type MockExamItem, type PracticeItem, type Profile, type SequenceAnswer, type SequenceQuestion } from '@/types'
+import { checkDiagnosis, checkSequence, computeBulkStatsUpdate } from '@/lib/analytics'
+import LevelUpCelebration from '@/components/LevelUpCelebration'
 import { Card, CardHeader, CardContent, Button, Badge, ProgressBar, Icon, EmptyState, Skeleton, Modal, useToast } from '@/components/ui'
 
 function formatTime(sec: number) {
@@ -14,7 +15,7 @@ function formatTime(sec: number) {
 }
 
 export default function MockExamPage() {
-  const { profile, user } = useAuth()
+  const { profile, user, refreshProfile } = useAuth()
   const program = profile ? getProgram(profile.board_program) : null
   const [exam, setExam] = useState<MockExam | null>(null)
   const [items, setItems] = useState<MockExamItem[]>([])
@@ -29,6 +30,7 @@ export default function MockExamPage() {
   const { addToast } = useToast()
   const [showSubmitConfirm, setShowSubmitConfirm] = useState(false)
   const [showResults, setShowResults] = useState(false)
+  const [levelUp, setLevelUp] = useState<number | null>(null)
 
   function moveSeq(i: number, dir: -1 | 1) {
     const j = i + dir
@@ -131,6 +133,16 @@ export default function MockExamPage() {
       const score = items.length ? Math.round((correctCount / items.length) * 1000) / 10 : 0
       const passed = score >= PASSING_RATE
       await supabase.from('mock_exams').update({ status: 'submitted', submitted_at: new Date().toISOString(), score, passed }).eq('id', exam.id)
+      try {
+        const { data: fresh } = await supabase.from('profiles').select('*').eq('id', user.id).single()
+        if (fresh) {
+          const today = new Date().toISOString().slice(0, 10)
+          const updates = computeBulkStatsUpdate(fresh as Profile, correctCount, items.length, today)
+          if ((updates.level ?? 0) > ((fresh as Profile).level ?? 1)) setLevelUp(updates.level ?? null)
+          await supabase.from('profiles').update(updates).eq('id', user.id)
+          await refreshProfile()
+        }
+      } catch { /* XP/stats update is best-effort; exam result already saved */ }
       const { data } = await supabase.from('mock_exams').select('*').eq('id', exam.id).single()
       setExam(data as MockExam)
       const { data: its } = await supabase.from('mock_exam_items').select('*').eq('exam_id', exam.id).order('position', { ascending: true })
@@ -341,6 +353,8 @@ export default function MockExamPage() {
             </Card>
           ))}
         </div>
+
+        {levelUp != null && <LevelUpCelebration level={levelUp} onClose={() => setLevelUp(null)} />}
       </div>
     )
   }
@@ -524,6 +538,8 @@ export default function MockExamPage() {
           ) : null}
         </div>
       </Modal>
+
+      {levelUp != null && <LevelUpCelebration level={levelUp} onClose={() => setLevelUp(null)} />}
     </div>
   )
 }
