@@ -64,7 +64,6 @@ export default function SideBySideReader() {
   const [material, setMaterial] = useState<ReviewMaterial | null>(null)
   const [highlights, setHighlights] = useState<DocumentHighlight[]>([])
   const [loading, setLoading] = useState(true)
-  const [sidePanelOpen, setSidePanelOpen] = useState(false)
   const [selectedText, setSelectedText] = useState('')
   const [explaining, setExplaining] = useState(false)
   const [currentExplanation, setCurrentExplanation] = useState<{ text: string; explanation: string; model: string } | null>(null)
@@ -159,7 +158,6 @@ export default function SideBySideReader() {
       })
 
       setCurrentExplanation({ text: selectedText, explanation: result.explanation, model: result.model })
-      setSidePanelOpen(true)
       setBubble(null)
 
       const { error } = await supabase.from('document_highlights').insert({
@@ -262,14 +260,147 @@ export default function SideBySideReader() {
         </div>
       </div>
 
-      {/* Main reader area */}
-      <div style={{ display: 'grid', gridTemplateColumns: sidePanelOpen ? `calc(100% - 400px) 400px` : '1fr', gap: 0, flex: 1, minHeight: 0, overflow: 'hidden' }}>
-        {/* Left: Document viewer */}
+      {/* Main reader area - AI panel left, document right */}
+      <div style={{ display: 'grid', gridTemplateColumns: '400px 1fr', gap: 0, flex: 1, minHeight: 0, overflow: 'hidden' }}>
+        {/* Left: AI panel */}
+        <div
+          style={{
+            width: 400,
+            minWidth: 400,
+            background: 'var(--panel)',
+            borderRight: '1px solid var(--border)',
+            boxShadow: '4px 0 16px rgba(0, 0, 0, 0.15)',
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden',
+          }}
+        >
+          {/* Panel header */}
+          <div style={{ padding: 20, borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <Icon name="brain" size={16} style={{ color: 'var(--primary)' }} />
+              <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>AI Assistant</span>
+            </div>
+            <p style={{ margin: 0, fontSize: 12, color: 'var(--muted)' }}>
+              {currentExplanation ? `Model: ${currentExplanation.model}` : `${highlights.length} saved`}
+            </p>
+          </div>
+
+          {/* Panel content */}
+          <div style={{ flex: 1, overflow: 'auto', padding: 20, display: 'flex', flexDirection: 'column', gap: 16 }}>
+            {/* Saved highlights section */}
+            <div>
+              <h4 style={{ margin: '0 0 12px', fontSize: 13, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                Saved Highlights ({highlights.length})
+              </h4>
+              {highlights.length === 0 ? (
+                <div style={{ fontSize: 13, color: 'var(--muted)', textAlign: 'center', padding: 24 }}>
+                  No highlights yet. Select text in the document and tap 'Highlight'.
+                </div>
+              ) : (
+                <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {highlights.map(h => (
+                    <li
+                      key={h.id}
+                      style={{ padding: 10, background: 'var(--panel-2)', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', transition: 'all 150ms ease' }}
+                      onClick={() => setCurrentExplanation(h.explanation ? { text: h.selected_text, explanation: h.explanation, model: h.ai_model || 'unknown' } : null)}
+                    >
+                      <div style={{ fontSize: 12.5, fontWeight: 500, color: 'var(--text)', maxHeight: 48, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box' }}>
+                        {h.selected_text}
+                      </div>
+                      {h.explanation ? (
+                        <div style={{ fontSize: 11, color: 'var(--primary)', fontWeight: 600, marginTop: 4 }}>
+                          <Icon name="brain" size={12} style={{ marginRight: 4 }} />
+                          AI explained — tap to view
+                        </div>
+                      ) : (
+                        <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>Highlighted (no explanation)</div>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            {/* Current explanation section */}
+            {currentExplanation && (
+              <>
+                <div style={{ background: 'var(--panel-2)', border: '1px solid var(--border)', borderRadius: 10, padding: 16 }}>
+                  <div style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>
+                    Selected text
+                  </div>
+                  <div style={{ fontSize: 14, color: 'var(--text-dim)', fontStyle: 'italic', marginBottom: 16, lineHeight: 1.6 }}>
+                    “{currentExplanation.text}”
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>
+                    Explanation
+                  </div>
+                  <div style={{ fontSize: 14, color: 'var(--text)', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>
+                    {currentExplanation.explanation}
+                  </div>
+                </div>
+
+                <h4 style={{ margin: '0 0 8px', fontSize: 13, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  Follow-up question
+                </h4>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <Input
+                    placeholder="Ask a follow-up question…"
+                    value={followUpInput}
+                    onChange={e => setFollowUpInput(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendFollowUp()}
+                    fullWidth
+                    leftIcon="comment"
+                  />
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={sendFollowUp}
+                    disabled={!followUpInput.trim() || sendingFollowUp}
+                    loading={sendingFollowUp}
+                    leftIcon="arrow-right"
+                  >
+                    Ask
+                  </Button>
+                </div>
+
+                {followUps.length > 0 && (
+                  <div>
+                    <h4 style={{ margin: '16px 0 12px', fontSize: 13, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                      Conversation
+                    </h4>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                      {followUps.map((f, i) => (
+                        <div key={i} style={{ padding: 10, background: 'var(--panel-2)', borderRadius: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--primary)' }}>You:</div>
+                          <div style={{ fontSize: 12.5, color: 'var(--text)' }}>{f.question}</div>
+                          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', marginTop: 4 }}>AI:</div>
+                          <div style={{ fontSize: 12.5, color: 'var(--text-dim)', lineHeight: 1.6 }}>{f.answer}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* Empty state */}
+            {!currentExplanation && (
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 16, alignItems: 'center', justifyContent: 'center', textAlign: 'center', color: 'var(--muted)' }}>
+                <Icon name="check-circle" size={48} style={{ opacity: 0.4 }} />
+                <p style={{ fontSize: 14, marginBottom: 16 }}>No explanation yet</p>
+                <p style={{ fontSize: 12, maxWidth: 260, lineHeight: 1.6 }}>Select text in the document and tap 'Explain with AI' to start.</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Right: Document viewer */}
         <div
           style={{
             background: 'var(--bg)',
             overflow: 'auto',
-            borderRight: sidePanelOpen ? '1px solid var(--border)' : 'none',
+            borderLeft: '1px solid var(--border)',
             minHeight: 0,
           }}
         >
@@ -336,152 +467,9 @@ export default function SideBySideReader() {
                   </Button>
                 </div>
               )}
-
             </CardContent>
           </Card>
         </div>
-
-        {/* Right: AI side panel */}
-        {sidePanelOpen ? (
-          <div
-            style={{
-              width: 400,
-              minWidth: 400,
-              background: 'var(--panel)',
-              borderLeft: '1px solid var(--border)',
-              boxShadow: '-4px 0 16px rgba(0, 0, 0, 0.2)',
-              display: 'flex',
-              flexDirection: 'column',
-              overflow: 'hidden',
-            }}
-          >
-            {/* Panel header */}
-            <div style={{ padding: 20, borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
-              <div>
-                <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: 'var(--text)' }}>
-                  {currentExplanation ? 'AI Explanation' : 'Highlights'}
-                </h3>
-                <p style={{ margin: '4px 0 0', fontSize: 12, color: 'var(--muted)' }}>
-                  {currentExplanation ? `Model: ${currentExplanation.model}` : `${highlights.length} saved`}
-                </p>
-              </div>
-              <button
-                onClick={() => setSidePanelOpen(false)}
-                style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', padding: 6, borderRadius: 8 }}
-              >
-                <Icon name="x" size={18} />
-              </button>
-            </div>
-
-            {/* Panel content - always visible */}
-            <div style={{ flex: 1, overflow: 'auto', padding: 20, display: 'flex', flexDirection: 'column', gap: 16 }}>
-              {/* Saved highlights section */}
-              <div>
-                <h4 style={{ margin: '0 0 12px', fontSize: 13, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  Saved Highlights ({highlights.length})
-                </h4>
-                {highlights.length === 0 ? (
-                  <div style={{ fontSize: 13, color: 'var(--muted)', textAlign: 'center', padding: 24 }}>
-                    No highlights yet. Select text in the document and tap 'Highlight'.
-                  </div>
-                ) : (
-                  <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    {highlights.map(h => (
-                      <li
-                        key={h.id}
-                        style={{ padding: 10, background: 'var(--panel-2)', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', transition: 'all 150ms ease' }}
-                        onClick={() => setCurrentExplanation(h.explanation ? { text: h.selected_text, explanation: h.explanation, model: h.ai_model || 'unknown' } : null)}
-                      >
-                        <div style={{ fontSize: 12.5, fontWeight: 500, color: 'var(--text)', maxHeight: 48, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box' }}>
-                          {h.selected_text}
-                        </div>
-                        {h.explanation ? (
-                          <div style={{ fontSize: 11, color: 'var(--primary)', fontWeight: 600, marginTop: 4 }}>
-                            <Icon name="brain" size={12} style={{ marginRight: 4 }} />
-                            AI explained — tap to view
-                          </div>
-                        ) : (
-                          <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>Highlighted (no explanation)</div>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-
-              {/* Current explanation section */}
-              {currentExplanation && (
-                <>
-                  <div style={{ background: 'var(--panel-2)', border: '1px solid var(--border)', borderRadius: 10, padding: 16 }}>
-                    <div style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>
-                      Selected text
-                    </div>
-                    <div style={{ fontSize: 14, color: 'var(--text-dim)', fontStyle: 'italic', marginBottom: 16, lineHeight: 1.6 }}>
-                      “{currentExplanation.text}”
-                    </div>
-                    <div style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>
-                      Explanation
-                    </div>
-                    <div style={{ fontSize: 14, color: 'var(--text)', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>
-                      {currentExplanation.explanation}
-                    </div>
-                  </div>
-
-                  <h4 style={{ margin: '0 0 8px', fontSize: 13, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                    Follow-up question
-                  </h4>
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    <Input
-                      placeholder="Ask a follow-up question…"
-                      value={followUpInput}
-                      onChange={e => setFollowUpInput(e.target.value)}
-                      onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendFollowUp()}
-                      fullWidth
-                      leftIcon="comment"
-                    />
-                    <Button
-                      variant="primary"
-                      size="sm"
-                      onClick={sendFollowUp}
-                      disabled={!followUpInput.trim() || sendingFollowUp}
-                      loading={sendingFollowUp}
-                      leftIcon="arrow-right"
-                    >
-                      Ask
-                    </Button>
-                  </div>
-
-                  {followUps.length > 0 && (
-                    <div>
-                      <h4 style={{ margin: '16px 0 12px', fontSize: 13, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                        Conversation
-                      </h4>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                        {followUps.map((f, i) => (
-                          <div key={i} style={{ padding: 10, background: 'var(--panel-2)', borderRadius: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                            <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--primary)' }}>You:</div>
-                            <div style={{ fontSize: 12.5, color: 'var(--text)' }}>{f.question}</div>
-                            <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', marginTop: 4 }}>AI:</div>
-                            <div style={{ fontSize: 12.5, color: 'var(--text-dim)', lineHeight: 1.6 }}>{f.answer}</div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </>
-              )}
-
-              {/* Empty state - always show follow-up section even without explanation */}
-              {!currentExplanation && (
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 16, alignItems: 'center', justifyContent: 'center', textAlign: 'center', color: 'var(--muted)' }}>
-                  <Icon name="check-circle" size={48} style={{ opacity: 0.4 }} />
-                  <p style={{ fontSize: 14, marginBottom: 16 }}>No explanation yet</p>
-                  <p style={{ fontSize: 12, maxWidth: 260, lineHeight: 1.6 }}>Select text in the document and tap 'Explain with AI' to start.</p>
-                </div>
-              )}
-            </div>
-          </div>
-        ) : null}
       </div>
 
       {/* Floating explain/highlight bubble */}
