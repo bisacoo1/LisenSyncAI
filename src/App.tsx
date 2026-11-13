@@ -9,10 +9,14 @@ import ReviewerPage from '@/pages/ReviewerPage'
 import PracticePage from '@/pages/PracticePage'
 import MockExamPage from '@/pages/MockExamPage'
 import AnalyticsPage from '@/pages/AnalyticsPage'
+import LandingPage from '@/pages/LandingPage'
 
 export default function App() {
   return (
     <Routes>
+      {/* Public landing page */}
+      <Route path="/" element={<LandingPage />} />
+
       {/* Public routes with AuthLayout (centered card, no sidebar) */}
       <Route path="/login" element={<AuthLayout><PublicOnly><LoginPage /></PublicOnly></AuthLayout>} />
       <Route path="/register" element={<AuthLayout><PublicOnly><RegisterPage /></PublicOnly></AuthLayout>} />
@@ -36,9 +40,6 @@ export default function App() {
       <Route element={<Layout><ProtectedRoute><AnalyticsPage /></ProtectedRoute></Layout>}>
         <Route path="/analytics" />
       </Route>
-
-      {/* Root redirect */}
-      <Route path="/" element={<Navigate to="/dashboard" replace />} />
 
       {/* 404 */}
       <Route path="*" element={<Layout><div className="container"><div className="card" style={{ textAlign: 'center', padding: 64 }}>Page not found.</div></div></Layout>} />
