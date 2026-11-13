@@ -1,202 +1,347 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
-import { supabase } from '@/lib/supabase'
-import { Button, Card, CardHeader, CardContent, Icon, Badge, type IconName } from '@/components/ui'
-import logo from '@/logo/logo.png'
+import { Brand } from '@/components/Brand'
+import { Icon, type IconName } from '@/components/ui'
+import { PROGRAM_LIST } from '@/lib/syllabus'
+import { supabase, supabaseConfigured } from '@/lib/supabase'
+import studyDesk from '@/assets/study-desk.jpg'
+
+const steps: { number: string; icon: IconName; title: string; description: string; note: string }[] = [
+  {
+    number: '01',
+    icon: 'upload',
+    title: 'Bring your notes',
+    description: 'Upload your review materials and turn them into a study set built around your subjects.',
+    note: 'PDF · DOCX · PPT'
+  },
+  {
+    number: '02',
+    icon: 'brain',
+    title: 'Make it stick',
+    description: 'Build confidence with flashcards, situational questions, and case-based drills.',
+    note: 'ACTIVE RECALL'
+  },
+  {
+    number: '03',
+    icon: 'target',
+    title: 'See your progress',
+    description: 'Try a timed mock exam and find the subjects that could use a little more attention.',
+    note: 'PRACTICE WITH PURPOSE'
+  }
+]
+
+const programs: { icon: IconName; name: string; label: string }[] = [
+  { icon: 'shield', name: 'Criminology', label: 'THE CRIMINOLOGIST' },
+  { icon: 'sparkles', name: 'Pharmacy', label: 'THE PHARMACIST' },
+  { icon: 'activity', name: 'Civil Engineering', label: 'THE ENGINEER' }
+]
 
 export default function LandingPage() {
-  const { profile } = useAuth()
-  const nav = useNavigate()
-  const [stats, setStats] = useState<{ label: string; value: string | number; icon: IconName; color: string }[]>([])
-  const [loading, setLoading] = useState(true)
+  const { profile, loading } = useAuth()
+  const navigate = useNavigate()
+  const [stats, setStats] = useState<{ label: string; value: number; icon: IconName }[] | null>(null)
 
   useEffect(() => {
+    if (loading) return
     if (profile) {
-      nav('/dashboard', { replace: true })
+      navigate('/dashboard', { replace: true })
       return
     }
-    loadStats()
-  }, [profile, nav])
+    if (!supabaseConfigured) return
 
-  async function loadStats() {
-    try {
-      const [usersRes, materialsRes, mocksRes, subjectsRes] = await Promise.all([
-        supabase.from('profiles').select('id', { count: 'exact', head: true }),
-        supabase.from('review_materials').select('id', { count: 'exact', head: true }),
-        supabase.from('mock_exams').select('id', { count: 'exact', head: true }).eq('status', 'submitted'),
-        supabase.from('practice_items').select('subject', { count: 'exact', head: true }),
-      ])
-      setStats([
-        { label: 'Registered Reviewers', value: usersRes.count ?? 0, icon: 'user', color: 'var(--primary)' },
-        { label: 'Subjects Practiced', value: subjectsRes.count ?? 0, icon: 'book-open', color: 'var(--accent)' },
-        { label: 'Review Materials', value: materialsRes.count ?? 0, icon: 'file-text', color: 'var(--info)' },
-        { label: 'Mock Exams Completed', value: mocksRes.count ?? 0, icon: 'timer', color: 'var(--success)' },
-      ])
-    } catch {
-      setStats([
-        { label: 'Registered Reviewers', value: 0, icon: 'user', color: 'var(--primary)' },
-        { label: 'Subjects Practiced', value: 0, icon: 'book-open', color: 'var(--accent)' },
-        { label: 'Review Materials', value: 0, icon: 'file-text', color: 'var(--info)' },
-        { label: 'Mock Exams Completed', value: 0, icon: 'timer', color: 'var(--success)' },
-      ])
-    } finally {
-      setLoading(false)
+    setStats(null)
+    let active = true
+    // These counts are constrained by the project's RLS policies. Don't present
+    // unavailable or entirely hidden counts as community-wide statistics.
+    ;(async () => {
+      try {
+        const [profiles, materials, mocks, items] = await Promise.all([
+          supabase.from('profiles').select('id', { count: 'exact', head: true }),
+          supabase.from('review_materials').select('id', { count: 'exact', head: true }),
+          supabase.from('mock_exams').select('id', { count: 'exact', head: true }).eq('status', 'submitted'),
+          supabase.from('practice_items').select('id', { count: 'exact', head: true })
+        ])
+        const results = [profiles, materials, mocks, items]
+        if (!active || results.some((result) => result.error || result.count == null)) return
+        if (!results.some((result) => (result.count ?? 0) > 0)) return
+        setStats([
+          { label: 'Study profiles', value: profiles.count!, icon: 'user' },
+          { label: 'Review materials', value: materials.count!, icon: 'file-text' },
+          { label: 'Practice items', value: items.count!, icon: 'book-open' },
+          { label: 'Mock exams completed', value: mocks.count!, icon: 'timer' }
+        ])
+      } catch {
+        // The landing page stays useful when analytics aren't publicly available.
+      }
+    })()
+    return () => {
+      active = false
     }
-  }
-
-  const features = [
-    {
-      icon: 'file-text' as IconName,
-      title: 'Smart Document Processing',
-      desc: 'Upload PDF, DOCX, or PPT reviewers. AI extracts key concepts and converts them into active-recall flashcards instantly.',
-    },
-    {
-      icon: 'brain' as IconName,
-      title: 'PRC-Style Practice',
-      desc: 'Situational MCQs, case diagnosis, and priority/sequence ordering aligned to your board syllabus with step-by-step rationale.',
-    },
-    {
-      icon: 'timer' as IconName,
-      title: 'Timed Mock Simulations',
-      desc: 'Full-length mock exams with board-exam timing, TOS allocation, and detailed analytics to gauge your readiness.',
-    },
-    {
-      icon: 'bar-chart' as IconName,
-      title: 'Readiness Analytics',
-      desc: 'Track your mastery per subject, spot weak areas, and monitor your streak, XP, and level as you study.',
-    },
-    {
-      icon: 'trophy' as IconName,
-      title: 'Gamified Progress',
-      desc: 'Earn XP, level up, keep your daily streak alive, and hit your daily practice goals to stay motivated.',
-    },
-    {
-      icon: 'check-circle' as IconName,
-      title: 'Board-Aligned Syllabus',
-      desc: 'Criminology, Pharmacy, and Civil Engineering programs with official subject mappings and TOS weightings.',
-    },
-  ]
+  }, [loading, profile, navigate])
 
   return (
-    <div className="container" style={{ paddingTop: 0, paddingBottom: 80 }}>
-      <nav style={{ position: 'sticky', top: 0, zIndex: 100, borderBottom: '1px solid var(--border)', background: 'rgba(10, 15, 26, 0.8)', backdropFilter: 'blur(12px)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 0' }}>
-          <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none' }}>
-            <div style={{ width: 36, height: 36, borderRadius: 8, background: 'var(--panel-2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <img src={logo} alt="LisenSync AI logo" style={{ width: 18, height: 18 }} />
-            </div>
-            <span style={{ fontWeight: 700, fontSize: 18, letterSpacing: '-0.02em', color: 'var(--text)' }}>LisenSync AI</span>
-          </Link>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-            <Link to="/login" style={{ color: 'var(--muted)', fontSize: 14, fontWeight: 500 }}>Log in</Link>
-            {!loading && !profile && (
-              <Button variant="primary" size="sm" onClick={() => nav('/register')}>
-                Get Started
-              </Button>
-            )}
-          </div>
-        </div>
-      </nav>
-
-      <section style={{ padding: '80px 0 60px', textAlign: 'center' }}>
-        <div style={{ maxWidth: 720, margin: '0 auto' }}>
-          <Badge variant="primary" size="sm" style={{ display: 'inline-block', marginBottom: 20 }}>
-            <Icon name="zap" size={14} style={{ marginRight: 6 }} />
-            PRC Licensure Exam Reviewer
-          </Badge>
-          <h1 style={{ fontSize: 56, fontWeight: 800, lineHeight: 1.15, letterSpacing: '-0.03em', marginBottom: 24, color: 'var(--text)' }}>
-            Study Smarter. Pass Your Board Exam.
-          </h1>
-          <p style={{ fontSize: 20, color: 'var(--text-dim)', lineHeight: 1.7, marginBottom: 36, maxWidth: 560, marginLeft: 'auto', marginRight: 'auto' }}>
-            AI-powered flashcards, situational practice, and timed mock simulations aligned to the official PRC board syllabus. Track your streak, level up, and know exactly when you're ready.
-          </p>
-          <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
-            <Button variant="primary" size="lg" onClick={() => nav('/register')} fullWidth style={{ maxWidth: 260 }}>
-              Start Reviewing <Icon name="chevron-right" size={18} style={{ marginLeft: 8 }} />
-            </Button>
-            <Button variant="outline" size="lg" onClick={() => nav('/login')} fullWidth style={{ maxWidth: 200 }}>
-              Sign In
-            </Button>
-          </div>
-        </div>
-      </section>
-
-      <section style={{ padding: '60px 0', background: 'var(--panel-2)' }}>
-        <div style={{ textAlign: 'center', marginBottom: 40 }}>
-          <h2 style={{ fontSize: 32, fontWeight: 800, marginBottom: 12, color: 'var(--text)' }}>Community Progress</h2>
-          <p style={{ color: 'var(--muted)', fontSize: 16 }}>Real-time stats from LisenSync AI reviewers</p>
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16, maxWidth: 1000, margin: '0 auto' }}>
-          {stats.map((s, i) => (
-            <div key={i} style={{ padding: 28, background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: 16, position: 'relative', overflow: 'hidden' }}>
-              <div style={{ position: 'absolute', top: -10, right: -10, width: 60, height: 60, background: `${s.color}20`, borderRadius: '50%' }} />
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, position: 'relative', zIndex: 1 }}>
-                <div style={{ width: 36, height: 36, borderRadius: 10, background: `${s.color}15`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: s.color }}>
-                  <Icon name={s.icon} size={18} strokeWidth={2.5} />
-                </div>
-                <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-dim)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>{s.label}</span>
-              </div>
-              <div style={{ position: 'relative', zIndex: 1 }}>
-                <div style={{ fontSize: 44, fontWeight: 800, letterSpacing: '-0.03em', color: 'var(--text)', fontVariantNumeric: 'tabular-nums' }}>{loading ? '—' : s.value}</div>
-                <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 4 }}>
-                  {s.label === 'Registered Reviewers' ? 'active users' : s.label === 'Subjects Practiced' ? 'distinct subjects' : s.label === 'Review Materials' ? 'documents uploaded' : 'completed simulations'}
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section style={{ padding: '80px 0' }}>
-        <div style={{ textAlign: 'center', marginBottom: 56 }}>
-          <h2 style={{ fontSize: 32, fontWeight: 800, marginBottom: 16, color: 'var(--text)' }}>Everything You Need to Pass</h2>
-          <p style={{ color: 'var(--muted)', fontSize: 16, maxWidth: 640, margin: '0 auto' }}>From uploading your reviewer to simulating the actual board exam, every feature is built for PRC licensure success.</p>
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 20, maxWidth: 1100, margin: '0 auto' }}>
-          {features.map((f, i) => (
-            <Card key={i} variant="outlined" style={{ padding: 28 }}>
-              <div style={{ width: 44, height: 44, borderRadius: 12, background: 'var(--primary-bg)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
-                <Icon name={f.icon} size={20} strokeWidth={2} />
-              </div>
-              <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 10, color: 'var(--text)' }}>{f.title}</h3>
-              <p style={{ color: 'var(--muted)', fontSize: 14, lineHeight: 1.6, margin: 0 }}>{f.desc}</p>
-            </Card>
-          ))}
-        </div>
-      </section>
-
-      <section style={{ padding: '80px 0', background: 'linear-gradient(135deg, var(--panel) 0%, var(--panel-2) 100%)', border: '1px solid var(--border)' }}>
-        <div style={{ maxWidth: 720, margin: '0 auto', textAlign: 'center' }}>
-          <h2 style={{ fontSize: 34, fontWeight: 800, marginBottom: 16, color: 'var(--text)' }}>Ready to start your review?</h2>
-          <p style={{ color: 'var(--text-dim)', fontSize: 17, marginBottom: 28, lineHeight: 1.6 }}>Join hundreds of PRC examinees using LisenSync AI to prepare for their board exam.</p>
-          <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
-            <Button variant="primary" size="lg" onClick={() => nav('/register')} fullWidth style={{ maxWidth: 260 }}>
-              Create Free Account <Icon name="chevron-right" size={18} style={{ marginLeft: 8 }} />
-            </Button>
-            <Button variant="outline" size="lg" onClick={() => nav('/login')} fullWidth style={{ maxWidth: 200 }}>
-              Sign In
-            </Button>
-          </div>
-        </div>
-      </section>
-
-      <footer style={{ padding: '60px 0 40', borderTop: '1px solid var(--border)', marginTop: 80 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 28 }}>
-          <div style={{ width: 36, height: 36, borderRadius: 8, background: 'var(--panel-2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <img src={logo} alt="LisenSync AI logo" style={{ width: 18, height: 18 }} />
-          </div>
-          <span style={{ fontWeight: 700, fontSize: 18, letterSpacing: '-0.02em', color: 'var(--text)' }}>LisenSync AI</span>
-        </div>
-        <p style={{ color: 'var(--muted)', fontSize: 13, marginBottom: 24, maxWidth: 400, marginLeft: 'auto', marginRight: 'auto', lineHeight: 1.6 }}>
-          AI-powered PRC licensure exam reviewer with flashcards, practice drills, mock exams, and readiness analytics.
-        </p>
-        <div style={{ display: 'flex', justifyContent: 'center', gap: 24, marginBottom: 24, flexWrap: 'wrap' }}>
-          <Link to="/login" style={{ color: 'var(--muted)', fontSize: 13, fontWeight: 500 }}>Log in</Link>
-          <Link to="/register" style={{ color: 'var(--muted)', fontSize: 13, fontWeight: 500 }}>Register</Link>
-          <span style={{ color: 'var(--muted-strong)', fontSize: 13 }}>
-            {String.fromCharCode(169)} {new Date().getFullYear()} LisenSync AI
+    <div className="landing">
+      <div className="landing-announcement">
+        <div className="landing-wrap announcement-inner">
+          <span>
+            THE LICENSURE STUDY SPACE <i /> MADE FOR YOUR NEXT CHAPTER
           </span>
+          <span className="announcement-right">
+            A LITTLE PROGRESS, EVERY DAY <Icon name="arrow-up-right" size={13} />
+          </span>
+        </div>
+      </div>
+
+      <header className="landing-header">
+        <div className="landing-wrap landing-nav">
+          <Brand />
+          <nav className="landing-nav-links" aria-label="Page navigation">
+            <a href="#how-it-works">How it works</a>
+            <a href="#study-tools">Study tools</a>
+            <a href="#programs">Programs</a>
+          </nav>
+          <div className="landing-nav-actions">
+            <Link to="/login" className="landing-sign-in">
+              Sign in
+            </Link>
+            <Link to="/register" className="landing-nav-button">
+              Get started <Icon name="arrow-up-right" size={16} />
+            </Link>
+          </div>
+        </div>
+      </header>
+
+      <main>
+        <section className="landing-hero landing-wrap">
+          <div className="landing-hero-copy">
+            <div className="landing-eyebrow">
+              <span className="eyebrow-dot" /> YOUR PRC REVIEW COMPANION <span className="eyebrow-index">/ 01</span>
+            </div>
+            <h1>
+              Your next chapter starts with a <em>good study day.</em>
+            </h1>
+            <p>
+              Turn your notes into meaningful practice, track your progress, and head into your board exam feeling a
+              little more ready.
+            </p>
+            <div className="landing-hero-actions">
+              <Link to="/register" className="landing-primary-button">
+                Start reviewing <Icon name="arrow-right" size={19} />
+              </Link>
+              <a href="#how-it-works" className="landing-text-link">
+                See how it works <Icon name="arrow-down" size={16} />
+              </a>
+            </div>
+            <div className="hero-footnote">
+              <span className="hero-footnote-icon">
+                <Icon name="book-open" size={17} />
+              </span>
+              <span>
+                For the long nights, small wins,
+                <br />
+                <strong>and the license at the end.</strong>
+              </span>
+            </div>
+          </div>
+
+          <div className="landing-hero-visual">
+            <img src={studyDesk} alt="An open notebook and pencil on a sunlit study desk" />
+            <div className="hero-image-overlay" />
+            <div className="hero-image-top">
+              <span>
+                <Icon name="sparkles" size={15} /> A SPACE TO FOCUS
+              </span>
+              <span>VOL. 01 / THE REVIEW</span>
+            </div>
+            <div className="hero-stamp" aria-label="75 percent passing benchmark">
+              <span>THE GOAL</span>
+              <strong>
+                75<small>%</small>
+              </strong>
+              <span>PASSING BENCHMARK</span>
+            </div>
+            <div className="hero-note-card">
+              <div className="hero-note-header">
+                <span>
+                  <Icon name="list-checks" size={17} /> THE STUDY FLOW
+                </span>
+                <span>01 — 03</span>
+              </div>
+              <div className="hero-note-row">
+                <span>01</span>
+                <strong>Gather your notes</strong>
+                <Icon name="check" size={15} />
+              </div>
+              <div className="hero-note-row">
+                <span>02</span>
+                <strong>Practice what matters</strong>
+                <Icon name="check" size={15} />
+              </div>
+              <div className="hero-note-row">
+                <span>03</span>
+                <strong>Grow your confidence</strong>
+                <Icon name="arrow-up-right" size={15} />
+              </div>
+            </div>
+            <div className="hero-photo-caption">
+              <span>THE STUDY SESSIONS</span>
+              <span>THAT ADD UP.</span>
+            </div>
+          </div>
+        </section>
+
+        <section className="landing-route" aria-label="Your study journey">
+          <div className="landing-wrap landing-route-inner">
+            <div className="route-intro">
+              <Icon name="sparkles" size={18} />
+              <span>
+                FROM NOTES
+                <br />
+                <strong>TO KNOW-HOW</strong>
+              </span>
+            </div>
+            <div className="route-step">
+              <span>01</span> UPLOAD YOUR REVIEWER
+            </div>
+            <div className="route-step">
+              <span>02</span> PRACTICE YOUR WAY
+            </div>
+            <div className="route-step">
+              <span>03</span> TRACK WHAT MATTERS
+            </div>
+            <span className="route-end">
+              <Icon name="arrow-up-right" size={18} />
+            </span>
+          </div>
+        </section>
+
+        <section id="how-it-works" className="landing-method landing-wrap">
+          <div className="section-intro">
+            <div>
+              <span className="section-kicker">
+                THE METHOD <span> / 01</span>
+              </span>
+              <h2>
+                Big goals.
+                <br />
+                <em>Small, steady steps.</em>
+              </h2>
+            </div>
+            <p>
+              Preparing for your boards is a journey. LisenSync helps you find a rhythm, one study session at a time.
+            </p>
+          </div>
+          <div className="method-grid" id="study-tools">
+            {steps.map((step) => (
+              <article className="method-card" key={step.number}>
+                <div className="method-card-top">
+                  <span className="method-icon">
+                    <Icon name={step.icon} size={23} />
+                  </span>
+                  <span>{step.number} / 03</span>
+                </div>
+                <div>
+                  <h3>{step.title}</h3>
+                  <p>{step.description}</p>
+                </div>
+                <div className="method-card-foot">
+                  <span>{step.note}</span>
+                  <Icon name="arrow-up-right" size={16} />
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        {stats && (
+          <section className="landing-activity" aria-labelledby="landing-activity-title">
+            <div className="landing-wrap landing-activity-inner">
+              <div className="landing-activity-intro">
+                <span className="section-kicker">THE STUDY SPACE / 02</span>
+                <h2 id="landing-activity-title">
+                  A little progress, <em>together.</em>
+                </h2>
+                <p>Live activity visible to this connection.</p>
+              </div>
+              <div className="landing-activity-grid">
+                {stats.map((stat) => (
+                  <div className="landing-activity-stat" key={stat.label}>
+                    <Icon name={stat.icon} size={18} />
+                    <strong>{stat.value.toLocaleString()}</strong>
+                    <span>{stat.label}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+        )}
+
+        <section id="programs" className="landing-programs">
+          <div className="landing-wrap programs-layout">
+            <div className="programs-copy">
+              <span className="section-kicker">
+                YOUR PATH <span> / 02</span>
+              </span>
+              <h2>
+                Made for the
+                <br />
+                <em>work ahead.</em>
+              </h2>
+              <p>
+                Choose your board program and make your study space your own. Your subjects and practice stay together,
+                wherever you are in your review.
+              </p>
+              <Link to="/register" className="programs-link">
+                Find your study rhythm <Icon name="arrow-right" size={18} />
+              </Link>
+            </div>
+            <div className="program-list">
+              <div className="program-list-heading">
+                <span>EXPLORE OUR PROGRAMS</span>
+                <span>0{PROGRAM_LIST.length} AVAILABLE</span>
+              </div>
+              {programs.map((program, index) => (
+                <div className="program-row" key={program.name}>
+                  <span className="program-number">0{index + 1}</span>
+                  <span className="program-icon">
+                    <Icon name={program.icon} size={19} />
+                  </span>
+                  <span className="program-name">
+                    <small>{program.label}</small>
+                    <strong>{program.name}</strong>
+                  </span>
+                  <Icon name="arrow-up-right" size={19} />
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="landing-cta landing-wrap">
+          <div className="cta-star">
+            <Icon name="sparkles" size={23} />
+          </div>
+          <div>
+            <span className="section-kicker">YOUR NEXT CHAPTER IS WAITING</span>
+            <h2>Ready when you are.</h2>
+            <p>Make today a good day to begin.</p>
+          </div>
+          <Link to="/register" className="landing-primary-button">
+            Create your account <Icon name="arrow-right" size={19} />
+          </Link>
+        </section>
+      </main>
+
+      <footer className="landing-footer">
+        <div className="landing-wrap landing-footer-inner">
+          <Brand />
+          <p>Made for the journey to licensed.</p>
+          <div>
+            <Link to="/login">Sign in</Link>
+            <Link to="/register">Get started</Link>
+            <span>© {new Date().getFullYear()} LisenSync AI</span>
+          </div>
         </div>
       </footer>
     </div>

@@ -33,6 +33,7 @@ export function normalizeText(s: string) {
 
 export function checkDiagnosis(user: string, expected: string, acceptable: string[] = []) {
   const u = normalizeText(user)
+  if (!u) return false
   const candidates = [expected, ...acceptable].map(normalizeText)
   return candidates.some(c => c && (u === c || u.includes(c) || c.includes(u)))
 }

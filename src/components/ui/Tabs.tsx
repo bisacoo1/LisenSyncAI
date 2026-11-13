@@ -15,6 +15,7 @@ export interface TabsProps {
   onChange: (value: string) => void
   variant?: 'line' | 'pills' | 'enclosed' | 'scrollable'
   fullWidth?: boolean
+  ariaLabel?: string
   className?: string
   style?: React.CSSProperties
 }
@@ -25,6 +26,7 @@ export const Tabs: React.FC<TabsProps> = ({
   onChange,
   variant = 'line',
   fullWidth,
+  ariaLabel,
   className = '',
   style,
 }) => {
@@ -52,7 +54,7 @@ export const Tabs: React.FC<TabsProps> = ({
       overflowX: 'auto',
       scrollSnapType: 'x mandatory',
       WebkitOverflowScrolling: 'touch',
-      scrollbarWidth: 'none',
+      scrollbarWidth: 'thin',
     },
   }
 
@@ -118,18 +120,34 @@ export const Tabs: React.FC<TabsProps> = ({
   }
 
   return (
-    <div className={className} style={containerStyle} role="tablist">
-      {tabs.map((tab, idx) => {
+    <div className={className} style={containerStyle} role="tablist" aria-label={ariaLabel}>
+      {tabs.map((tab) => {
         const isActive = tab.value === value
         return (
           <button
             key={tab.value}
+            type="button"
             role="tab"
             aria-selected={isActive}
             aria-controls={`panel-${tab.value}`}
             id={`tab-${tab.value}`}
+            tabIndex={isActive ? 0 : -1}
             disabled={tab.disabled}
             onClick={() => !tab.disabled && onChange(tab.value)}
+            onKeyDown={(event) => {
+              if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return
+              event.preventDefault()
+              const enabled = tabs.filter(item => !item.disabled)
+              const current = enabled.findIndex(item => item.value === tab.value)
+              const next = event.key === 'Home' ? 0 : event.key === 'End' ? enabled.length - 1 : (current + (event.key === 'ArrowRight' ? 1 : -1) + enabled.length) % enabled.length
+              const nextTab = enabled[next]
+              if (nextTab) {
+                onChange(nextTab.value)
+                const nextButton = Array.from(event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('[role="tab"]') || [])
+                  .find(button => button.id === `tab-${nextTab.value}`)
+                nextButton?.focus()
+              }
+            }}
             style={tabStyles(tab, isActive)}
           >
             {tab.icon && <Icon name={tab.icon as any} size={16} />}
@@ -147,7 +165,7 @@ export const Tabs: React.FC<TabsProps> = ({
                   fontSize: 11,
                   fontWeight: 700,
                   background: isActive ? 'var(--primary)' : 'var(--border)',
-                  color: isActive ? '#041014' : 'var(--muted)',
+                  color: isActive ? 'var(--on-primary)' : 'var(--muted)',
                 }}
               >
                 {tab.count}
@@ -175,8 +193,8 @@ export interface TabPanelProps {
 }
 
 export const TabPanel: React.FC<TabPanelProps> = ({ value, activeValue, children }) => {
-  if (value !== activeValue) return null
-  return <div role="tabpanel" id={`panel-${value}`} style={{ animation: 'fadeIn 200ms ease' }}>{children}</div>
+  const active = value === activeValue
+  return <div role="tabpanel" id={`panel-${value}`} aria-labelledby={`tab-${value}`} hidden={!active} tabIndex={active ? 0 : undefined} style={{ animation: 'fadeIn 200ms ease' }}>{active ? children : null}</div>
 }
 
 export default Tabs

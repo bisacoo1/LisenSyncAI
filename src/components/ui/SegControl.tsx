@@ -53,7 +53,7 @@ export const SegControl: React.FC<SegControlProps> = ({
     fontSize: sizeStyles[size].fontSize,
     fontWeight: 600,
     fontFamily: 'inherit',
-    color: isActive ? '#041014' : 'var(--muted)',
+    color: isActive ? 'var(--on-primary)' : 'var(--muted)',
     background: isActive ? 'var(--primary)' : 'transparent',
     border: 'none',
     borderRadius: size === 'sm' ? 6 : 8,

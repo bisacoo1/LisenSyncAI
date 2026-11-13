@@ -44,54 +44,31 @@ export const Modal: React.FC<ModalProps> = ({
 }) => {
   const overlayRef = useRef<HTMLDivElement>(null)
   const contentRef = useRef<HTMLDivElement>(null)
-  const previousActiveElement = useRef<HTMLElement | null>(null)
-
   useEffect(() => {
-    if (open) {
-      previousActiveElement.current = document.activeElement as HTMLElement
-      document.body.style.overflow = 'hidden'
-      // Focus trap: set up after render
-      const setupFocusTrap = () => {
-        const container = contentRef.current
-        if (!container) return
+    if (!open) return
+    const previousActiveElement = document.activeElement as HTMLElement | null
+    const previousOverflow = document.body.style.overflow
+    const container = contentRef.current
+    document.body.style.overflow = 'hidden'
 
-        const focusableElements = getFocusableElements(container)
-        if (focusableElements.length > 0) {
-          focusableElements[0].focus()
-        } else {
-          container.focus()
-        }
+    const focusable = container ? getFocusableElements(container) : []
+    if (focusable.length) focusable[0].focus()
+    else container?.focus()
 
-        const handleTab = (e: KeyboardEvent) => {
-          if (e.key !== 'Tab') return
-          const focusableElements = getFocusableElements(container)
-          if (focusableElements.length === 0) return
-
-          const first = focusableElements[0]
-          const last = focusableElements[focusableElements.length - 1]
-
-          if (e.shiftKey) {
-            if (document.activeElement === first) {
-              e.preventDefault()
-              last.focus()
-            }
-          } else {
-            if (document.activeElement === last) {
-              e.preventDefault()
-              first.focus()
-            }
-          }
-        }
-
-        container.addEventListener('keydown', handleTab)
-        return () => container.removeEventListener('keydown', handleTab)
-      }
-
-      const cleanup = setupFocusTrap()
-      return () => cleanup?.()
-    } else {
-      document.body.style.overflow = ''
-      previousActiveElement.current?.focus()
+    const handleTab = (e: KeyboardEvent) => {
+      if (e.key !== 'Tab' || !container) return
+      const elements = getFocusableElements(container)
+      if (!elements.length) { e.preventDefault(); container.focus(); return }
+      const first = elements[0]
+      const last = elements[elements.length - 1]
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus() }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus() }
+    }
+    container?.addEventListener('keydown', handleTab)
+    return () => {
+      container?.removeEventListener('keydown', handleTab)
+      document.body.style.overflow = previousOverflow
+      if (previousActiveElement?.isConnected) previousActiveElement.focus()
     }
   }, [open])
 
@@ -124,7 +101,7 @@ export const Modal: React.FC<ModalProps> = ({
     <div
       ref={overlayRef}
       onClick={handleOverlayClick}
-      onKeyDown={(e) => { if (e.key === 'Escape' && closeOnEscape) onClose(); onKeyDown?.(e); }}
+      onKeyDown={onKeyDown}
       style={{
         position: 'fixed',
         inset: 0,

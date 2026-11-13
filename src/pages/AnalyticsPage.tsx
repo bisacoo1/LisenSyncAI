@@ -1,3 +1,4 @@
+import { WorkspacePageHeader } from '@/components/WorkspacePageHeader'
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
@@ -31,7 +32,7 @@ export default function AnalyticsPage() {
   const stats = useMemo(() => program ? computeSubjectStats(attempts, program.subjects) : [], [attempts, program])
   const overall = useMemo(() => overallPercent(attempts), [attempts])
   const readiness = readinessLabel(overall)
-  const weakSubjects = stats.filter(s => s.weak)
+  const weakSubjects = stats.filter(s => s.weak && s.total > 0)
 
   useEffect(() => {
     if (!profile || !weakSubjects.length) { setWeakDrills([]); return }
@@ -45,17 +46,15 @@ export default function AnalyticsPage() {
   if (!profile || !program) return null
 
   return (
-    <div className="container" style={{ paddingTop: 24, paddingBottom: 48 }}>
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 24, flexWrap: 'wrap', marginBottom: 24 }}>
-        <div>
-          <h1 style={{ margin: '0 0 8px', fontSize: 32, fontWeight: 700 }}>Readiness Analytics</h1>
-          <p style={{ margin: 0, color: 'var(--muted)', fontSize: 15 }}>Scores per board exam subject, weak-topic flags, and targeted remediation drills toward the {PASSING_RATE}% passing mark.</p>
-        </div>
-        <Badge variant={readiness.tone === 'ok' ? 'success' : readiness.tone === 'warn' ? 'warning' : 'danger'} size="lg">
-          <Icon name={readiness.tone === 'ok' ? 'check-circle' : readiness.tone === 'warn' ? 'alert-triangle' : 'alert-circle'} size={14} />
-          Overall: {overall}% — {readiness.label}
-        </Badge>
-      </div>
+    <div className="container workspace-page">
+      <WorkspacePageHeader
+        eyebrow="THE BIG PICTURE" index="05" title={<>Your progress, <em>in focus.</em></>}
+        description={`See your subject scores and find where to focus next as you work toward the ${PASSING_RATE}% benchmark.`}
+        action={<Badge variant={loading || attempts.length === 0 ? 'default' : readiness.tone === 'ok' ? 'success' : readiness.tone === 'warn' ? 'warning' : 'danger'} size="lg">
+          <Icon name={loading || attempts.length === 0 ? 'activity' : readiness.tone === 'ok' ? 'check-circle' : readiness.tone === 'warn' ? 'alert-triangle' : 'alert-circle'} size={14} />
+          {loading ? 'Loading progress' : attempts.length === 0 ? 'No practice data yet' : `Overall: ${overall}% — ${readiness.label}`}
+        </Badge>}
+      />
 
       {/* Stats Overview */}
       <div className="grid grid-3" style={{ marginBottom: 24 }}>
@@ -66,7 +65,7 @@ export default function AnalyticsPage() {
             </div>
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 4, fontWeight: 500 }}>OVERALL SCORE</div>
-              <div style={{ fontSize: 36, fontWeight: 700, letterSpacing: '-0.02em', color: overall >= PASSING_RATE ? 'var(--success)' : overall >= 60 ? 'var(--warning)' : 'var(--danger)' }}>{overall}%</div>
+              <div style={{ fontSize: 36, fontWeight: 700, letterSpacing: '-0.02em', color: attempts.length === 0 ? 'var(--muted)' : overall >= PASSING_RATE ? 'var(--success)' : overall >= 60 ? 'var(--warning)' : 'var(--danger)' }}>{loading || attempts.length === 0 ? '—' : `${overall}%`}</div>
               <p className="muted" style={{ marginTop: 4, fontSize: 13 }}>Across {attempts.length} recorded attempts</p>
             </div>
           </CardContent>
@@ -92,8 +91,8 @@ export default function AnalyticsPage() {
             </div>
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 4, fontWeight: 500 }}>WEAK SUBJECTS</div>
-              <div style={{ fontSize: 36, fontWeight: 700, letterSpacing: '-0.02em', color: weakSubjects.length > 0 ? 'var(--danger)' : 'var(--success)' }}>{weakSubjects.length}</div>
-              <p className="muted" style={{ marginTop: 4, fontSize: 13 }}>{weakSubjects.length > 0 ? 'Subjects below 75% or no attempts' : 'All subjects on track'}</p>
+              <div style={{ fontSize: 36, fontWeight: 700, letterSpacing: '-0.02em', color: attempts.length === 0 ? 'var(--muted)' : weakSubjects.length > 0 ? 'var(--danger)' : 'var(--success)' }}>{loading || attempts.length === 0 ? '—' : weakSubjects.length}</div>
+              <p className="muted" style={{ marginTop: 4, fontSize: 13 }}>{loading ? 'Loading subjects' : attempts.length === 0 ? 'Start practicing to see your focus areas' : weakSubjects.length > 0 ? 'Subjects below 75%' : 'No attempted subjects below 75%'}</p>
             </div>
           </CardContent>
         </Card>
@@ -103,7 +102,7 @@ export default function AnalyticsPage() {
       <Card variant="outlined" style={{ marginBottom: 24 }}>
         <CardHeader title="Per-Subject Performance" icon="bar-chart" subtitle={`${program.name} • ${stats.length} subjects tracked`} />
         <CardContent>
-          <div className="table-wrapper" style={{ overflowX: 'auto' }}>
+          <div className="table-wrapper" role="region" aria-label="Per-subject performance, scrollable table" tabIndex={0} style={{ overflowX: 'auto' }}>
             <table className="table" style={{ minWidth: 700 }}>
               <thead>
                 <tr>
@@ -122,8 +121,8 @@ export default function AnalyticsPage() {
                     <td style={{ fontVariantNumeric: 'tabular-nums', color: 'var(--muted)' }}>{s.total}</td>
                     <td>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                        <ProgressBar value={s.percent} max={100} size="sm" variant={s.percent >= PASSING_RATE ? 'success' : s.percent >= 60 ? 'warning' : 'danger'} style={{ flex: 1, minWidth: 150 }} />
-                        <span style={{ fontSize: 12, fontWeight: 600, fontVariantNumeric: 'tabular-nums', minWidth: 45, color: s.percent >= PASSING_RATE ? 'var(--success)' : s.percent >= 60 ? 'var(--warning)' : 'var(--danger)' }}>{s.percent}%</span>
+                        {s.total > 0 ? <ProgressBar value={s.percent} max={100} size="sm" ariaLabel={`${s.subject} practice score`} variant={s.percent >= PASSING_RATE ? 'success' : s.percent >= 60 ? 'warning' : 'danger'} style={{ flex: 1, minWidth: 150 }} /> : <div aria-hidden="true" style={{ flex: 1, minWidth: 150, height: 4, borderRadius: 999, background: 'var(--panel-2)' }} />}
+                        <span style={{ fontSize: 12, fontWeight: 600, fontVariantNumeric: 'tabular-nums', minWidth: 45, color: s.total === 0 ? 'var(--muted)' : s.percent >= PASSING_RATE ? 'var(--success)' : s.percent >= 60 ? 'var(--warning)' : 'var(--danger)' }}>{s.total === 0 ? '—' : `${s.percent}%`}</span>
                       </div>
                     </td>
                     <td>
@@ -152,8 +151,8 @@ export default function AnalyticsPage() {
             {weakSubjects.length === 0 ? (
               <EmptyState
                 icon="check-circle"
-                title="No weak subjects flagged"
-                description="Maintain performance with continued timed mock simulations."
+                title={attempts.length === 0 ? 'Your focus areas will appear here' : 'No weak subjects flagged'}
+                description={attempts.length === 0 ? 'Complete a practice session to see where to focus next.' : 'Keep building on your progress with practice and mock simulations.'}
               />
             ) : (
               <>
@@ -173,10 +172,10 @@ export default function AnalyticsPage() {
                 ) : (
                   <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 8 }}>
                     {weakDrills.map(d => (
-                      <li key={d.id} style={{ padding: 12, background: 'var(--panel-2)', border: '1px solid var(--border)', borderRadius: 8, display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-                        <Badge variant="primary" size="sm" style={{ flexShrink: 0 }}>{d.subject}</Badge>
-                        <Badge variant={d.type === 'mcq' ? 'info' : d.type === 'diagnosis' ? 'warning' : 'success'} size="sm" style={{ flexShrink: 0 }}>{d.type.toUpperCase()}</Badge>
-                        <span style={{ flex: 1, fontSize: 13, lineHeight: 1.5 }}>
+                      <li key={d.id} className="remediation-drill">
+                        <Badge variant="primary" size="sm" style={{ maxWidth: '100%', overflowWrap: 'anywhere' }}>{d.subject}</Badge>
+                        <Badge variant={d.type === 'mcq' ? 'info' : d.type === 'diagnosis' ? 'warning' : 'success'} size="sm">{d.type.toUpperCase()}</Badge>
+                        <span className="remediation-drill-copy">
                           {(d.question as any)?.stem || (d.question as any)?.prompt || (d.question as any)?.scenario?.slice(0, 100) || 'Practice item available in Practice mode'}
                         </span>
                       </li>
@@ -190,7 +189,7 @@ export default function AnalyticsPage() {
 
         {/* Mock Exam History */}
         <Card variant="elevated">
-          <CardHeader title="Mock Exam History" icon="timer" subtitle={`${exams.length} exam${exams.length !== 1 ? 's' : ''} completed`} />
+          <CardHeader title="Mock Exam History" icon="timer" subtitle={`${exams.length} exam${exams.length !== 1 ? 's' : ''} recorded`} />
           <CardContent>
             {exams.length === 0 ? (
               <EmptyState
@@ -200,7 +199,7 @@ export default function AnalyticsPage() {
                 action={{ label: 'Start Mock Exam', onClick: () => navigate('/mock'), variant: 'primary' }}
               />
             ) : (
-              <div className="table-wrapper">
+              <div className="table-wrapper" role="region" aria-label="Mock exam history, scrollable table" tabIndex={0}>
                 <table className="table" style={{ minWidth: 500 }}>
                   <thead>
                     <tr>
@@ -242,7 +241,7 @@ export default function AnalyticsPage() {
         <CardHeader title="Readiness Trend" icon="trending-up" subtitle="Track your progress over time" />
         <CardContent>
           <div style={{ padding: 40, textAlign: 'center' }}>
-            <Icon name="activity" size={48} style={{ color: 'var(--muted)', marginBottom: 16, opacity: 0.5 }} />
+            <Icon name="activity" size={48} style={{ color: 'var(--muted)', margin: '0 auto 16px', opacity: 0.5 }} />
             <h4 style={{ margin: '0 0 8px' }}>Chart visualization coming soon</h4>
             <p style={{ margin: 0, color: 'var(--muted)' }}>Historical readiness tracking and trend analysis will be available in a future update.</p>
           </div>
