@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { Button, Card, CardHeader, CardContent, Icon, Badge, type IconName } from '@/components/ui'
+import logo from '@/logo/logo.png'
 
 export default function LandingPage() {
   const { profile } = useAuth()
@@ -83,7 +84,7 @@ export default function LandingPage() {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 0' }}>
           <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none' }}>
             <div style={{ width: 32, height: 32, borderRadius: 8, background: 'linear-gradient(135deg, var(--primary), var(--primary-2))', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Icon name="logo" size={18} style={{ color: '#041014' }} />
+              <img src={logo} alt="LisenSync AI logo" style={{ width: 18, height: 18 }} />
             </div>
             <span style={{ fontWeight: 700, fontSize: 18, letterSpacing: '-0.02em', color: 'var(--text)' }}>LisenSync AI</span>
           </Link>
@@ -183,7 +184,7 @@ export default function LandingPage() {
       <footer style={{ padding: '60px 0 40', borderTop: '1px solid var(--border)', marginTop: 80 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 28 }}>
           <div style={{ width: 32, height: 32, borderRadius: 8, background: 'linear-gradient(135deg, var(--primary), var(--primary-2))', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Icon name="logo" size={16} style={{ color: '#041014' }} />
+            <img src={logo} alt="LisenSync AI logo" style={{ width: 16, height: 16 }} />
           </div>
           <span style={{ fontWeight: 700, fontSize: 18, letterSpacing: '-0.02em', color: 'var(--text)' }}>LisenSync AI</span>
         </div>

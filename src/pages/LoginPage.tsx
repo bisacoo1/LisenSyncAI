@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { supabase, supabaseConfigured } from '@/lib/supabase'
 import { AuthLayout } from '@/components/Layout'
 import { Card, CardHeader, CardContent, Button, Input, Icon, useToast } from '@/components/ui'
+import logo from '@/logo/logo.png'
 
 export default function LoginPage() {
   const nav = useNavigate()
@@ -33,7 +34,7 @@ export default function LoginPage() {
       {/* Brand header */}
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20, marginBottom: 32 }}>
         <div style={{ width: 72, height: 72, borderRadius: 18, background: 'linear-gradient(135deg, var(--primary), var(--primary-2))', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 8px 24px rgba(45, 212, 191, 0.35)' }}>
-          <Icon name="logo" size={36} style={{ color: '#041014' }} />
+          <img src={logo} alt="LisenSync AI logo" style={{ width: 36, height: 36 }} />
         </div>
         <div>
           <h1 style={{ margin: 0, fontSize: 32, fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--text)' }}>LisenSync AI</h1>
