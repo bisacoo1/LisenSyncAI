@@ -8,6 +8,7 @@ import { isCardDue, scheduleReview, type ReviewQuality } from '@/lib/srs'
 import type { Flashcard, McqAnswer, McqQuestion, PracticeItem, PracticeType, SequenceAnswer, SequenceQuestion, DiagnosisAnswer, DiagnosisQuestion, Profile } from '@/types'
 import { Card, CardHeader, CardContent, Button, Badge, Icon, EmptyState, SegControl, Tabs, TabPanels, TabPanel, Skeleton, useToast, type TabItem } from '@/components/ui'
 import LevelUpCelebration from '@/components/LevelUpCelebration'
+import AiHelper from '@/components/AiHelper'
 
 export default function PracticePage() {
   const { profile, user, refreshProfile } = useAuth()
@@ -154,6 +155,28 @@ export default function PracticePage() {
     setFeedback({ correct, text: current.rationale || '' })
     await recordAttempt(correct, { order: seqOrder })
     addToast({ type: correct ? 'success' : 'error', title: correct ? 'Correct order!' : 'Incorrect order', message: current.rationale || `Correct: ${ans.order.join(' → ')}`, duration: 3000 })
+  }
+
+  function questionContext(): string {
+    const it = items[idx]
+    if (!it) return ''
+    const subj = `Board subject: ${it.subject}`
+    if (mode === 'mcq') {
+      const q = it.question as McqQuestion
+      const a = it.answer as McqAnswer
+      return `${subj}\nQuestion: ${q.stem}\nOptions:\n${q.options.map((o, i) => `${String.fromCharCode(65 + i)}. ${o}`).join('\n')}\nCorrect answer: ${String.fromCharCode(65 + a.correctIndex)} — ${q.options[a.correctIndex]}\nRationale: ${it.rationale || 'none'}`
+    }
+    if (mode === 'diagnosis') {
+      const q = it.question as DiagnosisQuestion
+      const a = it.answer as DiagnosisAnswer
+      return `${subj}\nScenario: ${q.scenario}\nPrompt: ${q.prompt}\nExpected answer: ${a.expected}${a.acceptable?.length ? ` (also acceptable: ${a.acceptable.join(', ')})` : ''}\nRationale: ${it.rationale || 'none'}`
+    }
+    if (mode === 'sequence') {
+      const q = it.question as SequenceQuestion
+      const a = it.answer as SequenceAnswer
+      return `${subj}\nPrompt: ${q.prompt}\nItems: ${q.items.join(' | ')}\nCorrect order: ${a.order.join(' → ')}\nRationale: ${it.rationale || 'none'}`
+    }
+    return ''
   }
 
   function moveSeq(i: number, dir: -1 | 1) {
@@ -376,6 +399,7 @@ export default function PracticePage() {
                 </div>
               </div>
             )}
+            {feedback && <AiHelper contextText={questionContext()} program={profile.board_program} subject={subject} itemKey={current.id} />}
           </CardContent>
         </Card>
       )}
@@ -438,6 +462,7 @@ export default function PracticePage() {
                 </div>
               </div>
             )}
+            {feedback && <AiHelper contextText={questionContext()} program={profile.board_program} subject={subject} itemKey={current.id} />}
           </CardContent>
         </Card>
       )}
@@ -500,6 +525,7 @@ export default function PracticePage() {
                 </div>
               </div>
             )}
+            {feedback && <AiHelper contextText={questionContext()} program={profile.board_program} subject={subject} itemKey={current.id} />}
           </CardContent>
         </Card>
       )}
