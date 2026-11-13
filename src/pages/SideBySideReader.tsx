@@ -18,8 +18,8 @@ function HighlightBubble({ text, onExplain, onHighlight, onClose, style }: Highl
   return (
     <div
       style={{
-        position: 'absolute',
-        zIndex: 50,
+        position: 'fixed',
+        zIndex: 1000,
         background: 'var(--panel)',
         border: '1px solid var(--primary-border)',
         borderRadius: 10,
@@ -72,6 +72,8 @@ export default function SideBySideReader() {
   const [sendingFollowUp, setSendingFollowUp] = useState(false)
   const [bubble, setBubble] = useState<{ x: number; y: number; text: string } | null>(null)
   const [followUps, setFollowUps] = useState<{ question: string; answer: string }[]>([])
+  const [currentPage, setCurrentPage] = useState(1)
+  const ITEMS_PER_PAGE = 4
 
   const textRef = useRef<HTMLDivElement>(null)
   const selectionTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -123,6 +125,8 @@ export default function SideBySideReader() {
 
   const mat = material!
   const paragraphs = (mat.extracted_text || '').split(/\n\s*\n/).filter(p => p.trim().length > 0)
+  const totalPages = Math.max(1, Math.ceil(paragraphs.length / ITEMS_PER_PAGE))
+  const pageParagraphs = paragraphs.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE)
 
   function handleSelectionChange(e: React.UIEvent) {
     if (selectionTimeout.current) clearTimeout(selectionTimeout.current)
@@ -133,7 +137,7 @@ export default function SideBySideReader() {
         const rect = sel?.getRangeAt(0).getBoundingClientRect()
         setBubble({
           x: rect?.left ?? 0,
-          y: (rect?.top ?? 0) - 80,
+          y: (rect?.top ?? 0) + window.scrollY - 80,
           text,
         })
         setSelectedText(text)
@@ -228,6 +232,11 @@ export default function SideBySideReader() {
     }
   }
 
+  const goToPage = (page: number) => {
+    if (page < 1 || page > totalPages) return
+    setCurrentPage(page)
+  }
+
   return (
     <div className="container" style={{ paddingTop: 20, paddingBottom: 48, display: 'flex', flexDirection: 'column' }}>
       {/* Header */}
@@ -269,6 +278,7 @@ export default function SideBySideReader() {
                   userSelect: 'text',
                   cursor: 'text',
                   padding: 20,
+                  minHeight: '100%',
                 }}
               >
                 {paragraphs.length === 0 ? (
@@ -276,36 +286,73 @@ export default function SideBySideReader() {
                     No text content available for this document.
                   </div>
                 ) : (
-                  paragraphs.map((p, i) => (
-                    <p key={i} style={{ margin: '0 0 16px', whiteSpace: 'pre-wrap' }}>
-                      {p}
-                    </p>
-                  ))
-                )}
-                {highlights.length > 0 && (
-                  <div style={{ marginTop: 32, paddingTop: 24, borderTop: '1px solid var(--border)' }}>
-                    <h4 style={{ margin: '0 0 12px', fontSize: 14, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                      Your Highlights & Explanations
-                    </h4>
-                    <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 10 }}>
-                      {highlights.map(h => (
-                        <li key={h.id} style={{ padding: 12, background: 'var(--panel-2)', border: '1px solid var(--border)', borderRadius: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                          <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text)' }}>{h.selected_text}</div>
-                          {h.explanation && (
-                            <div style={{ fontSize: 12, color: 'var(--primary)', fontWeight: 500 }}>
-                              <Icon name="brain" size={14} style={{ marginRight: 6 }} />
-                              AI explained
-                            </div>
-                          )}
-                          {!h.explanation && (
-                            <div style={{ fontSize: 12, color: 'var(--muted)' }}>Highlighted (no explanation yet)</div>
-                          )}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
+                  <>
+                    {pageParagraphs.map((p, i) => (
+                      <p key={i} style={{ margin: '0 0 16px', whiteSpace: 'pre-wrap' }}>
+                        {p}
+                      </p>
+                    ))}
+                    {/* Page number marker */}
+                    <div style={{ textAlign: 'center', marginTop: 30, color: 'var(--muted)', fontSize: 12, fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+                      Page {currentPage} of {totalPages}
+                    </div>
+                  </>
                 )}
               </div>
+
+              {/* Page navigation */}
+              {totalPages > 1 && (
+                <div style={{ padding: 16, borderTop: '1px solid var(--border)', background: 'var(--panel-2)', borderRadius: '0 0 12px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => goToPage(currentPage - 1)}
+                    disabled={currentPage === 1}
+                    fullWidth
+                    style={{ minWidth: 100 }}
+                  >
+                    <Icon name="chevron-left" size={16} style={{ marginRight: 6 }} />
+                    Previous
+                  </Button>
+                  <div style={{ fontSize: 13, color: 'var(--muted)', fontWeight: 600 }}>
+                    {currentPage} / {totalPages}
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => goToPage(currentPage + 1)}
+                    disabled={currentPage === totalPages}
+                    fullWidth
+                    style={{ minWidth: 100 }}
+                  >
+                    Next <Icon name="chevron-right" size={16} style={{ marginLeft: 6 }} />
+                  </Button>
+                </div>
+              )}
+
+              {highlights.length > 0 && (
+                <div style={{ marginTop: 32, paddingTop: 24, borderTop: '1px solid var(--border)' }}>
+                  <h4 style={{ margin: '0 0 12px', fontSize: 14, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    Your Highlights & Explanations
+                  </h4>
+                  <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    {highlights.map(h => (
+                      <li key={h.id} style={{ padding: 12, background: 'var(--panel-2)', border: '1px solid var(--border)', borderRadius: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text)' }}>{h.selected_text}</div>
+                        {h.explanation && (
+                          <div style={{ fontSize: 12, color: 'var(--primary)', fontWeight: 500 }}>
+                            <Icon name="brain" size={14} style={{ marginRight: 6 }} />
+                            AI explained
+                          </div>
+                        )}
+                        {!h.explanation && (
+                          <div style={{ fontSize: 12, color: 'var(--muted)' }}>Highlighted (no explanation yet)</div>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -346,9 +393,44 @@ export default function SideBySideReader() {
             </button>
           </div>
 
-          {/* Panel content */}
+          {/* Panel content - always visible */}
           <div style={{ flex: 1, overflow: 'auto', padding: 20, display: 'flex', flexDirection: 'column', gap: 16 }}>
-            {currentExplanation ? (
+            {/* Saved highlights section */}
+            <div>
+              <h4 style={{ margin: '0 0 12px', fontSize: 13, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                Saved Highlights ({highlights.length})
+              </h4>
+              {highlights.length === 0 ? (
+                <div style={{ fontSize: 13, color: 'var(--muted)', textAlign: 'center', padding: 24 }}>
+                  No highlights yet. Select text in the document and tap 'Highlight'.
+                </div>
+              ) : (
+                <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {highlights.map(h => (
+                    <li
+                      key={h.id}
+                      style={{ padding: 10, background: 'var(--panel-2)', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', transition: 'all 150ms ease' }}
+                      onClick={() => setCurrentExplanation(h.explanation ? { text: h.selected_text, explanation: h.explanation, model: h.ai_model || 'unknown' } : null)}
+                    >
+                      <div style={{ fontSize: 12.5, fontWeight: 500, color: 'var(--text)', maxHeight: 48, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box' }}>
+                        {h.selected_text}
+                      </div>
+                      {h.explanation ? (
+                        <div style={{ fontSize: 11, color: 'var(--primary)', fontWeight: 600, marginTop: 4 }}>
+                          <Icon name="brain" size={12} style={{ marginRight: 4 }} />
+                          AI explained — tap to view
+                        </div>
+                      ) : (
+                        <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>Highlighted (no explanation)</div>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            {/* Current explanation section */}
+            {currentExplanation && (
               <>
                 <div style={{ background: 'var(--panel-2)', border: '1px solid var(--border)', borderRadius: 10, padding: 16 }}>
                   <div style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>
@@ -365,54 +447,57 @@ export default function SideBySideReader() {
                   </div>
                 </div>
 
-                <div style={{ background: 'var(--panel-2)', border: '1px solid var(--border)', borderRadius: 10, padding: 16 }}>
-                  <div style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>
-                    Follow-up question
-                  </div>
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    <Input
-                      placeholder="Ask a follow-up question…"
-                      value={followUpInput}
-                      onChange={e => setFollowUpInput(e.target.value)}
-                      onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendFollowUp()}
-                      fullWidth
-                      leftIcon="comment"
-                    />
-                    <Button
-                      variant="primary"
-                      size="sm"
-                      onClick={sendFollowUp}
-                      disabled={!followUpInput.trim() || sendingFollowUp}
-                      loading={sendingFollowUp}
-                      leftIcon="arrow-right"
-                    >
-                      Ask
-                    </Button>
-                  </div>
+                <h4 style={{ margin: '0 0 8px', fontSize: 13, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  Follow-up question
+                </h4>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <Input
+                    placeholder="Ask a follow-up question…"
+                    value={followUpInput}
+                    onChange={e => setFollowUpInput(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendFollowUp()}
+                    fullWidth
+                    leftIcon="comment"
+                  />
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={sendFollowUp}
+                    disabled={!followUpInput.trim() || sendingFollowUp}
+                    loading={sendingFollowUp}
+                    leftIcon="arrow-right"
+                  >
+                    Ask
+                  </Button>
                 </div>
 
                 {followUps.length > 0 && (
                   <div>
-                    <h4 style={{ margin: '0 0 12px', fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>Conversation</h4>
+                    <h4 style={{ margin: '16px 0 12px', fontSize: 13, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                      Conversation
+                    </h4>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                       {followUps.map((f, i) => (
-                        <div key={i} style={{ padding: 12, background: 'var(--panel-2)', borderRadius: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                          <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--primary)' }}>You:</div>
-                          <div style={{ fontSize: 13, color: 'var(--text)' }}>{f.question}</div>
-                          <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted)', marginTop: 4 }}>AI:</div>
-                          <div style={{ fontSize: 13, color: 'var(--text-dim)', lineHeight: 1.6 }}>{f.answer}</div>
+                        <div key={i} style={{ padding: 10, background: 'var(--panel-2)', borderRadius: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--primary)' }}>You:</div>
+                          <div style={{ fontSize: 12.5, color: 'var(--text)' }}>{f.question}</div>
+                          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', marginTop: 4 }}>AI:</div>
+                          <div style={{ fontSize: 12.5, color: 'var(--text-dim)', lineHeight: 1.6 }}>{f.answer}</div>
                         </div>
                       ))}
                     </div>
                   </div>
                 )}
               </>
-            ) : (
-              <EmptyState
-                icon="check-circle"
-                title="No explanation yet"
-                description="Select text in the document and tap 'Explain with AI' to get an AI explanation here."
-              />
+            )}
+
+            {/* Empty state - always show follow-up section even without explanation */}
+            {!currentExplanation && (
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 16, alignItems: 'center', justifyContent: 'center', textAlign: 'center', color: 'var(--muted)' }}>
+                <Icon name="check-circle" size={48} style={{ opacity: 0.4 }} />
+                <p style={{ fontSize: 14, marginBottom: 16 }}>No explanation yet</p>
+                <p style={{ fontSize: 12, maxWidth: 260, lineHeight: 1.6 }}>Select text in the document and tap 'Explain with AI' to start.</p>
+              </div>
             )}
           </div>
         </div>
