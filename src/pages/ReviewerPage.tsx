@@ -336,6 +336,7 @@ export default function ReviewerPage() {
                     <th style={{width: 160}}>Source</th>
                     <th style={{width: 120}}>Type</th>
                     <th style={{width: 100}}>Size</th>
+                    <th style={{width: 140}}>Action</th>
                     <th style={{width: 180}}>Created</th>
                   </tr>
                 </thead>
@@ -347,6 +348,11 @@ export default function ReviewerPage() {
                       <td className="muted" style={{ fontSize: 13 }}>{m.source_filename || '—'}</td>
                       <td className="muted" style={{ fontSize: 13 }}>{m.mime_type || '—'}</td>
                       <td className="muted" style={{ fontSize: 13 }}>{m.file_size ? `${(m.file_size / 1024 / 1024).toFixed(2)} MB` : '—'}</td>
+                      <td>
+                        <Button variant="outline" size="sm" onClick={() => navigate(`/side-by-side/${m.id}`)} fullWidth leftIcon="file-text">
+                          Open Reader
+                        </Button>
+                      </td>
                       <td className="muted" style={{ fontSize: 13 }}>{new Date(m.created_at).toLocaleString()}</td>
                     </tr>
                   ))}
