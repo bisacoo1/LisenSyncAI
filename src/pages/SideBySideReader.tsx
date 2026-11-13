@@ -260,16 +260,92 @@ export default function SideBySideReader() {
         </div>
       </div>
 
-      {/* Main reader area - AI panel left, document right */}
-      <div style={{ display: 'grid', gridTemplateColumns: '400px 1fr', gap: 0, flex: 1, minHeight: 0, overflow: 'hidden' }}>
-        {/* Left: AI panel */}
+      {/* Main reader area - document left, AI panel right */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 400px', gap: 0, flex: 1, minHeight: 0, overflow: 'hidden' }}>
+        {/* Left: Document viewer */}
+        <div
+          style={{
+            background: 'var(--bg)',
+            overflow: 'auto',
+            borderRight: '1px solid var(--border)',
+            minHeight: 0,
+          }}
+        >
+          <Card variant="outlined" style={{ margin: 16, borderRadius: 12 }}>
+            <CardContent style={{ padding: 0 }}>
+              <div
+                ref={textRef}
+                onMouseUp={handleSelectionChange}
+                style={{
+                  lineHeight: 1.8,
+                  fontSize: 16,
+                  color: 'var(--text)',
+                  userSelect: 'text',
+                  cursor: 'text',
+                  padding: 20,
+                  minHeight: '100%',
+                }}
+              >
+                {paragraphs.length === 0 ? (
+                  <div style={{ color: 'var(--muted)', padding: 40, textAlign: 'center' }}>
+                    No text content available for this document.
+                  </div>
+                ) : (
+                  <>
+                    {pageParagraphs.map((p, i) => (
+                      <p key={i} style={{ margin: '0 0 16px', whiteSpace: 'pre-wrap' }}>
+                        {p}
+                      </p>
+                    ))}
+                    {/* Page number marker */}
+                    <div style={{ textAlign: 'center', marginTop: 30, color: 'var(--muted)', fontSize: 12, fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+                      Page {currentPage} of {totalPages}
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* Page navigation */}
+              {totalPages > 1 && (
+                <div style={{ padding: 16, borderTop: '1px solid var(--border)', background: 'var(--panel-2)', borderRadius: '0 0 12px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => goToPage(currentPage - 1)}
+                    disabled={currentPage === 1}
+                    fullWidth
+                    style={{ minWidth: 100 }}
+                  >
+                    <Icon name="chevron-left" size={16} style={{ marginRight: 6 }} />
+                    Previous
+                  </Button>
+                  <div style={{ fontSize: 13, color: 'var(--muted)', fontWeight: 600 }}>
+                    {currentPage} / {totalPages}
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => goToPage(currentPage + 1)}
+                    disabled={currentPage === totalPages}
+                    fullWidth
+                    style={{ minWidth: 100 }}
+                  >
+                    Next <Icon name="chevron-right" size={16} style={{ marginLeft: 6 }} />
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Right: AI panel */}
         <div
           style={{
             width: 400,
             minWidth: 400,
             background: 'var(--panel)',
-            borderRight: '1px solid var(--border)',
-            boxShadow: '4px 0 16px rgba(0, 0, 0, 0.15)',
+            borderLeft: '1px solid var(--border)',
+            boxShadow: '-4px 0 16px rgba(0, 0, 0, 0.15)',
             display: 'flex',
             flexDirection: 'column',
             overflow: 'hidden',
@@ -393,82 +469,6 @@ export default function SideBySideReader() {
               </div>
             )}
           </div>
-        </div>
-
-        {/* Right: Document viewer */}
-        <div
-          style={{
-            background: 'var(--bg)',
-            overflow: 'auto',
-            borderLeft: '1px solid var(--border)',
-            minHeight: 0,
-          }}
-        >
-          <Card variant="outlined" style={{ margin: 16, borderRadius: 12 }}>
-            <CardContent style={{ padding: 0 }}>
-              <div
-                ref={textRef}
-                onMouseUp={handleSelectionChange}
-                style={{
-                  lineHeight: 1.8,
-                  fontSize: 16,
-                  color: 'var(--text)',
-                  userSelect: 'text',
-                  cursor: 'text',
-                  padding: 20,
-                  minHeight: '100%',
-                }}
-              >
-                {paragraphs.length === 0 ? (
-                  <div style={{ color: 'var(--muted)', padding: 40, textAlign: 'center' }}>
-                    No text content available for this document.
-                  </div>
-                ) : (
-                  <>
-                    {pageParagraphs.map((p, i) => (
-                      <p key={i} style={{ margin: '0 0 16px', whiteSpace: 'pre-wrap' }}>
-                        {p}
-                      </p>
-                    ))}
-                    {/* Page number marker */}
-                    <div style={{ textAlign: 'center', marginTop: 30, color: 'var(--muted)', fontSize: 12, fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
-                      Page {currentPage} of {totalPages}
-                    </div>
-                  </>
-                )}
-              </div>
-
-              {/* Page navigation */}
-              {totalPages > 1 && (
-                <div style={{ padding: 16, borderTop: '1px solid var(--border)', background: 'var(--panel-2)', borderRadius: '0 0 12px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => goToPage(currentPage - 1)}
-                    disabled={currentPage === 1}
-                    fullWidth
-                    style={{ minWidth: 100 }}
-                  >
-                    <Icon name="chevron-left" size={16} style={{ marginRight: 6 }} />
-                    Previous
-                  </Button>
-                  <div style={{ fontSize: 13, color: 'var(--muted)', fontWeight: 600 }}>
-                    {currentPage} / {totalPages}
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => goToPage(currentPage + 1)}
-                    disabled={currentPage === totalPages}
-                    fullWidth
-                    style={{ minWidth: 100 }}
-                  >
-                    Next <Icon name="chevron-right" size={16} style={{ marginLeft: 6 }} />
-                  </Button>
-                </div>
-              )}
-            </CardContent>
-          </Card>
         </div>
       </div>
 
