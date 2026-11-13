@@ -7,6 +7,7 @@ import { checkDiagnosis, checkSequence, computeProfileStatsUpdate } from '@/lib/
 import { isCardDue, scheduleReview, type ReviewQuality } from '@/lib/srs'
 import type { Flashcard, McqAnswer, McqQuestion, PracticeItem, PracticeType, SequenceAnswer, SequenceQuestion, DiagnosisAnswer, DiagnosisQuestion, Profile } from '@/types'
 import { Card, CardHeader, CardContent, Button, Badge, Icon, EmptyState, SegControl, Tabs, TabPanels, TabPanel, Skeleton, useToast, type TabItem } from '@/components/ui'
+import LevelUpCelebration from '@/components/LevelUpCelebration'
 
 export default function PracticePage() {
   const { profile, user, refreshProfile } = useAuth()
@@ -24,6 +25,7 @@ export default function PracticePage() {
   const [seqOrder, setSeqOrder] = useState<string[]>([])
   const [feedback, setFeedback] = useState<{ correct: boolean; text: string } | null>(null)
   const [loading, setLoading] = useState(false)
+  const [levelUp, setLevelUp] = useState<number | null>(null)
   const { addToast } = useToast()
 
   useEffect(() => { if (program) setSubject(program.subjects[0]) }, [program])
@@ -82,6 +84,9 @@ export default function PracticePage() {
       if (readError) throw new Error(readError.message)
       const today = new Date().toISOString().slice(0, 10)
       const updates = computeProfileStatsUpdate((fresh as Profile) || profile, isCorrect, today)
+      if ((updates.level ?? 0) > ((fresh as Profile).level ?? 1)) {
+        setLevelUp(updates.level ?? null)
+      }
       const { error: updateError } = await supabase.from('profiles').update(updates).eq('id', profile.id)
       if (updateError) throw new Error(updateError.message)
       await refreshProfile()
@@ -496,6 +501,8 @@ export default function PracticePage() {
           </CardContent>
         </Card>
       )}
+
+      {levelUp != null && <LevelUpCelebration level={levelUp} onClose={() => setLevelUp(null)} />}
     </div>
   )
 }
