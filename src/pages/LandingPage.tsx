@@ -83,7 +83,7 @@ export default function LandingPage() {
       <nav style={{ position: 'sticky', top: 0, zIndex: 100, borderBottom: '1px solid var(--border)', background: 'rgba(10, 15, 26, 0.8)', backdropFilter: 'blur(12px)' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 0' }}>
           <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none' }}>
-            <div style={{ width: 32, height: 32, borderRadius: 8, background: 'linear-gradient(135deg, var(--primary), var(--primary-2))', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ width: 36, height: 36, borderRadius: 8, background: 'var(--panel-2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <img src={logo} alt="LisenSync AI logo" style={{ width: 18, height: 18 }} />
             </div>
             <span style={{ fontWeight: 700, fontSize: 18, letterSpacing: '-0.02em', color: 'var(--text)' }}>LisenSync AI</span>
@@ -183,8 +183,8 @@ export default function LandingPage() {
 
       <footer style={{ padding: '60px 0 40', borderTop: '1px solid var(--border)', marginTop: 80 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 28 }}>
-          <div style={{ width: 32, height: 32, borderRadius: 8, background: 'linear-gradient(135deg, var(--primary), var(--primary-2))', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <img src={logo} alt="LisenSync AI logo" style={{ width: 16, height: 16 }} />
+          <div style={{ width: 36, height: 36, borderRadius: 8, background: 'var(--panel-2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <img src={logo} alt="LisenSync AI logo" style={{ width: 18, height: 18 }} />
           </div>
           <span style={{ fontWeight: 700, fontSize: 18, letterSpacing: '-0.02em', color: 'var(--text)' }}>LisenSync AI</span>
         </div>

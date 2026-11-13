@@ -33,12 +33,12 @@ export default function LoginPage() {
     <AuthLayout>
       {/* Brand header */}
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20, marginBottom: 32 }}>
-        <div style={{ width: 72, height: 72, borderRadius: 18, background: 'linear-gradient(135deg, var(--primary), var(--primary-2))', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 8px 24px rgba(45, 212, 191, 0.35)' }}>
-          <img src={logo} alt="LisenSync AI logo" style={{ width: 36, height: 36 }} />
+        <div style={{ width: 112, height: 112, borderRadius: 28, background: 'var(--panel-2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <img src={logo} alt="LisenSync AI logo" style={{ width: 56, height: 56 }} />
         </div>
         <div>
-          <h1 style={{ margin: 0, fontSize: 32, fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--text)' }}>LisenSync AI</h1>
-          <p style={{ margin: '4px 0 0', fontSize: 15, color: 'var(--muted)' }}>PRC Licensure Exam Reviewer</p>
+          <h1 style={{ margin: 0, fontSize: 40, fontWeight: 800, letterSpacing: '-0.02em', color: 'var(--text)' }}>LisenSync AI</h1>
+          <p style={{ margin: '8px 0 0', fontSize: 17, color: 'var(--muted)' }}>PRC Licensure Exam Reviewer</p>
         </div>
       </div>
 
