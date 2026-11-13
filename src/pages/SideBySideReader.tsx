@@ -137,7 +137,7 @@ export default function SideBySideReader() {
         const rect = sel?.getRangeAt(0).getBoundingClientRect()
         setBubble({
           x: rect?.left ?? 0,
-          y: (rect?.top ?? 0) + window.scrollY - 80,
+          y: (rect?.top ?? 0) - 80,
           text,
         })
         setSelectedText(text)
@@ -265,7 +265,16 @@ export default function SideBySideReader() {
       {/* Main reader area */}
       <div style={{ display: 'flex', gap: 0, minHeight: 'calc(100vh - 200px)', overflow: 'hidden' }}>
         {/* Left: Document viewer */}
-        <div style={{ flex: 1, minWidth: 0, background: 'var(--bg)', overflow: 'auto', borderRight: '1px solid var(--border)' }}>
+        <div
+          style={{
+            flex: 1,
+            minWidth: 0,
+            background: 'var(--bg)',
+            overflow: 'auto',
+            borderRight: sidePanelOpen ? '1px solid var(--border)' : 'none',
+            transition: 'flex 250ms ease',
+          }}
+        >
           <Card variant="outlined" style={{ margin: 16, borderRadius: 12 }}>
             <CardContent style={{ padding: 0 }}>
               <div
@@ -360,16 +369,13 @@ export default function SideBySideReader() {
         {/* Right: AI side panel */}
         <div
           style={{
-            position: 'fixed',
-            top: 0,
-            right: sidePanelOpen ? 0 : '-420px',
-            bottom: 0,
-            width: 400,
+            width: sidePanelOpen ? 400 : 0,
+            minWidth: sidePanelOpen ? 400 : 0,
+            maxWidth: sidePanelOpen ? 400 : 0,
             background: 'var(--panel)',
             borderLeft: '1px solid var(--border)',
-            boxShadow: '-8px 0 24px rgba(0, 0, 0, 0.25)',
-            transition: 'right 250ms ease',
-            zIndex: 100,
+            boxShadow: sidePanelOpen ? '-4px 0 16px rgba(0, 0, 0, 0.2)' : 'none',
+            transition: 'width 250ms ease, min-width 250ms ease, max-width 250ms ease',
             display: 'flex',
             flexDirection: 'column',
             overflow: 'hidden',
