@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { WorkspacePageHeader } from '@/components/WorkspacePageHeader'
 import { useAuth } from '@/context/AuthContext'
 import { getProgram } from '@/lib/syllabus'
@@ -40,6 +40,9 @@ export default function ReviewerPage() {
   const [flashcards, setFlashcards] = useState<Flashcard[]>([])
   const [selectedMaterial, setSelectedMaterial] = useState<string>('')
   const [selectedCard, setSelectedCard] = useState<Flashcard | null>(null)
+  const uploadCardRef = useRef<HTMLDivElement>(null)
+  const generateCardRef = useRef<HTMLDivElement>(null)
+  const [searchParams] = useSearchParams()
   /* Saved materials discoverability */
   const [searchQuery, setSearchQuery] = useState('')
   const [subjectFilter, setSubjectFilter] = useState('')
@@ -48,6 +51,16 @@ export default function ReviewerPage() {
 
   useEffect(() => { if (program) setSubject(program.subjects[0]) }, [program])
   useEffect(() => { if (profile) loadMaterials() }, [profile?.id])
+
+  /* Scroll the requested reviewer function into view when arriving from the sidebar Upload section */
+  useEffect(() => {
+    const tab = searchParams.get('tab')
+    const target = tab === 'upload' ? uploadCardRef.current : tab === 'generate' ? generateCardRef.current : null
+    if (target) {
+      target.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams])
 
   async function loadMaterials() {
     if (!profile) return
@@ -226,7 +239,7 @@ export default function ReviewerPage() {
         </div>
         <div className="grid grid-2">
           {/* Upload Reviewer */}
-          <Card variant="elevated">
+          <Card variant="elevated" ref={uploadCardRef}>
           <CardHeader title="Upload Reviewer" icon="file-text" subtitle="PDF, DOCX, PPT/PPTX — processed by Gemini" />
           <CardContent>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -287,7 +300,7 @@ export default function ReviewerPage() {
         </Card>
 
         {/* Generate Section */}
-        <Card variant="elevated">
+        <Card variant="elevated" ref={generateCardRef}>
           <CardHeader title="Generate from Saved Material" icon="brain" subtitle={`Generates items tagged by the material's board subject and aligned to ${program.name}`} />
           <CardContent>
             <Select
