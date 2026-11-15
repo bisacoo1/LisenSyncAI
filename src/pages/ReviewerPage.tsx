@@ -215,9 +215,18 @@ export default function ReviewerPage() {
         </Card>
       )}
 
-      <div className="grid grid-2" style={{ marginBottom: 24 }}>
-        {/* Upload Section */}
-        <Card variant="elevated">
+      {/* Upload section: add a reviewer and generate study items from it */}
+      <section className="upload-section" style={{ marginBottom: 24 }}>
+        <div className="upload-section-header" style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
+          <Icon name="upload" size={20} style={{ color: 'var(--primary)' }} />
+          <div>
+            <p style={{ margin: 0, fontSize: 10, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--muted-strong)' }}>Upload section</p>
+            <h3 style={{ margin: '2px 0 0', fontSize: 20, fontWeight: 700, color: 'var(--text)' }}>Add &amp; generate review materials</h3>
+          </div>
+        </div>
+        <div className="grid grid-2">
+          {/* Upload Reviewer */}
+          <Card variant="elevated">
           <CardHeader title="Upload Reviewer" icon="file-text" subtitle="PDF, DOCX, PPT/PPTX — processed by Gemini" />
           <CardContent>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -307,7 +316,8 @@ export default function ReviewerPage() {
             </div>
           </CardContent>
         </Card>
-      </div>
+        </div>
+      </section>
 
       {/* Dedicated Recent Flashcards section */}
       <Card variant="elevated">
