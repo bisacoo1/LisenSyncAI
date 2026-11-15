@@ -11,6 +11,11 @@ const navItems: { path: string; label: string; icon: IconName }[] = [
   { path: '/analytics', label: 'Analytics', icon: 'analytics' }
 ]
 
+const uploadItems: { path: string; label: string; icon: IconName; tab: string }[] = [
+  { path: '/reviewer?tab=upload', label: 'Upload Reviewer', icon: 'upload', tab: 'upload' },
+  { path: '/reviewer?tab=generate', label: 'Generate from Saved Material', icon: 'brain', tab: 'generate' }
+]
+
 export function Sidebar({
   open = false,
   onToggle,
@@ -64,6 +69,39 @@ export function Sidebar({
             const active =
               location.pathname === item.path ||
               (item.path === '/reviewer' && location.pathname.startsWith('/side-by-side/'))
+            const isReviewerTab = item.path === '/reviewer' && location.search.includes('tab=')
+            const link = (
+              <Link
+                to={item.path}
+                className={`sidebar-item${active && !isReviewerTab ? ' active' : ''}`}
+                aria-label={item.label}
+                aria-current={active && !isReviewerTab ? 'page' : undefined}
+                onClick={onNavigate}
+              >
+                <Icon name={item.icon} size={19} />
+                <span className="sidebar-label">{item.label}</span>
+                {active && !isReviewerTab && <span className="sidebar-active-dot" aria-hidden="true" />}
+              </Link>
+            )
+            return (
+              <li key={item.path}>
+                {isCompact ? (
+                  <Tooltip content={item.label} position="right" delay={300}>
+                    {link}
+                  </Tooltip>
+                ) : (
+                  link
+                )}
+              </li>
+            )
+          })}
+
+          {/* Upload section: quick access to the two reviewer functions */}
+          <li className="sidebar-section">
+            <span className="sidebar-section-label">Upload</span>
+          </li>
+          {uploadItems.map((item) => {
+            const active = location.pathname === '/reviewer' && location.search.includes(`tab=${item.tab}`)
             const link = (
               <Link
                 to={item.path}
