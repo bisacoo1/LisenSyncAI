@@ -28,10 +28,40 @@ export default function MockExamPage() {
   const [err, setErr] = useState<string | null>(null)
   const [seqOrder, setSeqOrder] = useState<string[]>([])
   const submittedRef = useRef(false)
+  const persistTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const pendingPersist = useRef<{ id: string; value: any } | null>(null)
   const { addToast } = useToast()
   const [showSubmitConfirm, setShowSubmitConfirm] = useState(false)
   const [showResults, setShowResults] = useState(false)
   const [levelUp, setLevelUp] = useState<number | null>(null)
+
+  async function persistResponse(itemId: string, value: any) {
+    const { error } = await supabase.from('mock_exam_items').update({ user_response: value ?? null }).eq('id', itemId)
+    if (error) addToast({ type: 'error', title: 'Could not save answer', message: error.message })
+  }
+
+  function setResponse(itemId: string, value: any, debounce = false) {
+    setResponses(r => ({ ...r, [itemId]: value }))
+    if (!debounce) {
+      void persistResponse(itemId, value)
+      return
+    }
+    pendingPersist.current = { id: itemId, value }
+    if (persistTimer.current) clearTimeout(persistTimer.current)
+    persistTimer.current = setTimeout(() => {
+      const p = pendingPersist.current
+      pendingPersist.current = null
+      if (p) void persistResponse(p.id, p.value)
+    }, 600)
+  }
+
+  // Flush any pending debounced answer if the user navigates away mid-exam
+  useEffect(() => () => {
+    if (persistTimer.current) clearTimeout(persistTimer.current)
+    const p = pendingPersist.current
+    if (p) void persistResponse(p.id, p.value)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   function moveSeq(i: number, dir: -1 | 1) {
     const j = i + dir
@@ -52,13 +82,16 @@ export default function MockExamPage() {
     return () => clearTimeout(t)
   }, [remaining, exam])
 
-  // Update seqOrder when current item changes (for sequence questions)
+  // Update seqOrder when the current item changes; restore a saved order if one exists
   useEffect(() => {
     const it = items[current]
     if (it && it.type === 'sequence') {
       const q = it.question as SequenceQuestion
-      const savedOrder = responses[it.id]?.order as string[] | undefined
-      setSeqOrder(savedOrder ? [...savedOrder] : [...(q.items || [])].sort(() => Math.random() - 0.5))
+      const itemsList = q.items || []
+      const saved = (responses[it.id] as any)?.order
+      const isPermutation = Array.isArray(saved) && saved.length === itemsList.length &&
+        [...saved].sort().join('|') === [...itemsList].sort().join('|')
+      setSeqOrder(isPermutation ? saved : [...itemsList].sort(() => Math.random() - 0.5))
     }
   }, [current, items])
 
@@ -112,10 +145,6 @@ export default function MockExamPage() {
       await loadInProgress()
       addToast({ type: 'success', title: 'Mock exam started', message: 'Answers and rationales will be revealed only after submission.' })
     } catch (e: any) { setErr(e.message) } finally { setBusy(false) }
-  }
-
-  function setResponse(itemId: string, value: any) {
-    setResponses(r => ({ ...r, [itemId]: value }))
   }
 
   async function submitExam(auto = false) {
@@ -447,7 +476,7 @@ export default function MockExamPage() {
                   <input
                     aria-label="Your identification"
                     value={resp?.text || ''}
-                    onChange={e => setResponse(it.id, { text: e.target.value })}
+                    onChange={e => setResponse(it.id, { text: e.target.value }, true)}
                     placeholder="Enter the exact concept/principle/law/formula..."
                     style={{ padding: '14px 16px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel-2)', color: 'var(--text)', fontSize: 14 }}
                   />
