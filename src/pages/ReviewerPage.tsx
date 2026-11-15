@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { WorkspacePageHeader } from '@/components/WorkspacePageHeader'
 import { useAuth } from '@/context/AuthContext'
@@ -40,6 +40,10 @@ export default function ReviewerPage() {
   const [flashcards, setFlashcards] = useState<Flashcard[]>([])
   const [selectedMaterial, setSelectedMaterial] = useState<string>('')
   const [selectedCard, setSelectedCard] = useState<Flashcard | null>(null)
+  /* Saved materials discoverability */
+  const [searchQuery, setSearchQuery] = useState('')
+  const [subjectFilter, setSubjectFilter] = useState('')
+  const [sortOrder, setSortOrder] = useState<'newest' | 'oldest' | 'title'>('newest')
   const { addToast } = useToast()
 
   useEffect(() => { if (program) setSubject(program.subjects[0]) }, [program])
@@ -163,6 +167,21 @@ export default function ReviewerPage() {
     } catch (e: any) { setErr(e.message) } finally { setBusy(null) }
   }
 
+  /* Materials with search / subject filter / sort applied */
+  const filteredMaterials = useMemo(() => {
+    const q = searchQuery.toLowerCase()
+    let list = materials.filter(m =>
+      (!subjectFilter || m.subject === subjectFilter) &&
+      (!q || m.title.toLowerCase().includes(q) || m.subject.toLowerCase().includes(q) || (m.source_filename || '').toLowerCase().includes(q))
+    )
+    list = [...list].sort((a, b) => {
+      if (sortOrder === 'title') return a.title.localeCompare(b.title)
+      if (sortOrder === 'oldest') return new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    })
+    return list
+  }, [materials, searchQuery, subjectFilter, sortOrder])
+
   if (!profile || !program) return null
 
   return (
@@ -266,7 +285,7 @@ export default function ReviewerPage() {
               label="Material"
               value={selectedMaterial}
               onChange={e => setSelectedMaterial(e.target.value)}
-              options={[{ value: '', label: 'Select material...' }, ...materials.map(m => ({ value: m.id, label: `${m.title} — ${m.subject}` }))]}
+              options={[{ value: '', label: 'Select material...' }, ...filteredMaterials.map(m => ({ value: m.id, label: `${m.title} — ${m.subject}` }))]}
               leftIcon="book-open"
               fullWidth
               style={{ marginBottom: 16 }}
@@ -286,31 +305,138 @@ export default function ReviewerPage() {
                 Generate Priority & Sequence Ordering
               </Button>
             </div>
-
-            <div style={{ marginTop: 24, paddingTop: 20, borderTop: '1px solid var(--border)' }}>
-              <h4 style={{ margin: '0 0 16px', fontSize: 14, fontWeight: 600 }}>Recent Flashcards</h4>
-              {flashcards.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: 24, color: 'var(--muted)' }}>
-                  <Icon name="book-open" size={32} style={{ margin: '0 auto 8px', opacity: 0.5 }} />
-                  <p>No flashcards yet. Generate some from your materials above.</p>
-                </div>
-              ) : (
-                <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {flashcards.slice(0, 8).map(f => (
-                    <li key={f.id}>
-                      <button type="button" className="reviewer-flashcard" onClick={() => { setSelectedCard(f); setSelectedMaterial('') }}>
-                        <Badge variant="primary" size="sm">{f.subject}</Badge>
-                        <span>{f.front}</span>
-                        <Icon name="arrow-up-right" size={16} />
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
           </CardContent>
         </Card>
       </div>
+
+      {/* Dedicated Recent Flashcards section */}
+      <Card variant="elevated">
+        <CardHeader
+          title="Recent Flashcards"
+          icon="book-open"
+          subtitle={`Your ${flashcards.length} most recently generated cards. Tap a card to flip it, or practice a subject.`}
+          action={flashcards.length > 0 ? (
+            <Button variant="secondary" size="sm" leftIcon="book-open" onClick={() => navigate(`/practice?mode=flashcards`)}>Practice flashcards</Button>
+          ) : null}
+        />
+        <CardContent>
+          {flashcards.length === 0 ? (
+            <EmptyState
+              icon="book-open"
+              title="No flashcards yet"
+              description="Generate flashcards from a saved material above, then review them here."
+              action={{ label: 'Generate your first cards', variant: 'primary', onClick: () => setSelectedMaterial(filteredMaterials[0]?.id || '') }}
+            />
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {flashcards.slice(0, 10).map(f => (
+                <button type="button" key={f.id} className="reviewer-flashcard" onClick={() => { setSelectedCard(f); setSelectedMaterial('') }}>
+                  <Badge variant="primary" size="sm">{f.subject}</Badge>
+                  <span title={f.front}>{f.front}</span>
+                  <Icon name="arrow-up-right" size={16} />
+                </button>
+              ))}
+              {flashcards.length > 10 && (
+                <p style={{ margin: '8px 0 0', fontSize: 12, color: 'var(--muted)', textAlign: 'center' }}>
+                  + {flashcards.length - 10} more cards — open Flashcards practice to review the full set.
+                </p>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Saved Review Materials — moved up front so older materials are easy to find */}
+      <Card variant="outlined">
+        <CardHeader
+          title="Saved Review Materials"
+          icon="file-text"
+          subtitle={`${filteredMaterials.length} material${filteredMaterials.length !== 1 ? 's' : ''} saved`}
+        />
+        <CardContent>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+              <Input
+                label="Search materials"
+                placeholder="Title, subject, or file name"
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                leftIcon="search"
+                fullWidth
+                style={{ maxWidth: 420 }}
+              />
+              <Select
+                label="Subject"
+                value={subjectFilter}
+                onChange={e => setSubjectFilter(e.target.value)}
+                options={[{ value: '', label: 'All subjects' }, ...program.subjects.map(s => ({ value: s, label: s }))]}
+                leftIcon="book-open"
+                fullWidth
+                style={{ maxWidth: 260 }}
+              />
+              <Select
+                label="Sort by"
+                value={sortOrder}
+                onChange={e => setSortOrder(e.target.value as 'newest' | 'oldest' | 'title')}
+                options={[
+                  { value: 'newest', label: 'Newest first' },
+                  { value: 'oldest', label: 'Oldest first' },
+                  { value: 'title', label: 'A to Z' },
+                ]}
+                leftIcon="sort-asc"
+                fullWidth
+                style={{ maxWidth: 200 }}
+              />
+            </div>
+
+            {filteredMaterials.length === 0 ? (
+              <EmptyState
+                icon="file-text"
+                title={searchQuery || subjectFilter ? "No materials match your filters" : "No materials saved yet"}
+                description={searchQuery || subjectFilter
+                  ? "Try clearing the search or subject filter to see your saved reviewers."
+                  : "Upload a reviewer above to get started."}
+                action={{
+                  label: 'Clear filters',
+                  variant: 'outline',
+                  onClick: () => { setSearchQuery(''); setSubjectFilter(''); setSortOrder('newest') }
+                }}
+              />
+            ) : (
+              <div className="table-wrapper" role="region" aria-label="Saved review materials, scrollable table" tabIndex={0} style={{ overflowX: 'auto' }}>
+                <table className="table" style={{ minWidth: 700 }}>
+                  <thead>
+                    <tr>
+                      <th>Title</th>
+                      <th style={{ width: 160 }}>Subject</th>
+                      <th style={{ width: 200 }}>Source</th>
+                      <th style={{ width: 100 }}>Size</th>
+                      <th style={{ width: 160 }}>Created</th>
+                      <th style={{ width: 170 }}>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredMaterials.map(m => (
+                      <tr key={m.id}>
+                        <td style={{ fontWeight: 500 }}>{m.title}</td>
+                        <td><Badge variant="primary" size="sm">{m.subject}</Badge></td>
+                        <td className="muted" style={{ fontSize: 13 }}>{m.source_filename || '—'}</td>
+                        <td className="muted" style={{ fontSize: 13 }}>{m.file_size ? `${(m.file_size / 1024 / 1024).toFixed(2)} MB` : '—'}</td>
+                        <td className="muted" style={{ fontSize: 13 }}>{new Date(m.created_at).toLocaleString()}</td>
+                        <td>
+                          <Button variant="outline" size="sm" onClick={() => navigate(`/side-by-side/${m.id}`)} fullWidth leftIcon="file-text">
+                            Open Reader
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Flashcard Detail Modal */}
       {selectedCard && (
@@ -341,53 +467,6 @@ export default function ReviewerPage() {
           </div>
         </Modal>
       )}
-
-      {/* Saved Materials Table */}
-      <Card variant="outlined">
-        <CardHeader title="Saved Review Materials" icon="file-text" subtitle={`${materials.length} material${materials.length !== 1 ? 's' : ''} saved`} />
-        <CardContent>
-          {materials.length === 0 ? (
-            <EmptyState
-              icon="file-text"
-              title="No materials saved yet"
-              description="Upload a reviewer above to get started."
-            />
-          ) : (
-            <div className="table-wrapper" role="region" aria-label="Saved review materials, scrollable table" tabIndex={0} style={{ overflowX: 'auto' }}>
-              <table className="table" style={{ minWidth: 700 }}>
-                <thead>
-                  <tr>
-                    <th>Title</th>
-                    <th style={{width: 180}}>Subject</th>
-                    <th style={{width: 160}}>Source</th>
-                    <th style={{width: 120}}>Type</th>
-                    <th style={{width: 100}}>Size</th>
-                    <th style={{width: 140}}>Action</th>
-                    <th style={{width: 180}}>Created</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {materials.map(m => (
-                    <tr key={m.id}>
-                      <td style={{ fontWeight: 500 }}>{m.title}</td>
-                      <td><Badge variant="primary" size="sm">{m.subject}</Badge></td>
-                      <td className="muted" style={{ fontSize: 13 }}>{m.source_filename || '—'}</td>
-                      <td className="muted" style={{ fontSize: 13 }}>{m.mime_type || '—'}</td>
-                      <td className="muted" style={{ fontSize: 13 }}>{m.file_size ? `${(m.file_size / 1024 / 1024).toFixed(2)} MB` : '—'}</td>
-                      <td>
-                        <Button variant="outline" size="sm" onClick={() => navigate(`/side-by-side/${m.id}`)} fullWidth leftIcon="file-text">
-                          Open Reader
-                        </Button>
-                      </td>
-                      <td className="muted" style={{ fontSize: 13 }}>{new Date(m.created_at).toLocaleString()}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
     </div>
   )
 }
