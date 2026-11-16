@@ -1,7 +1,9 @@
+import { useEffect, useState } from 'react'
 import avatar512 from '@/assets/mascot/mascot-avatar-512.png'
 import avatar256 from '@/assets/mascot/mascot-avatar-256.png'
 import avatarRound from '@/assets/mascot/mascot-avatar-round-256.png'
 import speaking from '@/assets/mascot/mascot-speaking-1200.png'
+import idle from '@/assets/mascot/lilo-idle.webm'
 
 /**
  * Mascot: "Lilo" — the LisenSync AI pharmacist owl.
@@ -9,14 +11,14 @@ import speaking from '@/assets/mascot/mascot-speaking-1200.png'
  *
  * Visual rules
  * - Small sizes (<= 64px): use the round avatar, no glow, no ring.
- * - Idle companion: 128-256px round avatar with a soft cyan dish when speaking.
+ * - Idle companion: use the looping WebM, paused when reduced motion is requested.
  * - Speaking: use the full-body `state="speaking"` art for hero/empty states.
  * - Always decorative (`alt=""`) unless it is the only label on a control.
  */
 
 export const MASCOT_NAME = 'Lilo'
 
-export type TtsMascotVariant = 'auto' | 'round' | 'square' | 'speaking'
+export type TtsMascotVariant = 'auto' | 'round' | 'square' | 'speaking' | 'idle'
 
 type Props = {
   size?: number
@@ -34,6 +36,7 @@ const SOURCES = {
   square: avatar512,
   squareHi: avatar256,
   speaking,
+  idle,
 }
 
 export function TtsMascot({
@@ -44,6 +47,20 @@ export function TtsMascot({
   className,
   style,
 }: Props) {
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(() =>
+    typeof window !== 'undefined' &&
+    typeof window.matchMedia === 'function' &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  )
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return
+    const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)')
+    const updatePreference = () => setPrefersReducedMotion(mediaQuery.matches)
+    mediaQuery.addEventListener('change', updatePreference)
+    return () => mediaQuery.removeEventListener('change', updatePreference)
+  }, [])
+
   const resolved: TtsMascotVariant =
     variant === 'auto' ? (size <= 160 ? 'round' : 'speaking') : variant
 
@@ -71,16 +88,32 @@ export function TtsMascot({
         .join(' ')}
       style={{ width, ...style }}
     >
-      <img
-        src={src}
-        alt={label ?? ''}
-        aria-hidden={label ? undefined : true}
-        width={width}
-        height={resolved === 'speaking' ? undefined : width}
-        loading="lazy"
-        decoding="async"
-        draggable={false}
-      />
+      {resolved === 'idle' ? (
+        <video
+          src={SOURCES.idle}
+          autoPlay={!prefersReducedMotion}
+          loop
+          muted
+          playsInline
+          preload="auto"
+          aria-label={label}
+          aria-hidden={label ? undefined : true}
+          role={label ? 'img' : undefined}
+          width={width}
+          height={width}
+        />
+      ) : (
+        <img
+          src={src}
+          alt={label ?? ''}
+          aria-hidden={label ? undefined : true}
+          width={width}
+          height={resolved === 'speaking' ? undefined : width}
+          loading="lazy"
+          decoding="async"
+          draggable={false}
+        />
+      )}
     </span>
   )
 }

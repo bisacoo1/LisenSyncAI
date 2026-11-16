@@ -1249,6 +1249,9 @@ footer {
   background: #eef4fb;
 }
 
+.tts-mascot--idle { overflow: hidden; aspect-ratio: 1; border-radius: var(--radius-full); background: #eef4fb; }
+.tts-mascot--idle video { display: block; width: 100%; height: 100%; border-radius: inherit; object-fit: contain; pointer-events: none; }
+
 .tts-mascot--speaking {
   max-width: 100%;
 }

@@ -291,13 +291,6 @@ export default function PracticePage() {
         </div>
       </header>
 
-      <TtsMascotCard
-        className="practice-mascot"
-        size={58}
-        text={mascotMessage}
-        subtitle={subject ? `${subject} · ${selectedModeLabel}` : 'Your study buddy'}
-      />
-
       <Card variant="elevated" className="practice-controls-card">
         <CardContent className="practice-controls-content">
           <div className="practice-controls-grid">
@@ -335,6 +328,7 @@ export default function PracticePage() {
       )}
 
       <div className="practice-session-panel" role="tabpanel" id={`panel-${mode}`} aria-labelledby={`tab-${mode}`} tabIndex={0}>
+      <div className="practice-session-content">
       {loading && (
         <Card variant="outlined">
           <CardContent style={{ padding: 48, textAlign: 'center' }}>
@@ -748,6 +742,16 @@ export default function PracticePage() {
       )}
 
       {levelUp != null && <LevelUpCelebration level={levelUp} onClose={() => setLevelUp(null)} />}
+      </div>
+      <aside className="practice-companion" aria-label="Lilo, your study buddy">
+        <TtsMascotCard
+          className="practice-companion-card"
+          size={96}
+          variant="idle"
+          text={mascotMessage}
+          subtitle={subject ? `${subject} · ${selectedModeLabel}` : 'Your study buddy'}
+        />
+      </aside>
       </div>
       {modeTabs.filter(tab => tab.value !== mode).map(tab => (
         <div key={tab.value} role="tabpanel" id={`panel-${tab.value}`} aria-labelledby={`tab-${tab.value}`} hidden />
