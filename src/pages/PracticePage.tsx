@@ -9,6 +9,7 @@ import type { Flashcard, McqAnswer, McqQuestion, PracticeItem, PracticeType, Seq
 import { Card, CardHeader, CardContent, Button, Badge, Icon, EmptyState, Tabs, TtsMascot, useToast, type TabItem } from '@/components/ui'
 import LevelUpCelebration from '@/components/LevelUpCelebration'
 import AiHelper from '@/components/AiHelper'
+import LiloChatPanel from '@/components/LiloChatPanel'
 
 export default function PracticePage() {
   const { profile, user, refreshProfile } = useAuth()
@@ -204,36 +205,55 @@ export default function PracticePage() {
     addToast({ type: correct ? 'success' : 'error', title: correct ? 'Correct!' : 'Incorrect', message: current.rationale || `Expected: ${(ans.items || []).join(', ')}`, duration: 3000 })
   }
 
-  function questionContext(): string {
-    const it = items[idx]
+  function questionContext(includeAnswer = true): string {
+    const it = current
     if (!it) return ''
     const subj = `Board subject: ${it.subject}`
     if (mode === 'mcq') {
       const q = it.question as McqQuestion
       const a = it.answer as McqAnswer
-      return `${subj}\nQuestion: ${q.stem}\nOptions:\n${q.options.map((o, i) => `${String.fromCharCode(65 + i)}. ${o}`).join('\n')}\nCorrect answer: ${String.fromCharCode(65 + a.correctIndex)} — ${q.options[a.correctIndex]}\nRationale: ${it.rationale || 'none'}`
+      const answer = includeAnswer
+        ? `\nCorrect answer: ${String.fromCharCode(65 + a.correctIndex)} — ${q.options[a.correctIndex]}\nRationale: ${it.rationale || 'none'}`
+        : ''
+      return `${subj}\nQuestion: ${q.stem}\nOptions:\n${q.options.map((o, i) => `${String.fromCharCode(65 + i)}. ${o}`).join('\n')}${answer}`
     }
     if (mode === 'diagnosis') {
       const q = it.question as DiagnosisQuestion
       const a = it.answer as DiagnosisAnswer
-      return `${subj}\nScenario: ${q.scenario}\nPrompt: ${q.prompt}\nExpected answer: ${a.expected}${a.acceptable?.length ? ` (also acceptable: ${a.acceptable.join(', ')})` : ''}\nRationale: ${it.rationale || 'none'}`
+      const answer = includeAnswer
+        ? `\nExpected answer: ${a.expected}${a.acceptable?.length ? ` (also acceptable: ${a.acceptable.join(', ')})` : ''}\nRationale: ${it.rationale || 'none'}`
+        : ''
+      return `${subj}\nScenario: ${q.scenario}\nPrompt: ${q.prompt}${answer}`
     }
     if (mode === 'sequence') {
       const q = it.question as SequenceQuestion
       const a = it.answer as SequenceAnswer
-      return `${subj}\nPrompt: ${q.prompt}\nItems: ${q.items.join(' | ')}\nCorrect order: ${a.order.join(' → ')}\nRationale: ${it.rationale || 'none'}`
+      const answer = includeAnswer ? `\nCorrect order: ${a.order.join(' → ')}\nRationale: ${it.rationale || 'none'}` : ''
+      return `${subj}\nPrompt: ${q.prompt}\nItems: ${q.items.join(' | ')}${answer}`
     }
     if (mode === 'enumeration') {
       const q = it.question as DiagnosisQuestion
       const a = it.answer as EnumerationAnswer
-      return `${subj}\nPrompt: ${q.prompt}\nExpected items: ${(a.items || []).join(', ')}\nRationale: ${it.rationale || 'none'}`
+      const answer = includeAnswer ? `\nExpected items: ${(a.items || []).join(', ')}\nRationale: ${it.rationale || 'none'}` : ''
+      return `${subj}\nPrompt: ${q.prompt}${answer}`
     }
     if (mode === 'identification') {
       const q = it.question as DiagnosisQuestion
       const a = it.answer as DiagnosisAnswer
-      return `${subj}\nScenario: ${q.scenario}\nPrompt: ${q.prompt}\nExpected answer: ${a.expected}${a.acceptable?.length ? ` (also acceptable: ${a.acceptable.join(', ')})` : ''}\nRationale: ${it.rationale || 'none'}`
+      const answer = includeAnswer
+        ? `\nExpected answer: ${a.expected}${a.acceptable?.length ? ` (also acceptable: ${a.acceptable.join(', ')})` : ''}\nRationale: ${it.rationale || 'none'}`
+        : ''
+      return `${subj}\nScenario: ${q.scenario}\nPrompt: ${q.prompt}${answer}`
     }
     return ''
+  }
+
+  function chatContext(): string {
+    const card = currentCard
+    if (mode === 'flashcards' && card) {
+      return `Board subject: ${card.subject}\nFlashcard prompt: ${card.front}${reveal ? `\nAnswer: ${card.back}` : ''}`
+    }
+    return questionContext(Boolean(feedback)) || (subject ? `Board subject: ${subject}` : '')
   }
 
   function moveSeq(i: number, dir: -1 | 1) {
@@ -269,6 +289,7 @@ export default function PracticePage() {
   const sessionProgress = sessionLength ? Math.round(((idx + 1) / sessionLength) * 100) : 0
   const sessionLabel = mode === 'flashcards' ? 'Card' : 'Question'
   const selectedModeLabel = modeTabs.find(tab => tab.value === mode)?.label || 'Practice'
+  const chatConversationKey = `${mode}:${subject}:${materialId}:${idx}:${current?.id ?? currentCard?.id ?? ''}`
   return (
     <div className="container workspace-page practice-page">
       <header className="practice-focus-header">
@@ -733,8 +754,17 @@ export default function PracticePage() {
 
       {levelUp != null && <LevelUpCelebration level={levelUp} onClose={() => setLevelUp(null)} />}
       </div>
-      <aside className="practice-companion" aria-label="Lilo, your study mascot">
-        <TtsMascot size={176} variant="idle" />
+      <aside className="practice-companion" aria-label="Study with Lilo">
+        <div className="practice-companion-visual">
+          <TtsMascot size={240} variant="idle" />
+        </div>
+        <LiloChatPanel
+          key={chatConversationKey}
+          contextText={chatContext()}
+          conversationKey={chatConversationKey}
+          program={program.key}
+          subject={subject}
+        />
       </aside>
       </div>
       {modeTabs.filter(tab => tab.value !== mode).map(tab => (
