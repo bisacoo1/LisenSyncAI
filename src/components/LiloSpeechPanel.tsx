@@ -63,7 +63,8 @@ export default function LiloSpeechPanel({ text }: LiloSpeechPanelProps) {
     const fullText = `${line} ${message}`
     const version = ++speechVersion.current
     const utterance = new SpeechSynthesisUtterance(fullText)
-    const voice = voices.current.find(candidate => /^(en-ph|fil-ph|tl-ph)\b/i.test(candidate.lang))
+    const voice = voices.current.find(candidate => /\bmicrosoft mark\b/i.test(candidate.name))
+      ?? voices.current.find(candidate => /^(en-ph|fil-ph|tl-ph)\b/i.test(candidate.lang))
       ?? voices.current.find(candidate => /\b(filipino|tagalog)\b/i.test(candidate.name))
       ?? voices.current.find(candidate => /\bzira\b/i.test(candidate.name))
       ?? voices.current.find(candidate => /^en-/i.test(candidate.lang))
