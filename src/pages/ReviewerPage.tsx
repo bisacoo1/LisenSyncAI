@@ -341,8 +341,8 @@ export default function ReviewerPage() {
       )}
 
       {/* Upload section: course study sets generate automatically after the material is saved. */}
-      <section className="upload-section" style={{ marginBottom: 24 }}>
-        <div className="upload-section-header" style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
+      <section className="upload-section reviewer-upload-section" style={{ marginBottom: 24 }}>
+        <div className="upload-section-header reviewer-upload-heading" style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
           <Icon name="upload" size={20} style={{ color: 'var(--primary)' }} />
           <div>
             <p style={{ margin: 0, fontSize: 10, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--muted-strong)' }}>Upload section</p>
@@ -353,7 +353,7 @@ export default function ReviewerPage() {
         </div>
         <div className="grid grid-2">
           {/* Upload Reviewer */}
-          <Card variant="elevated" ref={uploadCardRef}>
+          <Card variant="elevated" className="reviewer-upload-card" ref={uploadCardRef}>
           <CardHeader
             title="Upload Reviewer"
             icon="file-text"
@@ -361,7 +361,7 @@ export default function ReviewerPage() {
               ? 'PDF, DOCX, PPT/PPTX — save once to automatically generate four study sets.'
               : 'PDF, DOCX, PPT/PPTX — processed by Gemini'}
           />
-          <CardContent>
+          <CardContent className="reviewer-upload-content">
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               <Input
                 label="Title"
@@ -387,33 +387,35 @@ export default function ReviewerPage() {
                 />
               )}
 
-              <div>
-                <label htmlFor="review-file-input" style={{ display: 'block', fontSize: 12, color: 'var(--muted)', marginBottom: 6, fontWeight: 500 }}>FILE</label>
-                <div style={{ position: 'relative' }}>
+              <div className="reviewer-upload-field">
+                <label htmlFor="review-file-input" className="reviewer-upload-label">REVIEWER FILE</label>
+                <div className="reviewer-upload-dropzone">
                   <input
                     id="review-file-input"
                     type="file"
                     accept="application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/vnd.ms-powerpoint"
                     onChange={e => { setFile(e.target.files?.[0] || null); setFileReady(false) }}
-                    style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer', width: '100%' }}
+                    className="reviewer-upload-input"
+                    aria-label="Choose reviewer file"
                   />
-                  <div style={{
-                    display: 'flex', alignItems: 'center', gap: 12, padding: '20px 24px',
-                    borderRadius: 10, border: '2px dashed var(--border)', background: 'var(--panel-2)',
-                    transition: 'all 150ms ease'
-                  }}>
-                    <Icon name={fileIcon(file?.type)} size={28} style={{ color: fileIconColor(file?.type), flexShrink: 0 }} />
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontWeight: 500, color: file ? 'var(--text)' : 'var(--muted)' }}>
-                        {file ? file.name : 'Drag & drop a file or click to browse'}
-                      </div>
-                      <div style={{ fontSize: 12, color: 'var(--muted-strong)' }}>Max 10MB • PDF, DOCX, PPT/PPTX supported</div>
+                  <span className="reviewer-upload-icon" aria-hidden="true">
+                    <Icon name={fileIcon(file?.type)} size={25} style={{ color: fileIconColor(file?.type) }} />
+                  </span>
+                  <div className="reviewer-upload-copy">
+                    <div className="reviewer-upload-title">
+                      {file ? file.name : 'Choose a document to upload'}
+                    </div>
+                    <div className="reviewer-upload-hint">
+                      {file
+                        ? `${(file.size / 1024 / 1024).toFixed(2)} MB · ${fileReady ? 'File checked' : 'Selected'}`
+                        : 'Up to 10 MB · PDF, DOCX, PPT or PPTX'}
                     </div>
                   </div>
+                  <span className="reviewer-upload-action">Browse files</span>
                 </div>
               </div>
 
-              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              <div className="reviewer-upload-actions" style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                 <Button variant="secondary" size="lg" leftIcon="upload" onClick={handleUpload} disabled={!file || !!busy} fullWidth style={{ maxWidth: 200 }}>
                   {fileReady ? 'File ready' : 'Check file'}
                 </Button>
