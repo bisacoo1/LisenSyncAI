@@ -310,6 +310,13 @@ export default function MockExamPage() {
                   <span>Results update your per-subject readiness analytics and remediation targets.</span>
                 </li>
               </ul>
+              <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border)', fontSize: 12, color: 'var(--muted)', lineHeight: 1.6 }}>
+                <strong style={{ color: 'var(--text-dim)' }}>Sources &amp; standards.</strong> Subject weights and item
+                counts follow the PRC Board of Pharmacy Table of Specifications (PRB Pharmacy Resolution No. 10, s. 2013,
+                as used in the official PRC exam program). The passing rule (75% general weighted average, no subject
+                below 50% in any subject) follows PRB Pharmacy Resolution No. 01(A), s. 2011, amending Res. No. 86, s. 1986,
+                pursuant to RA 10918 (Pharmacy Act). Verify against the latest official PRC board resolution before exam day.
+              </div>
             </CardContent>
           </Card>
         </div>
@@ -477,9 +484,9 @@ export default function MockExamPage() {
                 Item {current + 1} of {items.length} — {it.subject} — {it.type.toUpperCase()}
               </Badge>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                <Button variant="secondary" size="sm" leftIcon="chevron-left" onClick={() => setCurrent(c => Math.max(0, c - 1))} disabled={current === 0}>Previous</Button>
-                <Button variant="secondary" size="sm" rightIcon="chevron-right" onClick={() => setCurrent(c => Math.min(items.length - 1, c + 1))} disabled={current === items.length - 1}>Next</Button>
-                <Button variant="danger" size="sm" leftIcon="flag" onClick={() => setShowSubmitConfirm(true)} disabled={busy}>Submit Exam</Button>
+                <Button variant="secondary" size="sm" leftIcon="chevron-left" onClick={() => setCurrent(c => Math.max(0, c - 1))} disabled={current === 0} aria-label="Previous question">Previous</Button>
+                <Button variant="secondary" size="sm" rightIcon="chevron-right" onClick={() => setCurrent(c => Math.min(items.length - 1, c + 1))} disabled={current === items.length - 1} aria-label="Next question">Next</Button>
+                <Button variant="danger" size="sm" leftIcon="flag" onClick={() => setShowSubmitConfirm(true)} disabled={busy} aria-label="Submit exam">Submit Exam</Button>
               </div>
             </div>
 
@@ -557,9 +564,9 @@ export default function MockExamPage() {
             )}
 
             <div style={{ marginTop: 24, display: 'flex', gap: 10, flexWrap: 'wrap', paddingTop: 16, borderTop: '1px solid var(--border)' }}>
-              <Button variant="secondary" leftIcon="chevron-left" onClick={() => setCurrent(c => Math.max(0, c - 1))} disabled={current === 0}>Previous</Button>
-              <Button variant="secondary" rightIcon="chevron-right" onClick={() => setCurrent(c => Math.min(items.length - 1, c + 1))} disabled={current === items.length - 1}>Next</Button>
-              <Button variant="danger" leftIcon="flag" onClick={() => setShowSubmitConfirm(true)} disabled={busy}>Submit Exam</Button>
+              <Button variant="secondary" leftIcon="chevron-left" onClick={() => setCurrent(c => Math.max(0, c - 1))} disabled={current === 0} aria-label="Previous question">Previous</Button>
+              <Button variant="secondary" rightIcon="chevron-right" onClick={() => setCurrent(c => Math.min(items.length - 1, c + 1))} disabled={current === items.length - 1} aria-label="Next question">Next</Button>
+              <Button variant="danger" leftIcon="flag" onClick={() => setShowSubmitConfirm(true)} disabled={busy} aria-label="Submit exam">Submit Exam</Button>
             </div>
           </CardContent>
         </Card>
@@ -582,11 +589,11 @@ export default function MockExamPage() {
                 aria-label={`Go to question ${i + 1}${responses[x.id] ? ' (answered)' : ''}${i === current ? ' (current)' : ''}`}
                 style={{
                   display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                  width: 44, height: 44, borderRadius: 10, border: '2px solid',
+                  width: 48, height: 48, borderRadius: 10, border: '2px solid',
                   borderColor: i === current ? 'var(--primary)' : responses[x.id] ? 'var(--success)' : 'var(--border)',
                   background: i === current ? 'var(--primary-bg)' : responses[x.id] ? 'var(--success-bg)' : 'var(--panel-2)',
                   color: i === current ? 'var(--primary)' : responses[x.id] ? 'var(--success)' : 'var(--text)',
-                  fontWeight: 600, fontSize: 13, transition: 'all 150ms ease', minWidth: 44
+                  fontWeight: 600, fontSize: 13, transition: 'all 150ms ease', minWidth: 48
                 }}
               >
                 {i + 1}

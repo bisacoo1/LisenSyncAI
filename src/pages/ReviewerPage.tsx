@@ -47,6 +47,7 @@ export default function ReviewerPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [subjectFilter, setSubjectFilter] = useState('')
   const [sortOrder, setSortOrder] = useState<'newest' | 'oldest' | 'title'>('newest')
+  const [materialsLoading, setMaterialsLoading] = useState(true)
   const { addToast } = useToast()
   const isCourse = profile?.track === 'course'
   const [customSubjects, setCustomSubjects] = useState<UserSubject[]>([])
@@ -73,6 +74,7 @@ export default function ReviewerPage() {
 
   async function loadMaterials() {
     if (!profile) return
+    setMaterialsLoading(true)
     const { data } = await supabase.from('review_materials').select('*').eq('user_id', profile.id).order('created_at', { ascending: false })
     const list = (data as ReviewMaterial[]) || []
     setMaterials(list)
@@ -85,6 +87,7 @@ export default function ReviewerPage() {
       setCustomSubjects(subList)
       if (subList.length && !subject) setSubject(subList[0].name)
     }
+    setMaterialsLoading(false)
   }
 
   function sourceForMaterial(mat: ReviewMaterial): MaterialSource {
@@ -450,7 +453,34 @@ export default function ReviewerPage() {
               />
             </div>
 
-            {filteredMaterials.length === 0 ? (
+            {materialsLoading ? (
+              <div className="table-wrapper" role="region" aria-label="Saved review materials, scrollable table" tabIndex={0} style={{ overflowX: 'auto' }}>
+                <table className="table" style={{ minWidth: 700 }}>
+                  <thead>
+                    <tr>
+                      <th>Title</th>
+                      <th style={{ width: 160 }}>Subject</th>
+                      <th style={{ width: 200 }}>Source</th>
+                      <th style={{ width: 100 }}>Size</th>
+                      <th style={{ width: 160 }}>Created</th>
+                      <th style={{ width: 200 }}>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {Array.from({ length: 5 }).map((_, i) => (
+                      <tr key={`skeleton-${i}`}>
+                        <td><Skeleton variant="text" width={180} /></td>
+                        <td><Skeleton variant="text" width={80} /></td>
+                        <td><Skeleton variant="text" width={120} /></td>
+                        <td><Skeleton variant="text" width={60} /></td>
+                        <td><Skeleton variant="text" width={100} /></td>
+                        <td><Skeleton variant="text" width={80} /></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : filteredMaterials.length === 0 ? (
               <EmptyState
                 icon="file-text"
                 title={searchQuery || subjectFilter ? "No materials match your filters" : "No materials saved yet"}

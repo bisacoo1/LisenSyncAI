@@ -78,8 +78,10 @@ export const PHARMACY_PROGRAM: BoardProgram = {
 }
 
 // Aligned to the official PRC Program of the Pharmacists Licensure Examination
-// (PhLE): six subjects weighted per the board's Table of Specifications.
-// Passing rule (RA 10918): 75% general weighted average with no subject below 50%.
+// (PhLE): six subjects weighted per the board's Table of Specifications
+// (PRB Pharmacy Resolution No. 10, s. 2013).
+// Passing rule: PRB Pharmacy Resolution No. 01(A), s. 2011 (amending Res. 86, s. 1986)
+// — 75% general weighted average with no subject below 50% in any subject.
 export const BOARD_PROGRAMS: Record<BoardProgramKey, BoardProgram> = {
   pharmacy: PHARMACY_PROGRAM,
 }

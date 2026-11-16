@@ -20,10 +20,40 @@ export function Layout({ children }: { children?: ReactNode }) {
   const { profile } = useAuth()
   const location = useLocation()
   const [mobileOpen, setMobileOpen] = useState(false)
-  const mobileMenuButton = useRef<HTMLButtonElement>(null)
   const [collapsed, setCollapsed] = useState(false)
+  const [isDark, setIsDark] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return document.documentElement.classList.contains('dark') ||
+             (!document.documentElement.classList.contains('light') && window.matchMedia('(prefers-color-scheme: dark)').matches)
+    }
+    return false
+  })
+  const mobileMenuButton = useRef<HTMLButtonElement>(null)
   const pageName =
     pageNames[location.pathname] || (location.pathname.startsWith('/side-by-side/') ? 'Reader' : 'Workspace')
+
+  useEffect(() => {
+    if (isDark) {
+      document.documentElement.classList.remove('light')
+      document.documentElement.classList.add('dark')
+    } else {
+      document.documentElement.classList.remove('dark')
+      document.documentElement.classList.add('light')
+    }
+    localStorage.setItem('theme', isDark ? 'dark' : 'light')
+  }, [isDark])
+
+  const toggleTheme = () => setIsDark(d => !d)
+
+  useEffect(() => {
+    const stored = localStorage.getItem('theme')
+    if (stored) {
+      setIsDark(stored === 'dark')
+    } else if (!document.documentElement.classList.contains('light') && !document.documentElement.classList.contains('dark')) {
+      // Initialize based on system preference if no stored preference
+      setIsDark(window.matchMedia('(prefers-color-scheme: dark)').matches)
+    }
+  }, [])
 
   useEffect(() => {
     const desktop = window.matchMedia('(min-width: 901px)')
@@ -116,6 +146,15 @@ export function Layout({ children }: { children?: ReactNode }) {
                 {profile.track === 'course' ? 'Course mode' : PHARMACY_PROGRAM.shortName}
               </span>
             )}
+            <button
+              className="theme-toggle min-touch touch-manipulation"
+              onClick={toggleTheme}
+              aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+              aria-pressed={isDark}
+            >
+              <Icon name={isDark ? 'sun' : 'moon'} size={16} />
+              <span>{isDark ? 'Light' : 'Dark'}</span>
+            </button>
           </div>
         </div>
         <div className="workspace-content">

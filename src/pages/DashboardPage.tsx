@@ -383,49 +383,60 @@ export default function DashboardPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {subjectStats.map((s) => {
-                    const detail = getSubjectDetail(s.subject)
-                    return (
-                      <tr key={s.subject}>
-                        <td>
-                          <div className="subject-cell">
-                            {detail && (
-                              <span className="subject-cell-icon" aria-hidden="true">
-                                <Icon name={detail.icon} size={14} />
-                              </span>
-                            )}
-                            <div>
-                              <div>{s.subject}</div>
-                              {detail && <span className="subject-cell-sub">{detail.moduleCode}</span>}
-                            </div>
-                          </div>
-                        </td>
-                        <td>{detail ? `${detail.weightPercent}%` : '—'}</td>
-                        <td>{loading ? '—' : s.total}</td>
-                        <td>{loading || s.total === 0 ? '—' : `${s.percent}%`}</td>
-                        <td>
-                          {loading ? (
-                            <Skeleton variant="text" width={55} />
-                          ) : s.total === 0 ? (
-                            <Badge size="sm">No data yet</Badge>
-                          ) : (
-                            <Badge variant={s.weak ? 'warning' : 'success'} size="sm" dot>
-                              {s.weak ? 'Needs focus' : 'On track'}
-                            </Badge>
-                          )}
-                        </td>
-                        <td>
-                          <Link
-                            to={`/practice?subject=${encodeURIComponent(s.subject)}`}
-                            className="module-drill-link"
-                            aria-label={`Practice ${s.subject}`}
-                          >
-                            Practice <Icon name="arrow-right" size={12} />
-                          </Link>
-                        </td>
+                  {loading ? (
+                    Array.from({ length: 6 }).map((_, i) => (
+                      <tr key={`skeleton-${i}`}>
+                        <td><Skeleton variant="text" width={120} /></td>
+                        <td><Skeleton variant="text" width={40} /></td>
+                        <td><Skeleton variant="text" width={40} /></td>
+                        <td><Skeleton variant="text" width={40} /></td>
+                        <td><Skeleton variant="text" width={55} /></td>
+                        <td><Skeleton variant="text" width={60} /></td>
                       </tr>
-                    )
-                  })}
+                    ))
+                  ) : (
+                    subjectStats.map((s) => {
+                      const detail = getSubjectDetail(s.subject)
+                      return (
+                        <tr key={s.subject}>
+                          <td>
+                            <div className="subject-cell">
+                              {detail && (
+                                <span className="subject-cell-icon" aria-hidden="true">
+                                  <Icon name={detail.icon} size={14} />
+                                </span>
+                              )}
+                              <div>
+                                <div>{s.subject}</div>
+                                {detail && <span className="subject-cell-sub">{detail.moduleCode}</span>}
+                              </div>
+                            </div>
+                          </td>
+                          <td>{detail ? `${detail.weightPercent}%` : '—'}</td>
+                          <td>{s.total}</td>
+                          <td>{s.total === 0 ? '—' : `${s.percent}%`}</td>
+                          <td>
+                            {s.total === 0 ? (
+                              <Badge size="sm">No data yet</Badge>
+                            ) : (
+                              <Badge variant={s.weak ? 'warning' : 'success'} size="sm" dot>
+                                {s.weak ? 'Needs focus' : 'On track'}
+                              </Badge>
+                            )}
+                          </td>
+                          <td>
+                            <Link
+                              to={`/practice?subject=${encodeURIComponent(s.subject)}`}
+                              className="module-drill-link"
+                              aria-label={`Practice ${s.subject}`}
+                            >
+                              Practice <Icon name="arrow-right" size={12} />
+                            </Link>
+                          </td>
+                        </tr>
+                      )
+                    })
+                  )}
                 </tbody>
               </table>
             </div>

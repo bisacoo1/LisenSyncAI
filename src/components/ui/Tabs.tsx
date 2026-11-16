@@ -55,6 +55,9 @@ export const Tabs: React.FC<TabsProps> = ({
       scrollSnapType: 'x mandatory',
       WebkitOverflowScrolling: 'touch',
       scrollbarWidth: 'thin',
+      // Scroll hint via mask gradient
+      maskImage: 'linear-gradient(to right, black 70%, transparent 100%)',
+      WebkitMaskImage: 'linear-gradient(to right, black 70%, transparent 100%)',
     },
   }
 
@@ -74,6 +77,7 @@ export const Tabs: React.FC<TabsProps> = ({
       opacity: tab.disabled ? 0.5 : 1,
       whiteSpace: 'nowrap',
       fontFamily: 'inherit',
+      outline: 'none',
     }
 
     if (variant === 'line') {
@@ -111,6 +115,13 @@ export const Tabs: React.FC<TabsProps> = ({
     }
   }
 
+  // Focus visible styles for keyboard navigation
+  const focusStyles: React.CSSProperties = {
+    outline: 'none',
+    boxShadow: 'var(--focus-ring)',
+    borderRadius: 'var(--radius-sm)',
+  }
+
   const containerStyle: React.CSSProperties = {
     display: 'flex',
     alignItems: 'center',
@@ -123,6 +134,8 @@ export const Tabs: React.FC<TabsProps> = ({
     <div className={className} style={containerStyle} role="tablist" aria-label={ariaLabel}>
       {tabs.map((tab) => {
         const isActive = tab.value === value
+        const [focused, setFocused] = React.useState(false)
+        const combinedStyle = { ...tabStyles(tab, isActive), ...(focused && !isActive && focusStyles) }
         return (
           <button
             key={tab.value}
@@ -134,6 +147,8 @@ export const Tabs: React.FC<TabsProps> = ({
             tabIndex={isActive ? 0 : -1}
             disabled={tab.disabled}
             onClick={() => !tab.disabled && onChange(tab.value)}
+            onFocus={() => setFocused(true)}
+            onBlur={() => setFocused(false)}
             onKeyDown={(event) => {
               if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return
               event.preventDefault()
@@ -148,7 +163,7 @@ export const Tabs: React.FC<TabsProps> = ({
                 nextButton?.focus()
               }
             }}
-            style={tabStyles(tab, isActive)}
+            style={combinedStyle}
           >
             {tab.icon && <Icon name={tab.icon as any} size={16} />}
             {tab.label}

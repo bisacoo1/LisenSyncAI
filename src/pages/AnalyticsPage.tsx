@@ -139,44 +139,57 @@ export default function AnalyticsPage() {
                 </tr>
               </thead>
               <tbody>
-                {stats.map(s => {
-                  const detail = getSubjectDetail(s.subject)
-                  return (
-                    <tr key={s.subject}>
-                      <td style={{ fontWeight: 500 }}>
-                        <div className="subject-cell">
-                          {detail && (
-                            <span className="subject-cell-icon" aria-hidden="true">
-                              <Icon name={detail.icon} size={14} />
-                            </span>
-                          )}
-                          <div>
-                            <div>{s.subject}</div>
-                            {detail && <span className="subject-cell-sub">{detail.moduleCode}</span>}
-                          </div>
-                        </div>
-                      </td>
-                      <td style={{ fontVariantNumeric: 'tabular-nums', color: 'var(--muted)' }}>{detail ? `${detail.weightPercent}%` : '—'}</td>
-                      <td style={{ fontVariantNumeric: 'tabular-nums' }}>{s.correct}</td>
-                      <td style={{ fontVariantNumeric: 'tabular-nums', color: 'var(--muted)' }}>{s.total}</td>
-                      <td>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                          {s.total > 0 ? <ProgressBar value={s.percent} max={100} size="sm" ariaLabel={`${s.subject} practice score`} variant={s.percent >= PASSING_RATE ? 'success' : s.percent >= 60 ? 'warning' : 'danger'} style={{ flex: 1, minWidth: 150 }} /> : <div aria-hidden="true" style={{ flex: 1, minWidth: 150, height: 4, borderRadius: 999, background: 'var(--panel-2)' }} />}
-                          <span style={{ fontSize: 12, fontWeight: 600, fontVariantNumeric: 'tabular-nums', minWidth: 45, color: s.total === 0 ? 'var(--muted)' : s.percent >= PASSING_RATE ? 'var(--success)' : s.percent >= 60 ? 'var(--warning)' : 'var(--danger)' }}>{s.total === 0 ? '—' : `${s.percent}%`}</span>
-                        </div>
-                      </td>
-                      <td>
-                        {s.total === 0 ? (
-                          <Badge variant="default" size="sm">No data</Badge>
-                        ) : (
-                          <Badge variant={s.weak ? 'danger' : 'success'} size="sm" dot>
-                            {s.weak ? 'Needs remediation' : 'On track'}
-                          </Badge>
-                        )}
-                      </td>
+                {loading ? (
+                  Array.from({ length: 6 }).map((_, i) => (
+                    <tr key={`skeleton-${i}`}>
+                      <td><Skeleton variant="text" width={140} /></td>
+                      <td><Skeleton variant="text" width={40} /></td>
+                      <td><Skeleton variant="text" width={40} /></td>
+                      <td><Skeleton variant="text" width={40} /></td>
+                      <td><Skeleton variant="text" width={150} /></td>
+                      <td><Skeleton variant="text" width={80} /></td>
                     </tr>
-                  )
-                })}
+                  ))
+                ) : (
+                  stats.map(s => {
+                    const detail = getSubjectDetail(s.subject)
+                    return (
+                      <tr key={s.subject}>
+                        <td style={{ fontWeight: 500 }}>
+                          <div className="subject-cell">
+                            {detail && (
+                              <span className="subject-cell-icon" aria-hidden="true">
+                                <Icon name={detail.icon} size={14} />
+                              </span>
+                            )}
+                            <div>
+                              <div>{s.subject}</div>
+                              {detail && <span className="subject-cell-sub">{detail.moduleCode}</span>}
+                            </div>
+                          </div>
+                        </td>
+                        <td style={{ fontVariantNumeric: 'tabular-nums', color: 'var(--muted)' }}>{detail ? `${detail.weightPercent}%` : '—'}</td>
+                        <td style={{ fontVariantNumeric: 'tabular-nums' }}>{s.correct}</td>
+                        <td style={{ fontVariantNumeric: 'tabular-nums', color: 'var(--muted)' }}>{s.total}</td>
+                        <td>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                            {s.total > 0 ? <ProgressBar value={s.percent} max={100} size="sm" ariaLabel={`${s.subject} practice score`} variant={s.percent >= PASSING_RATE ? 'success' : s.percent >= 60 ? 'warning' : 'danger'} style={{ flex: 1, minWidth: 150 }} /> : <div aria-hidden="true" style={{ flex: 1, minWidth: 150, height: 4, borderRadius: 999, background: 'var(--panel-2)' }} />}
+                            <span style={{ fontSize: 12, fontWeight: 600, fontVariantNumeric: 'tabular-nums', minWidth: 45, color: s.total === 0 ? 'var(--muted)' : s.percent >= PASSING_RATE ? 'var(--success)' : s.percent >= 60 ? 'var(--warning)' : 'var(--danger)' }}>{s.total === 0 ? '—' : `${s.percent}%`}</span>
+                          </div>
+                        </td>
+                        <td>
+                          {s.total === 0 ? (
+                            <Badge variant="default" size="sm">No data</Badge>
+                          ) : (
+                            <Badge variant={s.weak ? 'danger' : 'success'} size="sm" dot>
+                              {s.weak ? 'Needs remediation' : 'On track'}
+                            </Badge>
+                          )}
+                        </td>
+                      </tr>
+                    )
+                  })
+                )}
               </tbody>
             </table>
           </div>
