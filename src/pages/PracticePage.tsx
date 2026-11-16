@@ -6,7 +6,7 @@ import { getProgram } from '@/lib/syllabus'
 import { supabase } from '@/lib/supabase'
 import { checkDiagnosis, checkSequence, computeProfileStatsUpdate } from '@/lib/analytics'
 import { isCardDue, scheduleReview, type ReviewQuality } from '@/lib/srs'
-import type { Flashcard, McqAnswer, McqQuestion, PracticeItem, PracticeType, SequenceAnswer, SequenceQuestion, DiagnosisAnswer, DiagnosisQuestion, Profile } from '@/types'
+import type { Flashcard, McqAnswer, McqQuestion, PracticeItem, PracticeType, SequenceAnswer, SequenceQuestion, DiagnosisAnswer, DiagnosisQuestion, Profile, UserSubject } from '@/types'
 import { Card, CardHeader, CardContent, Button, Badge, Icon, EmptyState, Tabs, useToast, type TabItem } from '@/components/ui'
 import LevelUpCelebration from '@/components/LevelUpCelebration'
 import AiHelper from '@/components/AiHelper'
@@ -30,8 +30,22 @@ export default function PracticePage() {
   const loadRequest = useRef(0)
   const [levelUp, setLevelUp] = useState<number | null>(null)
   const { addToast } = useToast()
+  const isCourse = profile?.track === 'course'
+  const [userSubjects, setUserSubjects] = useState<UserSubject[]>([])
 
-  useEffect(() => { if (program) setSubject(program.subjects[0]) }, [program])
+  useEffect(() => {
+    if (!profile || !isCourse) return
+    supabase.from('user_subjects').select('*').eq('user_id', profile.id).order('name')
+      .then(({ data }) => setUserSubjects((data as UserSubject[]) || []))
+  }, [profile?.id, isCourse])
+
+  const subjectOptions = useMemo(
+    () => (isCourse ? userSubjects.map(s => s.name) : program?.subjects || []),
+    [isCourse, userSubjects, program]
+  )
+
+  useEffect(() => { if (program && !isCourse) setSubject(program.subjects[0]) }, [program, isCourse])
+  useEffect(() => { if (isCourse && !subject && subjectOptions.length) setSubject(subjectOptions[0]) }, [isCourse, subject, subjectOptions])
 
   useEffect(() => {
     const qpMode = searchParams.get('mode')
@@ -232,17 +246,27 @@ export default function PracticePage() {
               <span className="practice-scroll-hint">Scroll for more modes <Icon name="arrow-right" size={13} /></span>
             </div>
             <div>
-              <label htmlFor="practice-subject" style={{ display: 'block', fontSize: 12, color: 'var(--muted)', marginBottom: 6, fontWeight: 500 }}>PhLE MODULE / SUBJECT</label>
+              <label htmlFor="practice-subject" style={{ display: 'block', fontSize: 12, color: 'var(--muted)', marginBottom: 6, fontWeight: 500 }}>{isCourse ? 'SUBJECT' : 'PhLE MODULE / SUBJECT'}</label>
               <select
                 id="practice-subject"
                 value={subject}
                 onChange={e => setSubject(e.target.value)}
                 style={{ width: '100%', padding: '10px 14px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel-2)', color: 'var(--text)', fontSize: 14 }}
               >
-                {program.subjectDetails.map(m => (
-                  <option key={m.name} value={m.name}>{m.moduleCode} — {m.name} ({m.weightPercent}%)</option>
-                ))}
+                {isCourse ? (
+                  <>
+                    {subjectOptions.length === 0 && <option value="">No subjects yet</option>}
+                    {subjectOptions.map(s => <option key={s} value={s}>{s}</option>)}
+                  </>
+                ) : (
+                  program.subjectDetails.map(m => (
+                    <option key={m.name} value={m.name}>{m.moduleCode} — {m.name} ({m.weightPercent}%)</option>
+                  ))
+                )}
               </select>
+              {isCourse && subjectOptions.length === 0 && (
+                <p style={{ margin: '6px 0 0', fontSize: 12, color: 'var(--muted)' }}>Upload a reviewer first — its subject becomes a practice subject.</p>
+              )}
             </div>
           </div>
           <Button variant="secondary" leftIcon="refresh-cw" onClick={load} disabled={loading} fullWidth style={{ maxWidth: 200 }}>
@@ -284,7 +308,7 @@ export default function PracticePage() {
             <p style={{ margin: 0, color: 'var(--muted)' }}>Reload to practice again or choose another subject/mode.</p>
             <div style={{ marginTop: 16, display: 'flex', gap: 8, justifyContent: 'center' }}>
               <Button variant="primary" leftIcon="rotate-ccw" onClick={load}>Practice Again</Button>
-              <Button variant="secondary" onClick={() => setSubject(program.subjects[0])}>Change Subject</Button>
+              <Button variant="secondary" onClick={() => setSubject(subjectOptions[0] || '')} disabled={!subjectOptions.length}>Change Subject</Button>
             </div>
           </CardContent>
         </Card>

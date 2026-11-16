@@ -12,6 +12,8 @@ export interface SubjectDetail {
   icon: PharmacySubjectIcon
 }
 
+export type StudyTrack = 'board' | 'course'
+
 export interface BoardProgram {
   key: BoardProgramKey
   name: string
@@ -43,8 +45,16 @@ export interface Profile {
   daily_goal?: number
   daily_items_completed?: number
   daily_goal_date?: string
+  track?: StudyTrack
   created_at?: string
   updated_at?: string
+}
+
+export interface UserSubject {
+  id: string
+  user_id: string
+  name: string
+  created_at?: string
 }
 
 export interface ReviewMaterial {

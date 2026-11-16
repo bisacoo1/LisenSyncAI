@@ -26,8 +26,8 @@ export const PHARMACY_SUBJECTS: SubjectDetail[] = [
     moduleNumber: '03',
     moduleCode: 'Module 3',
     description: 'Dispensing, clinical pharmacy, pharmacotherapy, jurisprudence, and patient counseling.',
-    items: 17,
-    weightPercent: 17,
+    items: 18,
+    weightPercent: 17.5,
     icon: 'stethoscope',
   },
   {
@@ -53,8 +53,8 @@ export const PHARMACY_SUBJECTS: SubjectDetail[] = [
     moduleNumber: '06',
     moduleCode: 'Module 6',
     description: 'cGMP standards, pharmaceutical testing, stability, microbiology, and regulatory compliance.',
-    items: 16,
-    weightPercent: 16,
+    items: 15,
+    weightPercent: 15,
     icon: 'shield-check',
   },
 ]
@@ -73,14 +73,22 @@ export const PHARMACY_PROGRAM: BoardProgram = {
     items: s.items,
     weightPercent: s.weightPercent,
   })),
-  mockDurationMinutes: 300,
+  // Real PhLE runs two days (~5.5h of testing per day).
+  mockDurationMinutes: 660,
 }
 
+// Aligned to the official PRC Program of the Pharmacists Licensure Examination
+// (PhLE): six subjects weighted per the board's Table of Specifications.
+// Passing rule (RA 10918): 75% general weighted average with no subject below 50%.
 export const BOARD_PROGRAMS: Record<BoardProgramKey, BoardProgram> = {
   pharmacy: PHARMACY_PROGRAM,
 }
 
 export const PROGRAM_LIST = [PHARMACY_PROGRAM]
+
+export const PROGRAM_SHORT_NAMES: Record<BoardProgramKey, string> = {
+  pharmacy: 'Pharmacy'
+}
 
 export function getProgram(_key?: BoardProgramKey | string | null): BoardProgram {
   return PHARMACY_PROGRAM

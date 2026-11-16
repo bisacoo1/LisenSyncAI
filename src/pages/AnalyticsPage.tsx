@@ -5,7 +5,7 @@ import { useAuth } from '@/context/AuthContext'
 import { getProgram, getSubjectDetail } from '@/lib/syllabus'
 import { supabase } from '@/lib/supabase'
 import { computeSubjectStats, overallPercent, readinessLabel } from '@/lib/analytics'
-import { PASSING_RATE, type Attempt, type MockExam, type PracticeItem } from '@/types'
+import { PASSING_RATE, type Attempt, type MockExam, type PracticeItem, type UserSubject } from '@/types'
 import { Card, CardHeader, CardContent, Badge, Icon, ProgressBar, CircularProgress, EmptyState, Skeleton } from '@/components/ui'
 
 export default function AnalyticsPage() {
@@ -16,6 +16,8 @@ export default function AnalyticsPage() {
   const [exams, setExams] = useState<MockExam[]>([])
   const [weakDrills, setWeakDrills] = useState<PracticeItem[]>([])
   const [loading, setLoading] = useState(true)
+  const isCourse = profile?.track === 'course'
+  const [userSubjects, setUserSubjects] = useState<UserSubject[]>([])
 
   useEffect(() => {
     if (!profile) return
@@ -25,11 +27,19 @@ export default function AnalyticsPage() {
       const atts = (a as Attempt[]) || []
       setAttempts(atts)
       setExams((e as MockExam[]) || [])
+      if (isCourse) {
+        const { data: subs } = await supabase.from('user_subjects').select('*').eq('user_id', profile.id).order('name')
+        setUserSubjects((subs as UserSubject[]) || [])
+      }
       setLoading(false)
     })()
-  }, [profile?.id])
+  }, [profile?.id, isCourse])
 
-  const stats = useMemo(() => program ? computeSubjectStats(attempts, program.subjects) : [], [attempts, program])
+  const subjectNames = useMemo(
+    () => (isCourse ? userSubjects.map(s => s.name) : program?.subjects || []),
+    [isCourse, userSubjects, program]
+  )
+  const stats = useMemo(() => subjectNames.length ? computeSubjectStats(attempts, subjectNames) : [], [attempts, subjectNames])
   const overall = useMemo(() => overallPercent(attempts), [attempts])
   const readiness = readinessLabel(overall)
   const weakSubjects = stats.filter(s => s.weak && s.total > 0)
@@ -62,8 +72,8 @@ export default function AnalyticsPage() {
   return (
     <div className="container workspace-page">
       <WorkspacePageHeader
-        eyebrow="PHARMACY READINESS" index="05" title={<>Your PhLE progress, <em>in focus.</em></>}
-        description={`Track your accuracy across all 6 BS Pharmacy modules and spot where to focus next to clear the ${PASSING_RATE}% PRC passing mark.`}
+        eyebrow={isCourse ? 'STUDY PROGRESS' : 'PHARMACY READINESS'} index="05" title={<>Your {isCourse ? 'study' : 'PhLE'} progress, <em>in focus.</em></>}
+        description={isCourse ? 'Track your accuracy across your own study subjects and spot where to focus next.' : `Track your accuracy across all 6 BS Pharmacy modules and spot where to focus next to clear the ${PASSING_RATE}% PRC passing mark.`}
         action={<Badge variant={loading || attempts.length === 0 ? 'default' : readiness.tone === 'ok' ? 'success' : readiness.tone === 'warn' ? 'warning' : 'danger'} size="lg">
           <Icon name={loading || attempts.length === 0 ? 'activity' : readiness.tone === 'ok' ? 'check-circle' : readiness.tone === 'warn' ? 'alert-triangle' : 'alert-circle'} size={14} />
           {loading ? 'Loading progress' : attempts.length === 0 ? 'No practice data yet' : `Overall: ${overall}% — ${readiness.label}`}
@@ -91,9 +101,9 @@ export default function AnalyticsPage() {
               <Icon name="flag" size={28} />
             </div>
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 4, fontWeight: 500 }}>PhLE TARGET BENCHMARK</div>
+              <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 4, fontWeight: 500 }}>{isCourse ? 'SCORE TARGET' : 'PhLE TARGET BENCHMARK'}</div>
               <div style={{ fontSize: 36, fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--success)' }}>{PASSING_RATE}%</div>
-              <p className="muted" style={{ marginTop: 4, fontSize: 13 }}>PRC Pharmacist Licensure passing mark</p>
+              <p className="muted" style={{ marginTop: 4, fontSize: 13 }}>{isCourse ? 'Personal mastery goal' : 'PRC Pharmacist Licensure passing mark'}</p>
             </div>
           </CardContent>
         </Card>
@@ -114,7 +124,7 @@ export default function AnalyticsPage() {
 
       {/* Per-Subject Performance */}
       <Card variant="outlined" style={{ marginBottom: 24 }}>
-        <CardHeader title="Per-Module PhLE Performance" icon="bar-chart" subtitle={`${program.name} • ${stats.length} PhLE modules tracked`} />
+        <CardHeader title={isCourse ? 'Per-Subject Performance' : 'Per-Module PhLE Performance'} icon="bar-chart" subtitle={isCourse ? `${stats.length} study subjects tracked` : `${program.name} • ${stats.length} PhLE modules tracked`} />
         <CardContent>
           <div className="table-wrapper" role="region" aria-label="Per-module performance, scrollable table" tabIndex={0} style={{ overflowX: 'auto' }}>
             <table className="table" style={{ minWidth: 740 }}>
@@ -218,7 +228,8 @@ export default function AnalyticsPage() {
           </CardContent>
         </Card>
 
-        {/* Mock Exam History */}
+        {/* Mock Exam History — board candidates only */}
+        {!isCourse && (
         <Card variant="elevated">
           <CardHeader title="Mock Exam History" icon="timer" subtitle={`${exams.length} exam${exams.length !== 1 ? 's' : ''} recorded`} />
           <CardContent>
@@ -265,6 +276,7 @@ export default function AnalyticsPage() {
             )}
           </CardContent>
         </Card>
+        )}
       </div>
 
       {/* Readiness Trend */}

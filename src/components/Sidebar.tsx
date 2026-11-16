@@ -3,6 +3,7 @@ import { useAuth } from '@/context/AuthContext'
 import { Brand } from '@/components/Brand'
 import { PHARMACY_PROGRAM } from '@/lib/syllabus'
 import { Icon, Tooltip, type IconName } from '@/components/ui'
+import { PROGRAM_SHORT_NAMES } from '@/lib/syllabus'
 
 const navItems: { path: string; label: string; icon: IconName }[] = [
   { path: '/dashboard', label: 'Overview', icon: 'dashboard' },
@@ -66,7 +67,7 @@ export function Sidebar({
 
       <nav className="sidebar-nav" aria-label="Workspace navigation">
         <ul className="sidebar-list">
-          {navItems.map((item) => {
+          {navItems.filter((item) => item.path !== '/mock' || profile?.track !== 'course').map((item) => {
             const active =
               location.pathname === item.path ||
               (item.path === '/reviewer' && location.pathname.startsWith('/side-by-side/'))
@@ -145,7 +146,7 @@ export function Sidebar({
             <div className="sidebar-profile-text">
               <span className="sidebar-profile-name">{profile?.full_name || 'Pharmacy candidate'}</span>
               <span className="sidebar-profile-program">
-                {profile ? PHARMACY_PROGRAM.shortName : 'Set up your profile'}
+                {profile ? (profile.track === 'course' ? 'Course mode' : PHARMACY_PROGRAM.shortName) : 'Set up your profile'}
               </span>
             </div>
             <Tooltip content="Sign out" position="right">

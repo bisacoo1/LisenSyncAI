@@ -16,7 +16,7 @@ A specialized study and assessment platform focused on **BS Pharmacy** and the *
   - Situational MCQs with higher-order clinical and pharmaceutical science thinking and step-by-step rationales
   - Clinical & Concept Diagnosis (identify drug class, mechanism, disease, principle, pharmacy law, or formula from scenarios)
   - Priority & Sequence Ordering (arrange dispensing, compounding, QC, or clinical procedures in correct order)
-- **Timed 6-Module PhLE Mock Simulation**: Multi-module mock aligned to the PRC Table of Specifications (TOS), 300-minute countdown timer, no instant answers until submission.
+- **Timed 6-Module PhLE Mock Simulation**: Multi-module mock aligned to the PRC Table of Specifications (TOS), two-day (660-minute) countdown timer, no instant answers until submission.
 - **Readiness Analytics**: Scores per PhLE module, weak-topic flags, and targeted remediation drills toward the 75% passing mark.
 
 ## Setup

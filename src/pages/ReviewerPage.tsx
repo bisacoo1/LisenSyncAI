@@ -6,7 +6,7 @@ import { getProgram } from '@/lib/syllabus'
 import { aiConfigured, generateFlashcardsFromFile, generatePracticeItemsFromFile, extractTextFromFile, type MaterialSource } from '@/lib/ai'
 import { removeReviewFile, uploadReviewFile, assertReviewFile } from '@/lib/storage'
 import { supabase } from '@/lib/supabase'
-import type { Flashcard, PracticeType, ReviewMaterial } from '@/types'
+import type { Flashcard, PracticeType, ReviewMaterial, UserSubject } from '@/types'
 import { Card, CardHeader, CardContent, Button, Badge, Icon, Input, Select, EmptyState, Skeleton, useToast, Modal } from '@/components/ui'
 
 function fileIcon(mimeType: string | null | undefined) {
@@ -48,8 +48,10 @@ export default function ReviewerPage() {
   const [subjectFilter, setSubjectFilter] = useState('')
   const [sortOrder, setSortOrder] = useState<'newest' | 'oldest' | 'title'>('newest')
   const { addToast } = useToast()
+  const isCourse = profile?.track === 'course'
+  const [customSubjects, setCustomSubjects] = useState<UserSubject[]>([])
 
-  useEffect(() => { if (program) setSubject(program.subjects[0]) }, [program])
+  useEffect(() => { if (program && !isCourse) setSubject(program.subjects[0]) }, [program, isCourse])
   useEffect(() => { if (profile) loadMaterials() }, [profile?.id])
 
   /* Scroll the requested reviewer function into view when arriving from the sidebar Upload section */
@@ -62,6 +64,13 @@ export default function ReviewerPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams])
 
+  const subjectOptions = useMemo(() => {
+    if (!isCourse) return program?.subjects || []
+    const names = new Set(customSubjects.map(s => s.name))
+    materials.forEach(m => names.add(m.subject))
+    return [...names].sort((a, b) => a.localeCompare(b))
+  }, [isCourse, customSubjects, materials, program])
+
   async function loadMaterials() {
     if (!profile) return
     const { data } = await supabase.from('review_materials').select('*').eq('user_id', profile.id).order('created_at', { ascending: false })
@@ -70,6 +79,12 @@ export default function ReviewerPage() {
     if (list.length && !selectedMaterial) setSelectedMaterial(list[0].id)
     const { data: fc } = await supabase.from('flashcards').select('*').eq('user_id', profile.id).order('created_at', { ascending: false }).limit(30)
     setFlashcards((fc as Flashcard[]) || [])
+    if (isCourse) {
+      const { data: subs } = await supabase.from('user_subjects').select('*').eq('user_id', profile.id).order('name')
+      const subList = (subs as UserSubject[]) || []
+      setCustomSubjects(subList)
+      if (subList.length && !subject) setSubject(subList[0].name)
+    }
   }
 
   function sourceForMaterial(mat: ReviewMaterial): MaterialSource {
@@ -124,6 +139,13 @@ export default function ReviewerPage() {
         extracted_text: extractedText || null
       }).select().single()
       if (error) throw error
+      if (isCourse && subject.trim()) {
+        await supabase.from('user_subjects').upsert(
+          { user_id: user.id, name: subject.trim() },
+          { onConflict: 'user_id,name', ignoreDuplicates: true }
+        )
+        setCustomSubjects(prev => prev.some(s => s.name === subject.trim()) ? prev : [...prev, { id: '', user_id: user.id, name: subject.trim() } as UserSubject])
+      }
       storagePath = ''
       setMsg(extractedText ? 'Material saved and text extracted.' : extractError ? 'Material saved. Text extraction failed, so generation will read the stored file.' : aiConfigured() ? 'Material saved, but no text was extracted. Generation can use the stored file.' : 'Material saved. Configure AI to extract text and generate study items.')
       if (extractError) setErr(extractError)
@@ -200,8 +222,8 @@ export default function ReviewerPage() {
   return (
     <div className="container workspace-page">
       <WorkspacePageHeader
-        eyebrow="PHARMACY STUDY LIBRARY" index="02" title={<>Your <em>Pharmacy reviewers.</em></>}
-        description="Give your BS Pharmacy notes a new life. Upload lecture decks, drug monographs, or review handouts to create PhLE flashcards and clinical drills."
+        eyebrow={isCourse ? 'STUDY LIBRARY' : 'PHARMACY STUDY LIBRARY'} index="02" title={<>Your <em>{isCourse ? 'reviewers' : 'Pharmacy reviewers'}.</em></>}
+        description={isCourse ? 'Give your course notes a new life. Upload reviewers and name their subjects to create flashcards and practice drills.' : 'Give your BS Pharmacy notes a new life. Upload lecture decks, drug monographs, or review handouts to create PhLE flashcards and clinical drills.'}
         action={!aiConfigured() && <Badge variant="warning" size="md"><Icon name="alert-triangle" size={12} /> AI not configured</Badge>}
       />
 
@@ -252,14 +274,32 @@ export default function ReviewerPage() {
                 fullWidth
               />
 
-              <Select
-                label="PhLE Module / Subject"
-                value={subject}
-                onChange={e => setSubject(e.target.value)}
-                options={program.subjectDetails.map(m => ({ value: m.name, label: `${m.moduleCode} — ${m.name} (${m.weightPercent}%)` }))}
-                leftIcon="pill"
-                fullWidth
-              />
+              {isCourse ? (
+                <>
+                  <Input
+                    label="Subject"
+                    value={subject}
+                    onChange={e => setSubject(e.target.value)}
+                    placeholder="e.g. Medicinal Chemistry, Pharmacology, Pharmaceutics"
+                    leftIcon="book-open"
+                    fullWidth
+                    list="user-subjects-list"
+                    hint="Name the subject for this reviewer — it becomes one of your study subjects."
+                  />
+                  <datalist id="user-subjects-list">
+                    {customSubjects.map(s => <option key={s.id || s.name} value={s.name} />)}
+                  </datalist>
+                </>
+              ) : (
+                <Select
+                  label="PhLE Module / Subject"
+                  value={subject}
+                  onChange={e => setSubject(e.target.value)}
+                  options={program.subjectDetails.map(m => ({ value: m.name, label: `${m.moduleCode} — ${m.name} (${m.weightPercent}%)` }))}
+                  leftIcon="pill"
+                  fullWidth
+                />
+              )}
 
               <div>
                 <label htmlFor="review-file-input" style={{ display: 'block', fontSize: 12, color: 'var(--muted)', marginBottom: 6, fontWeight: 500 }}>FILE</label>
@@ -389,11 +429,13 @@ export default function ReviewerPage() {
                 style={{ maxWidth: 420 }}
               />
               <Select
-                label="PhLE Module"
+                label={isCourse ? 'Subject' : 'PhLE Module'}
                 value={subjectFilter}
                 onChange={e => setSubjectFilter(e.target.value)}
-                options={[{ value: '', label: 'All Pharmacy modules' }, ...program.subjectDetails.map(m => ({ value: m.name, label: `${m.moduleCode} — ${m.name}` }))]}
-                leftIcon="pill"
+                options={isCourse
+                  ? [{ value: '', label: 'All subjects' }, ...subjectOptions.map(s => ({ value: s, label: s }))]
+                  : [{ value: '', label: 'All Pharmacy modules' }, ...program.subjectDetails.map(m => ({ value: m.name, label: `${m.moduleCode} — ${m.name}` }))]}
+                leftIcon={isCourse ? 'book-open' : 'pill'}
                 fullWidth
                 style={{ maxWidth: 280 }}
               />

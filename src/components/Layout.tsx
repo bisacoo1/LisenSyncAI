@@ -5,6 +5,7 @@ import { Brand } from '@/components/Brand'
 import { useAuth } from '@/context/AuthContext'
 import { PHARMACY_PROGRAM } from '@/lib/syllabus'
 import { Icon } from '@/components/ui'
+import { PROGRAM_SHORT_NAMES } from '@/lib/syllabus'
 
 const pageNames: Record<string, string> = {
   '/dashboard': 'Overview',
@@ -112,7 +113,7 @@ export function Layout({ children }: { children?: ReactNode }) {
             {profile && (
               <span className="workspace-program">
                 <Icon name="pill" size={13} />
-                {PHARMACY_PROGRAM.shortName}
+                {profile.track === 'course' ? 'Course mode' : PHARMACY_PROGRAM.shortName}
               </span>
             )}
           </div>

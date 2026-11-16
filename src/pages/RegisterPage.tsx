@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { supabase, supabaseConfigured } from '@/lib/supabase'
 import { DEFAULT_PROGRAM, PHARMACY_PROGRAM } from '@/lib/syllabus'
 import { upsertProfile } from '@/context/AuthContext'
-import { PASSING_RATE } from '@/types'
+import { PASSING_RATE, type StudyTrack } from '@/types'
 import { Button, Input, Icon, useToast } from '@/components/ui'
 
 export default function RegisterPage() {
@@ -12,6 +12,7 @@ export default function RegisterPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
+  const [track, setTrack] = useState<StudyTrack>('board')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const { addToast } = useToast()
@@ -34,7 +35,7 @@ export default function RegisterPage() {
     const user = data.user
     if (user) {
       try {
-        await upsertProfile(user.id, DEFAULT_PROGRAM, fullName)
+        await upsertProfile(user.id, DEFAULT_PROGRAM, fullName, null, track)
       } catch (err: any) {
         console.warn('Profile upsert deferred:', err?.message)
       }
@@ -118,6 +119,32 @@ export default function RegisterPage() {
             </button>
           }
         />
+        <div>
+          <span className="auth-field-hint" style={{ display: 'block', marginBottom: 8, fontWeight: 500 }}>How are you preparing?</span>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            {([
+              { value: 'board' as StudyTrack, title: 'Board exam', desc: 'PhLE candidate' },
+              { value: 'course' as StudyTrack, title: 'Still studying', desc: 'BS Pharmacy student' },
+            ]).map(opt => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => setTrack(opt.value)}
+                aria-pressed={track === opt.value}
+                style={{
+                  textAlign: 'left', padding: '12px 14px', borderRadius: 10, cursor: 'pointer',
+                  border: `2px solid ${track === opt.value ? 'var(--primary)' : 'var(--border)'}`,
+                  background: track === opt.value ? 'var(--primary-bg)' : 'var(--panel-2)',
+                  color: 'var(--text)', transition: 'all 150ms ease'
+                }}
+              >
+                <div style={{ fontWeight: 600, fontSize: 14 }}>{opt.title}</div>
+                <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>{opt.desc}</div>
+              </button>
+            ))}
+          </div>
+        </div>
+        <p className="auth-field-hint" style={{ marginTop: -4 }}>For BS Pharmacy — the Pharmacists Licensure Examination (PhLE) or your current coursework.</p>
         <Button
           variant="primary"
           type="submit"

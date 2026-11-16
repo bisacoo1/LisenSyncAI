@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import type { Session, User } from '@supabase/supabase-js'
 import { supabase, supabaseConfigured } from '@/lib/supabase'
-import type { Profile, BoardProgramKey } from '@/types'
+import type { Profile, BoardProgramKey, StudyTrack } from '@/types'
 
 interface AuthContextValue {
   session: Session | null
@@ -62,7 +62,7 @@ export function useAuth() {
   return ctx
 }
 
-export async function upsertProfile(id: string, board_program: BoardProgramKey = 'pharmacy', full_name?: string, target_exam_date?: string | null) {
-  const { error } = await supabase.from('profiles').upsert({ id, board_program, full_name: full_name || null, target_exam_date: target_exam_date ?? null, updated_at: new Date().toISOString() })
+export async function upsertProfile(id: string, board_program: BoardProgramKey = 'pharmacy', full_name?: string, target_exam_date?: string | null, track?: StudyTrack) {
+  const { error } = await supabase.from('profiles').upsert({ id, board_program, full_name: full_name || null, target_exam_date: target_exam_date ?? null, track: track || 'board', updated_at: new Date().toISOString() })
   if (error) throw error
 }

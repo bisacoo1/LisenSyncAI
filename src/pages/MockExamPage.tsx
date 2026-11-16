@@ -1,5 +1,6 @@
 import { WorkspacePageHeader } from '@/components/WorkspacePageHeader'
 import { useEffect, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { getProgram, getSubjectDetail } from '@/lib/syllabus'
 import { supabase } from '@/lib/supabase'
@@ -153,6 +154,7 @@ export default function MockExamPage() {
     setBusy(true); setErr(null)
     try {
       let correctCount = 0
+      const bySubject: Record<string, { correct: number; total: number }> = {}
       for (const it of items) {
         const resp = responses[it.id]
         let correct = false
@@ -160,11 +162,16 @@ export default function MockExamPage() {
         else if (it.type === 'diagnosis') correct = checkDiagnosis(resp?.text || '', (it.answer as DiagnosisAnswer).expected, (it.answer as DiagnosisAnswer).acceptable || [])
         else if (it.type === 'sequence') correct = checkSequence(resp?.order || [], (it.answer as SequenceAnswer).order || [])
         if (correct) correctCount++
+        const subj = bySubject[it.subject] || (bySubject[it.subject] = { correct: 0, total: 0 })
+        subj.total++
+        if (correct) subj.correct++
         await supabase.from('mock_exam_items').update({ user_response: resp ?? null, is_correct: correct }).eq('id', it.id)
         await supabase.from('attempts').insert({ user_id: user.id, practice_item_id: it.practice_item_id, board_program: program?.key || 'pharmacy', subject: it.subject, type: it.type, user_response: resp ?? null, is_correct: correct })
       }
       const score = items.length ? Math.round((correctCount / items.length) * 1000) / 10 : 0
-      const passed = score >= PASSING_RATE
+      // RA 10918: 75% general average AND no subject below 50%
+      const allSubjectsAboveFloor = Object.values(bySubject).every(s => s.total === 0 || (s.correct / s.total) * 100 >= 50)
+      const passed = score >= PASSING_RATE && allSubjectsAboveFloor
       await supabase.from('mock_exams').update({ status: 'submitted', submitted_at: new Date().toISOString(), score, passed }).eq('id', exam.id)
       try {
         const { data: fresh } = await supabase.from('profiles').select('*').eq('id', user.id).single()
@@ -181,7 +188,7 @@ export default function MockExamPage() {
       const { data: its } = await supabase.from('mock_exam_items').select('*').eq('exam_id', exam.id).order('position', { ascending: true })
       setItems((its as MockExamItem[]) || [])
       setShowResults(true)
-      addToast({ type: passed ? 'success' : 'warning', title: auto ? 'Time expired' : 'Exam submitted', message: `Score: ${score}% — ${passed ? 'PASSED (≥75%)' : 'Below 75% benchmark'}` })
+      addToast({ type: passed ? 'success' : 'warning', title: auto ? 'Time expired' : 'Exam submitted', message: `Score: ${score}% — ${passed ? 'PASSED (≥75% overall, no subject <50%)' : 'Below passing rule'}` })
     } catch (e: any) { setErr(e.message); submittedRef.current = false } finally { setBusy(false) }
   }
 
@@ -197,6 +204,24 @@ export default function MockExamPage() {
           <Icon name="alert-circle" size={20} />
           <span>Unable to load profile or program. Please complete onboarding first.</span>
         </div>
+      </div>
+    )
+  }
+
+  if (profile.track === 'course') {
+    return (
+      <div className="container" style={{ paddingTop: 24, paddingBottom: 48 }}>
+        <Card variant="outlined">
+          <CardContent style={{ padding: 48, textAlign: 'center' }}>
+            <Icon name="timer" size={48} style={{ color: 'var(--muted)', marginBottom: 16 }} />
+            <h3 style={{ margin: '0 0 8px' }}>Mock exams are for board candidates</h3>
+            <p style={{ margin: '0 0 20px', color: 'var(--muted)' }}>
+              Timed mock simulations follow the official Pharmacists Licensure Examination Table of Specifications.
+              Since you're still studying, practice mode with your own subjects is the better fit.
+            </p>
+            <Link to="/practice"><Button variant="primary" leftIcon="brain">Go to Practice</Button></Link>
+          </CardContent>
+        </Card>
       </div>
     )
   }
@@ -220,7 +245,7 @@ export default function MockExamPage() {
 
         <div className="grid grid-2">
           <Card variant="elevated">
-            <CardHeader title={program.name} icon="pill" subtitle={`${program.mockDurationMinutes} minutes (5 hrs) • ${program.subjects.length} PhLE modules • ${PASSING_RATE}% passing benchmark`} />
+            <CardHeader title={program.name} icon="pill" subtitle={`${program.mockDurationMinutes} minutes • ${program.subjects.length} PhLE modules • ${PASSING_RATE}% overall + no subject below 50%`} />
             <CardContent>
               <div style={{ marginBottom: 20 }}>
                 <h4 style={{ margin: '0 0 12px', fontSize: 14, fontWeight: 600 }}>PhLE Table of Specifications (TOS)</h4>
@@ -273,6 +298,10 @@ export default function MockExamPage() {
                   <span>No instant answers or rationales until you submit (or time expires).</span>
                 </li>
                 <li style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                  <Icon name="target" size={18} style={{ color: 'var(--primary)', flexShrink: 0, marginTop: 2 }} />
+                  <span>Passing requires {PASSING_RATE}% overall and at least 50% in every subject, per RA 10918.</span>
+                </li>
+                <li style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
                   <Icon name="book-open" size={18} style={{ color: 'var(--primary)', flexShrink: 0, marginTop: 2 }} />
                   <span>Questions drawn from your generated practice bank per subject allocation.</span>
                 </li>
@@ -302,7 +331,7 @@ export default function MockExamPage() {
           </div>
           <Badge variant={passed ? 'success' : 'danger'} size="lg">
             <Icon name={passed ? 'check-circle' : 'x-circle'} size={14} />
-            {score}% — {passed ? 'PASSED (≥75%)' : 'BELOW 75% BENCHMARK'}
+            {score}% — {passed ? 'PASSED' : 'BELOW PASSING RULE'}
           </Badge>
         </div>
 

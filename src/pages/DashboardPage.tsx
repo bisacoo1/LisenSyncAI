@@ -4,7 +4,7 @@ import { useAuth } from '@/context/AuthContext'
 import { getProgram, getSubjectDetail } from '@/lib/syllabus'
 import { supabase } from '@/lib/supabase'
 import { computeSubjectStats, overallPercent, readinessLabel } from '@/lib/analytics'
-import { PASSING_RATE, type Attempt } from '@/types'
+import { PASSING_RATE, type Attempt, type UserSubject } from '@/types'
 import { Badge, Button, Icon, ProgressBar, Skeleton, useToast, type IconName } from '@/components/ui'
 
 const tools: { number: string; icon: IconName; title: string; description: string; action: string; to: string }[] = [
@@ -43,6 +43,8 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true)
   const [examDateInput, setExamDateInput] = useState('')
   const [savingDate, setSavingDate] = useState(false)
+  const isCourse = profile?.track === 'course'
+  const [userSubjects, setUserSubjects] = useState<UserSubject[]>([])
 
   useEffect(() => {
     if (!profile) return
@@ -55,15 +57,20 @@ export default function DashboardPage() {
         .eq('user_id', profile.id)
         .lte('next_review_at', new Date().toISOString())
       setDueCards(count || 0)
+      if (isCourse) {
+        const { data: subs } = await supabase.from('user_subjects').select('*').eq('user_id', profile.id).order('name')
+        setUserSubjects((subs as UserSubject[]) || [])
+      }
       setLoading(false)
     })()
-  }, [profile?.id])
+  }, [profile?.id, isCourse])
 
   if (!profile || !program) return null
 
+  const subjectNames = isCourse ? userSubjects.map(s => s.name) : program.subjects
   const overall = overallPercent(attempts)
   const readiness = readinessLabel(overall)
-  const subjectStats = computeSubjectStats(attempts, program.subjects)
+  const subjectStats = computeSubjectStats(attempts, subjectNames)
   const weak = subjectStats.filter((s) => s.weak && s.total > 0)
   const firstName = profile.full_name?.trim().split(/\s+/)[0]
   const today = new Date()
@@ -154,7 +161,7 @@ export default function DashboardPage() {
           </div>
           <div className="readiness-progress-label">
             <span>{attempts.length ? `${overall}% overall` : 'Your starting point'}</span>
-            <span>PRC PhLE BENCHMARK {PASSING_RATE}%</span>
+            <span>{isCourse ? 'SCORE TARGET' : 'PRC PhLE BENCHMARK'} {PASSING_RATE}%</span>
           </div>
           <div
             className="readiness-progress"
@@ -173,7 +180,7 @@ export default function DashboardPage() {
               <strong>{loading ? '—' : attempts.length}</strong> attempts tracked
             </span>
             <span>
-              <strong>{program.subjects.length}</strong> PhLE modules
+              <strong>{subjectNames.length}</strong> {isCourse ? 'study subjects' : 'PhLE modules'}
             </span>
             <Link to="/analytics">
               View analytics <Icon name="arrow-up-right" size={15} />
@@ -181,6 +188,7 @@ export default function DashboardPage() {
           </div>
         </section>
 
+        {!isCourse && (
         <section className="countdown-panel" aria-labelledby="countdown-title">
           <div className="countdown-top">
             <span className="countdown-icon">
@@ -227,6 +235,7 @@ export default function DashboardPage() {
             </div>
           </div>
         </section>
+        )}
       </div>
 
       <section className="dashboard-section" aria-labelledby="momentum-title">
@@ -316,7 +325,7 @@ export default function DashboardPage() {
           </Link>
         </div>
         <div className="toolkit-grid">
-          {tools.map((tool) => (
+          {(isCourse ? tools.filter(t => t.to !== '/mock') : tools).map((tool) => (
             <Link to={tool.to} className="toolkit-card" key={tool.number}>
               <div className="toolkit-top">
                 <span className="toolkit-icon">

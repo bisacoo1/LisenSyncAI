@@ -29,7 +29,8 @@ alter table public.profiles
   add column if not exists last_activity_date date,
   add column if not exists daily_goal integer default 20,
   add column if not exists daily_items_completed integer default 0,
-  add column if not exists daily_goal_date date;
+  add column if not exists daily_goal_date date,
+  add column if not exists track text not null default 'board';
 
 -- Review materials uploaded by users
 create table if not exists public.review_materials (
@@ -61,6 +62,27 @@ create table if not exists public.flashcards (
   back text not null,
   created_at timestamptz default now()
 );
+
+-- Custom subjects for students still taking the course (course track).
+-- Subjects are created from the names users give their uploaded reviewers.
+create table if not exists public.user_subjects (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  name text not null,
+  created_at timestamptz default now(),
+  unique (user_id, name)
+);
+
+create index if not exists idx_user_subjects_user on public.user_subjects(user_id);
+
+alter table public.user_subjects enable row level security;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'user_subjects' AND policyname = 'user_subjects_owner') THEN
+    CREATE POLICY "user_subjects_owner" ON public.user_subjects FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+  END IF;
+END $$;
 
 -- Practice/assessment items (MCQ, diagnosis, sequence) and mock exam questions
 create table if not exists public.practice_items (

@@ -2,6 +2,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { PHARMACY_PROGRAM } from '@/lib/syllabus'
 import { Button, Icon, Badge } from '@/components/ui'
+import { PROGRAM_SHORT_NAMES } from '@/lib/syllabus'
 
 export function NavBar() {
   const { user, profile, signOut } = useAuth()
@@ -72,7 +73,7 @@ export function NavBar() {
             {profile && (
               <Badge variant="primary" size="sm" style={{ fontWeight: 500 }}>
                 <Icon name="pill" size={11} />
-                {PHARMACY_PROGRAM.shortName}
+                {profile.track === 'course' ? 'Course mode' : PHARMACY_PROGRAM.shortName}
               </Badge>
             )}
             <Button variant="ghost" size="sm" leftIcon="logout" onClick={async () => { await signOut(); nav('/login') }}>
