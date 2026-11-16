@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>LisenSync AI — Logo Preview</title>
+<style>
+:root{--ink:#12233d;--muted:#526785;--border:#dce5f2;--ai:#5b43bd;
+font-family:"Inter",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#f6f9fd;color:var(--ink);padding:44px 24px 90px;line-height:1.55}
+.wrap{max-width:1060px;margin:0 auto}
+h1{font-size:25px;letter-spacing:-.025em;margin-bottom:6px}
+.lede{color:var(--muted);font-size:15px;margin-bottom:36px;max-width:62ch}
+h2{font-size:11px;text-transform:uppercase;letter-spacing:.13em;color:var(--muted);margin:38px 0 14px;font-weight:700}
+.panel{background:#fff;border:1px solid var(--border);border-radius:16px;padding:26px 30px;box-shadow:0 2px 6px rgba(16,35,62,.05)}
+.dark{background:#0f2038;border-color:#22354f}
+.row{display:flex;align-items:center;gap:28px;flex-wrap:wrap}
+/* the real in-app lockup, copied from design.css */
+.brand-lockup{display:inline-flex;align-items:center;gap:11px;color:var(--ink);text-decoration:none;flex-shrink:0}
+.brand-lockup-mark{width:40px;height:40px;object-fit:contain;border-radius:10px}
+.brand-lockup-name{display:block;font-size:18px;line-height:1.05;font-weight:700;letter-spacing:-.045em;white-space:nowrap}
+.brand-lockup-name>span{display:inline;color:var(--ai);font-size:10px;font-weight:700;letter-spacing:.04em;margin-left:4px}
+.brand-lockup-name small{display:block;color:var(--muted);font-size:9px;letter-spacing:.16em;margin-top:5px;font-weight:700}
+.brand-lockup--inverse{color:#f8fbff}
+.brand-lockup--inverse .brand-lockup-mark{box-shadow:0 0 0 1px rgba(147,197,253,.32),0 4px 12px rgba(4,12,26,.28)}
+.brand-lockup--inverse .brand-lockup-name>span{color:#93c5fd}
+.brand-lockup--inverse .brand-lockup-name small{color:#b7cae4}
+.brand-lockup--sm .brand-lockup-mark{width:32px;height:32px}
+.brand-lockup--sm .brand-lockup-name{font-size:16px}
+.navbar{display:flex;align-items:center;justify-content:space-between;background:#fff;border:1px solid var(--border);border-radius:12px;padding:10px 18px;box-shadow:0 2px 6px rgba(16,35,62,.05)}
+.nav-links{display:flex;gap:22px;font-size:14px;color:var(--muted)}
+.nav-links b{color:var(--ink)}
+.sidebar{background:#0f2038;border-radius:12px;padding:18px 16px;width:250px}
+.sidebar .brand-lockup--inverse .brand-lockup-mark{width:37px;height:37px}
+.mobile{background:#fff;border:1px solid var(--border);border-radius:12px;padding:8px 14px;display:flex;align-items:center;justify-content:space-between;max-width:390px}
+.scale{display:flex;align-items:flex-end;gap:26px}
+.scale figure{text-align:center}
+.scale img{border-radius:22%;display:block;margin:0 auto 8px}
+.scale figcaption{font-size:11px;color:var(--muted)}
+.dont{border-left:3px solid #be3445}
+.dont ul{margin-left:18px;font-size:14px;color:var(--muted)}
+.dont li{margin:4px 0}
+.bad{background:#3f6fb0;padding:18px;border-radius:12px}
+.ok{display:flex;gap:16px;flex-wrap:wrap}
+</style></head><body><div class="wrap">
+<h1>LisenSync AI — new logo mark</h1>
+<p class="lede">Lilo in the mortar: a navy app tile, the mortar-and-pestle as a white pedestal, Lilo’s head above it, and cyan sound waves for the text-to-speech feature.</p>
+
+<h2>In the app — navbar (40px)</h2>
+<div class="navbar">
+  <a class="brand-lockup"><img class="brand-lockup-mark" src="logo-mark-512.png" alt="">
+    <span class="brand-lockup-name">LisenSync <span>AI</span> <small>PHARMACY REVIEW</small></span></a>
+  <div class="nav-links"><b>Dashboard</b><span>Practice</span><span>Mock Exam</span><span>Analytics</span></div>
+</div>
+
+<h2>In the app — sidebar & mobile topbar</h2>
+<div class="row" style="align-items:flex-start">
+  <div class="sidebar">
+    <a class="brand-lockup brand-lockup--inverse"><img class="brand-lockup-mark" src="logo-mark-512.png" alt="">
+      <span class="brand-lockup-name">LisenSync <span>AI</span> <small>PHARMACY REVIEW</small></span></a>
+  </div>
+  <div class="mobile">
+    <a class="brand-lockup brand-lockup--sm"><img class="brand-lockup-mark" src="logo-mark-512.png" alt="">
+      <span class="brand-lockup-name">LisenSync <span>AI</span> <small>PHARMACY REVIEW</small></span></a>
+    <span style="color:var(--muted)">☰</span>
+  </div>
+</div>
+
+<h2>Scale check — favicon → app icon</h2>
+<div class="panel"><div class="scale">
+  <figure><img src="logo-mark-32.png" width="32" height="32" alt=""><figcaption>32 favicon</figcaption></figure>
+  <figure><img src="logo-mark-64.png" width="64" height="64" alt=""><figcaption>64</figcaption></figure>
+  <figure><img src="logo-mark-128.png" width="128" height="128" alt=""><figcaption>128</figcaption></figure>
+  <figure><img src="logo-mark-512.png" width="192" height="192" alt=""><figcaption>192 app icon</figcaption></figure>
+</div></div>
+
+<h2>Horizontal lockup — decks & docs</h2>
+<div class="panel ok">
+  <img src="lisensync-logo-lockup.png" alt="LisenSync AI" style="width:420px">
+</div>
+<div class="panel dark" style="margin-top:14px">
+  <img src="lisensync-logo-lockup-inverse.png" alt="LisenSync AI" style="width:420px">
+</div>
+
+<h2>Guardrails</h2>
+<div class="panel dont"><ul>
+  <li>Don’t recolour the navy tile or remove the cyan sound waves — the waves are what tie the mark to Lilo’s voice feature.</li>
+  <li>Don’t place the mark on mid-tone blue; it needs near-white or very dark navy behind it.</li>
+  <li>Keep clear space of at least a quarter tile width. Minimum 24px in UI, 32px as a favicon.</li>
+  <li>Never stretch the tile or rebuild the wordmark in another typeface — the PNG lockups exist for that.</li>
+</ul></div>
+</div></body></html>

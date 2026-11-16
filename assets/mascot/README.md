@@ -122,3 +122,31 @@ When prompting for additional poses, always pass the master art as a reference a
 > beak, chunky navy over-ear headphones with a thin cyan microphone boom, crisp white pharmacist lab coat with
 > stethoscope and small name badge, soft clay material, rounded volumes, no outlines, flat pale blue-white
 > background, no text.
+
+---
+
+## 10. Logo mark (Lilo in the mortar)
+
+`assets/logo/` holds the app mark, which puts Lilo on the pharmacy symbol.
+
+**Construction:** navy `#10233E` rounded-square tile → white mortar-and-pestle as a pedestal → Lilo bust on top
+(cream heart-shaped face disks, amber head and beak, navy headphones) → three cyan sound-wave arcs at the right.
+
+**Why this order:** the mortar reads first at small sizes (it is a solid white mass), Lilo reads second, and the
+cyan arcs last. Nothing overlaps, so the mark survives being scaled to 32 px.
+
+| File | Use |
+| --- | --- |
+| `assets/logo/lisensync-logo-lilo.png` | master art (1024×1024) |
+| `assets/logo/app/logo-mark-{512,256,192,128,64,32}.png` | tile sizes, rounded corners baked in |
+| `assets/logo/app/favicon.ico` | 16/32/48/64 multi-size favicon |
+| `assets/logo/app/lisensync-logo-lockup.png` | horizontal lockup, dark text — decks, docs, email |
+| `assets/logo/app/lisensync-logo-lockup-inverse.png` | white text on transparency — dark surfaces |
+
+**In the app:** `src/assets/logo-mark.png` (512) is what `Brand.tsx` renders; `public/favicon.ico` and
+`public/logo-mark-192.png` serve the tab icon and apple-touch-icon. The in-app wordmark stays live text so it
+remains crisp and accessible — the PNG lockups are for external/print use only.
+
+**Clear space:** one quarter of the tile width on every side. **Minimum size:** 24 px (tile), 32 px (favicon).
+**Don't:** recolour the tile, drop the cyan waves, or place the mark on a mid-tone blue background — it needs
+either near-white or very dark navy behind it.
