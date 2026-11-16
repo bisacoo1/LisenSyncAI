@@ -34,6 +34,15 @@ function fileIconColor(mimeType: string | null | undefined) {
   return 'var(--muted)'
 }
 
+function getErrorMessage(error: unknown) {
+  if (error instanceof Error) return error.message
+  if (typeof error === 'object' && error !== null && 'message' in error && typeof error.message === 'string') {
+    return error.message
+  }
+  if (typeof error === 'string' && error) return error
+  return 'An unexpected error occurred.'
+}
+
 export default function ReviewerPage() {
   const { profile, user } = useAuth()
   const navigate = useNavigate()
@@ -198,8 +207,7 @@ export default function ReviewerPage() {
               const count = await generateStudySet(studySet.type, savedMaterial)
               generated.push(`${count} ${studySet.label}`)
             } catch (generationError) {
-              const detail = generationError instanceof Error ? generationError.message : 'Unexpected generation error.'
-              failures.push(`${studySet.label}: ${detail}`)
+              failures.push(`${studySet.label}: ${getErrorMessage(generationError)}`)
             }
           }
 
@@ -222,7 +230,7 @@ export default function ReviewerPage() {
       await loadMaterials()
     } catch (e: any) {
       if (storagePath) await removeReviewFile(storagePath)
-      setErr(e.message)
+      setErr(getErrorMessage(e))
     } finally { setBusy(null) }
   }
 
@@ -237,6 +245,7 @@ export default function ReviewerPage() {
         ...source,
         subject: mat.subject,
         program: program.key,
+        track: profile.track || 'board',
         count: 10
       })
       if (cards.length) {
@@ -251,6 +260,7 @@ export default function ReviewerPage() {
       ...source,
       subject: mat.subject,
       program: program.key,
+      track: profile.track || 'board',
       type,
       count: 5
     })
@@ -276,7 +286,7 @@ export default function ReviewerPage() {
         setMsg(`Generated ${count} ${type} items for ${mat.subject}.`)
       }
       await loadMaterials()
-    } catch (e: any) { setErr(e.message) } finally { setBusy(null) }
+    } catch (e) { setErr(getErrorMessage(e)) } finally { setBusy(null) }
   }
 
   /* Materials with search / subject filter / sort applied */

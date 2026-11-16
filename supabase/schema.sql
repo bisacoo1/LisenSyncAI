@@ -99,6 +99,14 @@ create table if not exists public.practice_items (
   created_at timestamptz default now()
 );
 
+-- Add course-mode practice types for both fresh and existing Supabase projects.
+alter table public.practice_items
+  drop constraint if exists practice_items_type_check;
+
+alter table public.practice_items
+  add constraint practice_items_type_check
+  check (type in ('mcq', 'diagnosis', 'sequence', 'flashcard_drill', 'enumeration', 'identification'));
+
 -- Mock exam definitions/attempts
 create table if not exists public.mock_exams (
   id uuid primary key default gen_random_uuid(),

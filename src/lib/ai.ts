@@ -1,4 +1,4 @@
-import { BoardProgramKey, PracticeItem, PracticeType } from '@/types'
+import { BoardProgramKey, PracticeItem, PracticeType, StudyTrack } from '@/types'
 import { getProgram } from './syllabus'
 import { supabase } from './supabase'
 
@@ -26,7 +26,11 @@ function isRetryableError(status: number): boolean {
   return status === 429 || status === 503 || status === 500 || status === 502 || status === 504
 }
 
-async function geminiGenerate(parts: Record<string, unknown>[], temperature: number): Promise<{ text: string; model: string }> {
+async function geminiGenerate(
+  parts: Record<string, unknown>[],
+  temperature: number,
+  responseMimeType?: 'application/json'
+): Promise<{ text: string; model: string }> {
   if (!geminiConfigured()) {
     throw new Error('AI is not configured. Set VITE_GEMINI_API_KEY in your environment.')
   }
@@ -38,7 +42,10 @@ async function geminiGenerate(parts: Record<string, unknown>[], temperature: num
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contents: [{ parts }],
-          generationConfig: { temperature },
+          generationConfig: {
+            temperature,
+            ...(responseMimeType ? { responseMimeType } : {}),
+          },
         }),
       })
       if (res.ok) {
@@ -59,21 +66,49 @@ async function geminiGenerate(parts: Record<string, unknown>[], temperature: num
 
 function extractJson(text: string): unknown {
   const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i)
-  const raw = fenced ? fenced[1] : text
-  const firstArr = raw.indexOf('[')
-  const firstObj = raw.indexOf('{')
-  let s = -1
-  if (firstArr === -1) s = firstObj
-  else if (firstObj === -1) s = firstArr
-  else s = Math.min(firstArr, firstObj)
-  if (s === -1) throw new Error('AI did not return JSON')
-  const candidate = raw.slice(s)
-  for (let end = candidate.length; end > 0; end--) {
-    const ch = candidate[end - 1]
-    if (ch !== ']' && ch !== '}') continue
-    try { return JSON.parse(candidate.slice(0, end)) } catch { /* keep scanning */ }
+  const raw = (fenced ? fenced[1] : text).trim()
+
+  try {
+    return JSON.parse(raw)
+  } catch {
+    // The model may include a short preface or trailing note around the JSON.
   }
-  throw new Error('Failed to parse AI JSON output')
+
+  for (let start = 0; start < raw.length; start++) {
+    if (raw[start] !== '[' && raw[start] !== '{') continue
+
+    const stack: string[] = []
+    let inString = false
+    let escaped = false
+
+    for (let end = start; end < raw.length; end++) {
+      const character = raw[end]
+      if (inString) {
+        if (escaped) escaped = false
+        else if (character === '\\') escaped = true
+        else if (character === '"') inString = false
+        continue
+      }
+
+      if (character === '"') {
+        inString = true
+      } else if (character === '[' || character === '{') {
+        stack.push(character)
+      } else if (character === ']' || character === '}') {
+        const opening = stack.pop()
+        if ((character === ']' && opening !== '[') || (character === '}' && opening !== '{')) break
+        if (stack.length === 0) {
+          try {
+            return JSON.parse(raw.slice(start, end + 1))
+          } catch {
+            break
+          }
+        }
+      }
+    }
+  }
+
+  throw new Error('AI did not return valid JSON. Please try generating the study set again.')
 }
 
 function arrayBufferToBase64(buf: ArrayBuffer): string {
@@ -124,14 +159,18 @@ export async function extractTextFromFile(source: MaterialSource): Promise<strin
 export async function generateFlashcardsFromFile(params: MaterialSource & {
   subject: string
   program: BoardProgramKey
+  track?: StudyTrack
   count?: number
 }): Promise<GeneratedFlashcard[]> {
   const prog = getProgram(params.program)
   const parts = await sourceParts(params)
+  const prompt = params.track === 'course'
+    ? `You are an expert BS Pharmacy course tutor. Create concise, accurate active-recall flashcards based strictly on the uploaded course document. Subject: ${params.subject}. Generate ${params.count || 10} flashcards. Each item: {"front":"question/prompt","back":"answer with key facts"}. Return ONLY a valid JSON array.`
+    : `You are an expert PRC licensure exam reviewer for ${prog.name}. Create concise, accurate active-recall flashcards strictly aligned to the official board syllabus. Subject: ${params.subject}. Generate ${params.count || 10} flashcards from the uploaded document. Each item: {"front":"question/prompt","back":"answer with key facts"}. Return ONLY a valid JSON array.`
   const { text } = await geminiGenerate([
     ...parts,
-    { text: `You are an expert PRC licensure exam reviewer for ${prog.name}. Create concise, accurate active-recall flashcards strictly aligned to the official board syllabus. Subject: ${params.subject}. Generate ${params.count || 10} flashcards from the uploaded document. Each item: {"front":"question/prompt","back":"answer with key facts"}. Return ONLY a valid JSON array.` },
-  ], 0.4)
+    { text: prompt },
+  ], 0.4, 'application/json')
   const out = extractJson(text)
   return (Array.isArray(out) ? out : []).filter((card: any) => card?.front && card?.back)
 }
@@ -140,15 +179,20 @@ export async function generatePracticeItemsFromFile(params: MaterialSource & {
   subject: string
   program: BoardProgramKey
   type: PracticeType
+  track?: StudyTrack
   count?: number
 }): Promise<Partial<PracticeItem>[]> {
   const prog = getProgram(params.program)
   const count = params.count || 5
   const parts = await sourceParts(params)
-  const common = `Program: ${prog.name}\nPhLE Module / Subject: ${params.subject}\nAll questions must be PRC Pharmacist Licensure Examination (PhLE) board-exam level, aligned to the official BS Pharmacy syllabus, and include step-by-step rationale. Return ONLY a valid JSON array.`
+  const common = params.track === 'course'
+    ? `Program: ${prog.name}\nCourse subject: ${params.subject}\nCreate accurate university-level BS Pharmacy study questions based only on the uploaded course document. Include a clear rationale. Return ONLY a valid JSON array.`
+    : `Program: ${prog.name}\nPhLE Module / Subject: ${params.subject}\nAll questions must be PRC Pharmacist Licensure Examination (PhLE) board-exam level, aligned to the official BS Pharmacy syllabus, and include step-by-step rationale. Return ONLY a valid JSON array.`
   let spec = ''
   if (params.type === 'mcq') {
-    spec = `Generate ${count} PRC PhLE-style situational multiple-choice questions (higher-order clinical, dispensing, or pharmaceutical science thinking). Each: {"type":"mcq","question":{"stem":"scenario-based stem","options":["A text","B text","C text","D text"]},"answer":{"correctIndex":0},"rationale":"step-by-step rationale explaining why correct and others are not"}`
+    spec = params.track === 'course'
+      ? `Generate ${count} university-level multiple-choice questions from the material. Each: {"type":"mcq","question":{"stem":"clear question or scenario","options":["A text","B text","C text","D text"]},"answer":{"correctIndex":0},"rationale":"brief explanation of the correct answer"}`
+      : `Generate ${count} PRC PhLE-style situational multiple-choice questions (higher-order clinical, dispensing, or pharmaceutical science thinking). Each: {"type":"mcq","question":{"stem":"scenario-based stem","options":["A text","B text","C text","D text"]},"answer":{"correctIndex":0},"rationale":"step-by-step rationale explaining why correct and others are not"}`
   } else if (params.type === 'diagnosis') {
     spec = `Generate ${count} clinical/pharmaceutical case & concept diagnosis items. Each: {"type":"diagnosis","question":{"scenario":"clinical, dispensing, pharmacokinetic, pharmacognosy, compounding, or pharmacy jurisprudence scenario","prompt":"Identify the exact drug, mechanism, condition, pharmaceutical principle, law, or calculation formula that applies"},"answer":{"expected":"exact expected identification","acceptable":["synonyms/variants"]},"rationale":"step-by-step rationale"}`
   } else if (params.type === 'sequence') {
@@ -163,7 +207,7 @@ export async function generatePracticeItemsFromFile(params: MaterialSource & {
   const { text } = await geminiGenerate([
     ...parts,
     { text: `${common}\n${spec}\nGenerate items from the uploaded document.` },
-  ], 0.4)
+  ], 0.4, 'application/json')
   const out = extractJson(text)
   const arr = Array.isArray(out) ? out : []
   return arr.map((it: any) => ({
