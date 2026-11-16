@@ -10,7 +10,7 @@ const MAX_DOCUMENT_CHARS = 30_000
 // Fallback model chain: if the primary model is unavailable, try the next one
 const FALLBACK_MODELS: string[] = [
   GEMINI_MODEL,
-  'gemini-3-flash',
+  'gemini-3.5-flash-lite',
   'gemini-3.1-flash-lite',
   'gemini-3.6-flash',
   'gemini-3.8-flash',
@@ -55,6 +55,7 @@ async function geminiGenerate(
       }
       const detail = await res.text()
       lastError = `Gemini request failed: ${res.status} ${detail.slice(0, 300)}`
+      if (res.status === 404) continue
       if (!isRetryableError(res.status)) throw new Error(lastError)
     } catch (e: any) {
       if (e.message?.startsWith('Gemini request failed')) throw e
