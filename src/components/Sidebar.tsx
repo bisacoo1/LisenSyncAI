@@ -14,8 +14,7 @@ const navItems: { path: string; label: string; icon: IconName }[] = [
 ]
 
 const uploadItems: { path: string; label: string; icon: IconName; tab: string }[] = [
-  { path: '/reviewer?tab=upload', label: 'Upload Reviewer', icon: 'upload', tab: 'upload' },
-  { path: '/reviewer?tab=generate', label: 'Generate from Saved Material', icon: 'brain', tab: 'generate' }
+  { path: '/reviewer?tab=upload', label: 'Upload Reviewer', icon: 'upload', tab: 'upload' }
 ]
 
 export function Sidebar({
