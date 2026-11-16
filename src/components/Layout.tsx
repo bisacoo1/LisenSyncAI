@@ -9,7 +9,7 @@ import { PROGRAM_SHORT_NAMES } from '@/lib/syllabus'
 
 const pageNames: Record<string, string> = {
   '/dashboard': 'Overview',
-  '/reviewer': 'My reviewers',
+  '/reviewer': 'Upload & materials',
   '/practice': 'Practice',
   '/mock': 'Mock exam',
   '/analytics': 'Analytics',

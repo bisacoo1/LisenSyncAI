@@ -472,7 +472,14 @@ export default function ReviewerPage() {
           icon="book-open"
           subtitle={`Your ${flashcards.length} most recently generated cards. Open a card to view its prompt and answer, or practice the full set.`}
           action={flashcards.length > 0 ? (
-            <Button variant="secondary" size="sm" leftIcon="book-open" onClick={() => navigate(`/practice?mode=flashcards`)}>Practice flashcards</Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              leftIcon="book-open"
+              onClick={() => navigate(`/practice?mode=flashcards&subject=${encodeURIComponent(flashcards[0].subject)}`)}
+            >
+              Practice flashcards
+            </Button>
           ) : null}
         />
         <CardContent>

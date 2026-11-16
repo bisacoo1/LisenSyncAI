@@ -40,6 +40,7 @@ export default function DashboardPage() {
   const program = profile ? getProgram(profile.board_program) : null
   const [attempts, setAttempts] = useState<Attempt[]>([])
   const [dueCards, setDueCards] = useState(0)
+  const [dueSubject, setDueSubject] = useState('')
   const [reviewerCount, setReviewerCount] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
   const [examDateInput, setExamDateInput] = useState('')
@@ -52,12 +53,29 @@ export default function DashboardPage() {
     ;(async () => {
       const { data } = await supabase.from('attempts').select('*').eq('user_id', profile.id).limit(500)
       setAttempts((data as Attempt[]) || [])
+      const dueBefore = new Date().toISOString()
       const { count } = await supabase
         .from('flashcards')
         .select('*', { count: 'exact', head: true })
         .eq('user_id', profile.id)
-        .lte('next_review_at', new Date().toISOString())
+        .lte('next_review_at', dueBefore)
       setDueCards(count || 0)
+      setDueSubject('')
+      if (count) {
+        const { data: firstDueCard, error: dueSubjectError } = await supabase
+          .from('flashcards')
+          .select('subject')
+          .eq('user_id', profile.id)
+          .lte('next_review_at', dueBefore)
+          .order('next_review_at', { ascending: true })
+          .limit(1)
+          .maybeSingle()
+        if (dueSubjectError) {
+          addToast({ type: 'error', title: 'Could not load due flashcards', message: dueSubjectError.message })
+        } else {
+          setDueSubject(firstDueCard?.subject || '')
+        }
+      }
       const { count: materialCount, error: materialCountError } = await supabase
         .from('review_materials')
         .select('id', { count: 'exact', head: true })
@@ -78,6 +96,9 @@ export default function DashboardPage() {
   const readiness = readinessLabel(overall)
   const subjectStats = computeSubjectStats(attempts, subjectNames)
   const weak = subjectStats.filter((s) => s.weak && s.total > 0)
+  const dueFlashcardPath = dueSubject
+    ? `/practice?mode=flashcards&subject=${encodeURIComponent(dueSubject)}`
+    : '/practice'
   const firstName = profile.full_name?.trim().split(/\s+/)[0]
   const today = new Date()
   today.setHours(0, 0, 0, 0)
@@ -90,7 +111,7 @@ export default function DashboardPage() {
     !loading && reviewerCount === 0 && attempts.length === 0
       ? { label: 'Add your first reviewer', to: '/reviewer' }
       : !loading && dueCards > 0
-        ? { label: 'Review due flashcards', to: '/practice?mode=flashcards' }
+        ? { label: 'Review due flashcards', to: dueFlashcardPath }
         : { label: 'Continue studying', to: '/practice' }
 
   async function saveExamDate() {
@@ -313,7 +334,7 @@ export default function DashboardPage() {
                 : `${Math.max(0, dailyGoal - dailyCompleted)} items to go today`}
             </small>
           </div>
-          <Link to="/practice?mode=flashcards" className="momentum-card momentum-card--link">
+          <Link to={dueFlashcardPath} className="momentum-card momentum-card--link">
             <div className="momentum-card-top">
               <span className="momentum-icon sky">
                 <Icon name="book-open" size={19} />
@@ -441,7 +462,7 @@ export default function DashboardPage() {
                           </td>
                           <td>
                             <Link
-                              to={`/practice?subject=${encodeURIComponent(s.subject)}`}
+                              to="/practice"
                               className="module-drill-link"
                               aria-label={`Practice ${s.subject}`}
                             >

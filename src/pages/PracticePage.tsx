@@ -5,7 +5,7 @@ import { getProgram } from '@/lib/syllabus'
 import { supabase } from '@/lib/supabase'
 import { checkDiagnosis, checkEnumeration, checkSequence, computeProfileStatsUpdate } from '@/lib/analytics'
 import { isCardDue, scheduleReview, type ReviewQuality } from '@/lib/srs'
-import type { Flashcard, McqAnswer, McqQuestion, PracticeItem, PracticeType, SequenceAnswer, SequenceQuestion, DiagnosisAnswer, DiagnosisQuestion, EnumerationAnswer, Profile, UserSubject } from '@/types'
+import type { Flashcard, McqAnswer, McqQuestion, PracticeItem, PracticeType, SequenceAnswer, SequenceQuestion, DiagnosisAnswer, DiagnosisQuestion, EnumerationAnswer, Profile } from '@/types'
 import { Card, CardHeader, CardContent, Button, Badge, Icon, EmptyState, Tabs, useToast, type TabItem } from '@/components/ui'
 import LevelUpCelebration from '@/components/LevelUpCelebration'
 import AiHelper from '@/components/AiHelper'
@@ -30,29 +30,16 @@ export default function PracticePage() {
   const [levelUp, setLevelUp] = useState<number | null>(null)
   const { addToast } = useToast()
   const isCourse = profile?.track === 'course'
-  const [userSubjects, setUserSubjects] = useState<UserSubject[]>([])
-
-  useEffect(() => {
-    if (!profile || !isCourse) return
-    supabase.from('user_subjects').select('*').eq('user_id', profile.id).order('name')
-      .then(({ data }) => setUserSubjects((data as UserSubject[]) || []))
-  }, [profile?.id, isCourse])
-
-  const subjectOptions = useMemo(
-    () => (isCourse ? userSubjects.map(s => s.name) : program?.subjects || []),
-    [isCourse, userSubjects, program]
-  )
-
-  useEffect(() => { if (program && !isCourse) setSubject(program.subjects[0]) }, [program, isCourse])
-  useEffect(() => { if (isCourse && !subject && subjectOptions.length) setSubject(subjectOptions[0]) }, [isCourse, subject, subjectOptions])
 
   useEffect(() => {
     const qpMode = searchParams.get('mode')
     const qpSubject = searchParams.get('subject')
     if (qpMode && ['flashcards', 'mcq', 'diagnosis', 'sequence', 'enumeration', 'identification'].includes(qpMode)) {
       setMode(qpMode as 'flashcards' | PracticeType)
+    } else {
+      setMode('mcq')
     }
-    if (qpSubject) setSubject(qpSubject)
+    setSubject(qpSubject || '')
     // Clear query params without reload
     window.history.replaceState({}, '', window.location.pathname)
   }, [searchParams])
@@ -250,8 +237,8 @@ export default function PracticePage() {
 
   if (!profile || !program) return null
 
-  const empty = mode === 'flashcards' ? flashcards.length === 0 : items.length === 0
-  const done = mode === 'flashcards' ? idx >= flashcards.length : idx >= items.length
+  const empty = !subject || (mode === 'flashcards' ? flashcards.length === 0 : items.length === 0)
+  const done = Boolean(subject) && (mode === 'flashcards' ? idx >= flashcards.length : idx >= items.length)
 
   const modeTabs: TabItem[] = isCourse ? [
     { value: 'flashcards', label: 'Flashcards', icon: 'book-open' },
@@ -273,7 +260,7 @@ export default function PracticePage() {
     <div className="container workspace-page practice-page">
       <header className="practice-focus-header">
         <Button className="practice-exit-button" variant="ghost" leftIcon="arrow-left" onClick={() => navigate('/dashboard')}>
-          Exit practice
+          Browse study sets
         </Button>
         <div className="practice-focus-title">
           <span>FOCUSED STUDY</span>
@@ -289,33 +276,12 @@ export default function PracticePage() {
               <Tabs className="practice-mode-tabs" tabs={modeTabs} value={mode} onChange={(v) => setMode(v as 'flashcards' | PracticeType)} variant="scrollable" ariaLabel="Practice mode" fullWidth />
               <span className="practice-scroll-hint">Scroll for more modes <Icon name="arrow-right" size={13} /></span>
             </div>
-            <div className="practice-subject-control">
-              <label htmlFor="practice-subject" className="practice-control-label">{isCourse ? 'SUBJECT' : 'PhLE MODULE / SUBJECT'}</label>
-              <select
-                id="practice-subject"
-                value={subject}
-                onChange={e => setSubject(e.target.value)}
-                className="practice-subject-select"
-              >
-                {isCourse ? (
-                  <>
-                    {subjectOptions.length === 0 && <option value="">No subjects yet</option>}
-                    {subjectOptions.map(s => <option key={s} value={s}>{s}</option>)}
-                  </>
-                ) : (
-                  program.subjectDetails.map(m => (
-                    <option key={m.name} value={m.name}>{m.moduleCode} — {m.name} ({m.weightPercent}%)</option>
-                  ))
-                )}
-              </select>
-              {isCourse && subjectOptions.length === 0 && (
-                <p style={{ margin: '6px 0 0', fontSize: 12, color: 'var(--muted)' }}>Upload a reviewer first — its subject becomes a practice subject.</p>
-              )}
-            </div>
           </div>
-          <Button className="practice-reload-button" variant="secondary" leftIcon="refresh-cw" onClick={load} disabled={loading}>
-            {loading ? 'Loading…' : 'Reload Items'}
-          </Button>
+          {subject && (
+            <Button className="practice-reload-button" variant="secondary" leftIcon="refresh-cw" onClick={load} disabled={loading}>
+              {loading ? 'Loading…' : 'Reload Items'}
+            </Button>
+          )}
         </CardContent>
       </Card>
 
@@ -350,14 +316,27 @@ export default function PracticePage() {
         </Card>
       )}
 
-      {!loading && empty && (
+      {!loading && !subject && (
+        <Card variant="outlined">
+          <CardContent>
+            <EmptyState
+              icon="book-open"
+              title="Choose a study set"
+              description="Open a subject folder to choose from the flashcards and practice sets you have available."
+              action={{ label: 'Browse study sets', onClick: () => navigate('/dashboard'), variant: 'primary' }}
+            />
+          </CardContent>
+        </Card>
+      )}
+
+      {!loading && subject && empty && (
         <Card variant="outlined">
           <CardContent>
             <EmptyState
               icon={mode === 'flashcards' ? 'book-open' : 'file-text'}
               title="No items found"
-              description={`No ${mode === 'flashcards' ? 'flashcards' : `${mode.toUpperCase()} questions`} available for this subject. Generate them in Reviewer & Generate.`}
-              action={{ label: 'Go to Reviewer', onClick: () => navigate('/reviewer'), variant: 'primary' }}
+              description={`No ${mode === 'flashcards' ? 'flashcards' : `${mode.toUpperCase()} questions`} are available for ${subject} yet. Choose another available set or upload a reviewer to generate more.`}
+              action={{ label: 'Browse study sets', onClick: () => navigate('/dashboard'), variant: 'primary' }}
             />
           </CardContent>
         </Card>
@@ -368,10 +347,10 @@ export default function PracticePage() {
           <CardContent style={{ padding: 32, textAlign: 'center' }}>
             <Icon name="check-circle" size={48} style={{ color: 'var(--success)', marginBottom: 12 }} />
             <h3 style={{ margin: '0 0 8px' }}>Session Complete</h3>
-            <p style={{ margin: 0, color: 'var(--muted)' }}>Reload to practice again or choose another subject/mode.</p>
+            <p style={{ margin: 0, color: 'var(--muted)' }}>Reload to practice again or browse your subject folders for another set.</p>
             <div style={{ marginTop: 16, display: 'flex', gap: 8, justifyContent: 'center' }}>
               <Button variant="primary" leftIcon="rotate-ccw" onClick={load}>Practice Again</Button>
-              <Button variant="secondary" onClick={() => setSubject(subjectOptions[0] || '')} disabled={!subjectOptions.length}>Change Subject</Button>
+              <Button variant="secondary" onClick={() => navigate('/dashboard')}>Browse another set</Button>
             </div>
           </CardContent>
         </Card>
