@@ -6,7 +6,7 @@ import { supabase } from '@/lib/supabase'
 import { checkDiagnosis, checkEnumeration, checkSequence, computeProfileStatsUpdate } from '@/lib/analytics'
 import { isCardDue, scheduleReview, type ReviewQuality } from '@/lib/srs'
 import type { Flashcard, McqAnswer, McqQuestion, PracticeItem, PracticeType, SequenceAnswer, SequenceQuestion, DiagnosisAnswer, DiagnosisQuestion, EnumerationAnswer, Profile } from '@/types'
-import { Card, CardHeader, CardContent, Button, Badge, Icon, EmptyState, Tabs, useToast, type TabItem } from '@/components/ui'
+import { Card, CardHeader, CardContent, Button, Badge, Icon, EmptyState, Tabs, TtsMascotCard, useToast, type TabItem } from '@/components/ui'
 import LevelUpCelebration from '@/components/LevelUpCelebration'
 import AiHelper from '@/components/AiHelper'
 
@@ -269,6 +269,15 @@ export default function PracticePage() {
   const sessionProgress = sessionLength ? Math.round(((idx + 1) / sessionLength) * 100) : 0
   const sessionLabel = mode === 'flashcards' ? 'Card' : 'Question'
   const selectedModeLabel = modeTabs.find(tab => tab.value === mode)?.label || 'Practice'
+  const mascotMessage = !subject
+    ? 'Pick a reviewer set to get started.'
+    : loading
+      ? 'Getting your study set ready.'
+      : done
+        ? 'Nice work finishing this set. Ready for another round?'
+        : mode === 'flashcards'
+          ? 'Try to recall the answer before you flip the card.'
+          : 'Take a breath, trust what you know, and tackle one question at a time.'
 
   return (
     <div className="container workspace-page practice-page">
@@ -281,6 +290,13 @@ export default function PracticePage() {
           <h1>Practice</h1>
         </div>
       </header>
+
+      <TtsMascotCard
+        className="practice-mascot"
+        size={58}
+        text={mascotMessage}
+        subtitle={subject ? `${subject} · ${selectedModeLabel}` : 'Your study buddy'}
+      />
 
       <Card variant="elevated" className="practice-controls-card">
         <CardContent className="practice-controls-content">

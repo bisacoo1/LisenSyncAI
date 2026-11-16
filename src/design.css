@@ -294,6 +294,7 @@ input::placeholder, textarea::placeholder { color: var(--muted); opacity: 1; }
 .practice-focus-title { grid-column: 2; text-align: center; }
 .practice-focus-title > span { color: var(--muted); font-size: 9px; font-weight: 700; letter-spacing: .14em; }
 .practice-focus-title h1 { margin: 4px 0 0; color: var(--text); font-size: 21px; font-weight: 700; line-height: 1.2; }
+.practice-mascot { margin-bottom: 18px; }
 
 /* Dashboard */
 .dashboard-page { width: 100%; max-width: 1400px; margin: 0 auto; padding: 39px 43px 30px; }
