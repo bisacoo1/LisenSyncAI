@@ -34,6 +34,33 @@ const tools: { number: string; icon: IconName; title: string; description: strin
   }
 ]
 
+const courseTools: typeof tools = [
+  {
+    number: '01',
+    icon: 'upload',
+    title: 'Organize course materials',
+    description: 'Upload lecture notes and class reviewers to create subject-based study sets.',
+    action: 'Add course materials',
+    to: '/reviewer',
+  },
+  {
+    number: '02',
+    icon: 'brain',
+    title: 'Practice a course subject',
+    description: 'Strengthen recall with flashcards and drills built from your uploaded materials.',
+    action: 'Start a study session',
+    to: '/practice',
+  },
+  {
+    number: '03',
+    icon: 'bar-chart',
+    title: 'Check your course progress',
+    description: 'Review your practice accuracy and find subjects that may need more attention.',
+    action: 'View analytics',
+    to: '/analytics',
+  },
+]
+
 export default function DashboardPage() {
   const { profile, refreshProfile } = useAuth()
   const { addToast } = useToast()
@@ -113,7 +140,11 @@ export default function DashboardPage() {
   const readiness = readinessLabel(overall)
   const subjectStats = computeSubjectStats(attempts, subjectNames)
   const weak = subjectStats.filter((s) => s.weak && s.total > 0)
-  const focusSubject = weak.slice().sort((a, b) => a.percent - b.percent)[0]
+  const courseFocusSubjects = subjectStats
+    .filter((s) => s.total > 0 && s.percent < overall)
+    .sort((a, b) => a.percent - b.percent)
+  const attentionSubjects = isCourse ? courseFocusSubjects : weak
+  const focusSubject = (isCourse ? courseFocusSubjects : weak)[0]
     || subjectStats.find(s => s.total === 0)
     || subjectStats.slice().sort((a, b) => a.percent - b.percent)[0]
   const dueFlashcardPath = dueSubject
@@ -151,12 +182,14 @@ export default function DashboardPage() {
       icon: 'target',
       title: focusSubject.total === 0
         ? `Build a baseline in ${focusSubject.subject}`
-        : focusSubject.weak
+        : (isCourse ? focusSubject.percent < overall : focusSubject.weak)
           ? `Practice ${focusSubject.subject}`
           : `Keep your recall sharp in ${focusSubject.subject}`,
       description: focusSubject.total === 0
         ? 'Start with a short set to see what you already know.'
-        : `${focusSubject.percent}% across ${focusSubject.total} attempts${focusSubject.weak ? ' — this module needs extra attention' : ' — your lowest-scoring module so far'}.`,
+        : `${focusSubject.percent}% across ${focusSubject.total} attempts${isCourse
+          ? focusSubject.percent < overall ? ' — below your overall practice average' : ' — keep your recall sharp'
+          : focusSubject.weak ? ' — this module needs extra attention' : ' — your lowest-scoring module so far'}.`,
       action: 'Start practice',
       to: `/practice?subject=${encodeURIComponent(focusSubject.subject)}`,
     })
@@ -164,9 +197,11 @@ export default function DashboardPage() {
   if (!studyPlanSteps.length && reviewerCount === 0) {
     studyPlanSteps.push({
       icon: 'upload',
-      title: 'Create your first study set',
-      description: 'Add a Pharmacy reviewer to build personalized practice material.',
-      action: 'Add a reviewer',
+      title: isCourse ? 'Create your first course study set' : 'Create your first study set',
+      description: isCourse
+        ? 'Add course materials to build subject-based practice material.'
+        : 'Add a Pharmacy reviewer to build personalized practice material.',
+      action: isCourse ? 'Add course materials' : 'Add a reviewer',
       to: '/reviewer',
     })
   } else if (!studyPlanSteps.length && !isCourse) {
@@ -181,14 +216,16 @@ export default function DashboardPage() {
     studyPlanSteps.push({
       icon: 'brain',
       title: 'Continue your study session',
-      description: 'Choose a subject and keep building your Pharmacy knowledge.',
+      description: isCourse
+        ? 'Choose one of your course subjects and keep building your knowledge.'
+        : 'Choose a subject and keep building your Pharmacy knowledge.',
       action: 'Start practice',
       to: '/practice',
     })
   }
   const primaryAction =
     !loading && reviewerCount === 0 && attempts.length === 0
-      ? { label: 'Add your first reviewer', to: '/reviewer' }
+      ? { label: isCourse ? 'Add course materials' : 'Add your first reviewer', to: '/reviewer' }
       : !loading && dueCards > 0
         ? { label: 'Review due flashcards', to: dueFlashcardPath }
         : { label: 'Continue studying', to: '/practice' }
@@ -212,17 +249,23 @@ export default function DashboardPage() {
       <header className="dashboard-heading">
         <div>
           <div className="section-kicker">
-            <span className="eyebrow-dot" /> BS PHARMACY OVERVIEW <span>/ 01</span>
+            <span className="eyebrow-dot" /> {isCourse ? 'COURSEWORK DASHBOARD' : 'BS PHARMACY OVERVIEW'} <span>/ 01</span>
           </div>
           <h1>
-            A good day to <em>make progress.</em>
+            {isCourse ? <>Your classes, <em>in sync.</em></> : <>A good day to <em>make progress.</em></>}
           </h1>
           <p>
-            {loading
-              ? 'Getting your study space ready…'
-              : !attempts.length && reviewerCount === 0
-                ? `${firstName ? `Welcome, ${firstName}. ` : ''}Add a reviewer to create your first personalized study set.`
-                : `${firstName ? `Welcome back, ${firstName}. ` : 'Welcome back. '}Here's how your PhLE preparation stands across all 6 Pharmacy modules.`}
+            {isCourse
+              ? loading
+                ? 'Getting your course workspace ready…'
+                : !userSubjects.length
+                  ? `${firstName ? `Welcome, ${firstName}. ` : ''}Add course materials to build your first subject-based study set.`
+                  : `${firstName ? `Welcome back, ${firstName}. ` : 'Welcome back. '}Track your practice and keep your Pharmacy subjects moving forward.`
+              : loading
+                ? 'Getting your study space ready…'
+                : !attempts.length && reviewerCount === 0
+                  ? `${firstName ? `Welcome, ${firstName}. ` : ''}Add a reviewer to create your first personalized study set.`
+                  : `${firstName ? `Welcome back, ${firstName}. ` : 'Welcome back. '}Here's how your PhLE preparation stands across all 6 Pharmacy modules.`}
           </p>
         </div>
         <Link to={primaryAction.to} className="workspace-primary-link">
@@ -230,6 +273,44 @@ export default function DashboardPage() {
         </Link>
       </header>
 
+      {isCourse ? (
+        <section className="course-overview-panel" aria-labelledby="course-overview-title">
+          <div className="course-overview-copy">
+            <span className="course-overview-kicker">
+              <Icon name="book-open" size={16} aria-hidden="true" /> COURSEWORK / BS PHARMACY
+            </span>
+            <h2 id="course-overview-title">Progress across your classes.</h2>
+            <p>
+              {loading
+                ? 'Gathering your course progress…'
+                : userSubjects.length
+                  ? `Keep practicing across your ${userSubjects.length} course subject${userSubjects.length === 1 ? '' : 's'} and build steady recall from your class materials.`
+                  : 'Add course materials to create your first subject-based study set.'}
+            </p>
+            <Link to="/reviewer" className="course-overview-action">
+              {reviewerCount === null || reviewerCount === 0 ? 'Add course materials' : 'Manage study sets'}
+              <Icon name="arrow-right" size={16} aria-hidden="true" />
+            </Link>
+          </div>
+          <div className="course-overview-metrics">
+            <div className="course-overview-metric">
+              <span>MY SUBJECTS</span>
+              <strong>{loading ? '—' : userSubjects.length}</strong>
+              <small>{loading ? 'Loading your subjects…' : userSubjects.length === 1 ? 'course subject' : 'course subjects'}</small>
+            </div>
+            <div className="course-overview-metric">
+              <span>PRACTICE ACCURACY</span>
+              <strong>{loading || !attempts.length ? '—' : `${overall}%`}</strong>
+              <small>{loading ? 'Loading your progress…' : attempts.length ? `${attempts.length} answered items` : 'Start a session to build your baseline'}</small>
+            </div>
+            <Link to={dueFlashcardPath} className="course-overview-metric course-overview-metric--link">
+              <span>REVIEWS DUE</span>
+              <strong>{loading ? '—' : dueCards}</strong>
+              <small>{loading ? 'Checking your cards…' : dueCards ? 'A quick review keeps topics fresh' : 'You’re all caught up'}</small>
+            </Link>
+          </div>
+        </section>
+      ) : (
       <div className="dashboard-feature-grid">
         <section className="readiness-panel" aria-labelledby="readiness-title">
           <div className="readiness-topline">
@@ -276,7 +357,7 @@ export default function DashboardPage() {
           </div>
           <div className="readiness-progress-label">
             <span>{attempts.length ? `${overall}% overall` : 'Your starting point'}</span>
-            <span>{isCourse ? 'SCORE TARGET' : 'PRC PhLE BENCHMARK'} {PASSING_RATE}%</span>
+            <span>PRC PhLE BENCHMARK {PASSING_RATE}%</span>
           </div>
           <div
             className="readiness-progress"
@@ -295,7 +376,7 @@ export default function DashboardPage() {
               <strong>{loading ? '—' : attempts.length}</strong> attempts tracked
             </span>
             <span>
-              <strong>{subjectNames.length}</strong> {isCourse ? 'study subjects' : 'PhLE modules'}
+              <strong>{subjectNames.length}</strong> PhLE modules
             </span>
             <Link to="/analytics">
               View analytics <Icon name="arrow-up-right" size={15} />
@@ -303,7 +384,6 @@ export default function DashboardPage() {
           </div>
         </section>
 
-        {!isCourse && (
         <section className="countdown-panel" aria-labelledby="countdown-title">
           <div className="countdown-top">
             <span className="countdown-icon">
@@ -350,8 +430,8 @@ export default function DashboardPage() {
             </div>
           </div>
         </section>
-        )}
       </div>
+      )}
 
       <section className="dashboard-section" aria-labelledby="momentum-title">
         <div className="dashboard-section-heading">
@@ -432,8 +512,8 @@ export default function DashboardPage() {
       <section className="dashboard-section study-plan-section" aria-labelledby="study-plan-title">
         <div className="dashboard-section-heading">
           <div>
-            <span className="section-kicker">YOUR NEXT BEST STEPS</span>
-            <h2 id="study-plan-title">Today’s smart study plan</h2>
+            <span className="section-kicker">{isCourse ? 'YOUR NEXT COURSE STEPS' : 'YOUR NEXT BEST STEPS'}</span>
+            <h2 id="study-plan-title">{isCourse ? 'Today’s course study plan' : 'Today’s smart study plan'}</h2>
           </div>
           <span className="study-plan-goal">
             <Icon name="target" size={15} aria-hidden="true" />
@@ -467,15 +547,15 @@ export default function DashboardPage() {
       <section className="dashboard-section" aria-labelledby="toolkit-title">
         <div className="dashboard-section-heading">
           <div>
-            <span className="section-kicker">PICK UP WHERE YOU LEFT OFF</span>
-            <h2 id="toolkit-title">Your study toolkit</h2>
+            <span className="section-kicker">{isCourse ? 'TOOLS FOR YOUR CLASSES' : 'PICK UP WHERE YOU LEFT OFF'}</span>
+            <h2 id="toolkit-title">{isCourse ? 'Your course toolkit' : 'Your study toolkit'}</h2>
           </div>
           <Link className="section-link" to="/analytics">
             See all progress <Icon name="arrow-right" size={16} />
           </Link>
         </div>
         <div className="toolkit-grid">
-          {(isCourse ? tools.filter(t => t.to !== '/mock') : tools).map((tool) => (
+          {(isCourse ? courseTools : tools).map((tool) => (
             <Link to={tool.to} className="toolkit-card" key={tool.number}>
               <div className="toolkit-top">
                 <span className="toolkit-icon">
@@ -499,8 +579,8 @@ export default function DashboardPage() {
       <section className="dashboard-section" aria-labelledby="subjects-title">
         <div className="dashboard-section-heading">
           <div>
-            <span className="section-kicker">THE SIX PhLE MODULES</span>
-            <h2 id="subjects-title">Your Pharmacy subjects, at a glance</h2>
+            <span className="section-kicker">{isCourse ? 'YOUR COURSE SUBJECTS' : 'THE SIX PhLE MODULES'}</span>
+            <h2 id="subjects-title">{isCourse ? 'Your course progress, at a glance' : 'Your Pharmacy subjects, at a glance'}</h2>
           </div>
           <Link className="section-link" to="/analytics">
             Detailed analytics <Icon name="arrow-right" size={16} />
@@ -510,26 +590,26 @@ export default function DashboardPage() {
           <div className="subject-panel">
             <div className="panel-title">
               <div>
-                <h3>PhLE Module Performance</h3>
-                <p>{program.name}</p>
+                <h3>{isCourse ? 'Course Subject Performance' : 'PhLE Module Performance'}</h3>
+                <p>{isCourse ? `${subjectNames.length} course subjects` : program.name}</p>
               </div>
               <Icon name="bar-chart" size={20} />
             </div>
             <div
               className="table-wrapper"
               role="region"
-              aria-label="PhLE module performance, scrollable table"
+              aria-label={`${isCourse ? 'Course subject' : 'PhLE module'} performance, scrollable table`}
               tabIndex={0}
             >
               <table className="table subject-table">
                 <thead>
                   <tr>
-                    <th>PhLE Module</th>
-                    <th>Weight</th>
+                    <th>{isCourse ? 'Course subject' : 'PhLE Module'}</th>
+                    {!isCourse && <th>Weight</th>}
                     <th>Attempts</th>
                     <th>Score</th>
                     <th>Status</th>
-                    <th>Drill</th>
+                    <th>{isCourse ? 'Practice' : 'Drill'}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -537,7 +617,7 @@ export default function DashboardPage() {
                     Array.from({ length: 6 }).map((_, i) => (
                       <tr key={`skeleton-${i}`}>
                         <td><Skeleton variant="text" width={120} /></td>
-                        <td><Skeleton variant="text" width={40} /></td>
+                        {!isCourse && <td><Skeleton variant="text" width={40} /></td>}
                         <td><Skeleton variant="text" width={40} /></td>
                         <td><Skeleton variant="text" width={40} /></td>
                         <td><Skeleton variant="text" width={55} /></td>
@@ -545,8 +625,10 @@ export default function DashboardPage() {
                       </tr>
                     ))
                   ) : (
-                    subjectStats.map((s) => {
-                      const detail = getSubjectDetail(s.subject)
+                    subjectStats.length ? subjectStats.map((s) => {
+                      const detail = isCourse ? undefined : getSubjectDetail(s.subject)
+                      const belowAverage = isCourse && s.percent < overall
+                      const needsFocus = isCourse ? belowAverage : s.weak
                       return (
                         <tr key={s.subject}>
                           <td>
@@ -562,15 +644,15 @@ export default function DashboardPage() {
                               </div>
                             </div>
                           </td>
-                          <td>{detail ? `${detail.weightPercent}%` : '—'}</td>
+                          {!isCourse && <td>{detail ? `${detail.weightPercent}%` : '—'}</td>}
                           <td>{s.total}</td>
                           <td>{s.total === 0 ? '—' : `${s.percent}%`}</td>
                           <td>
                             {s.total === 0 ? (
                               <Badge size="sm">No data yet</Badge>
                             ) : (
-                              <Badge variant={s.weak ? 'warning' : 'success'} size="sm" dot>
-                                {s.weak ? 'Needs focus' : 'On track'}
+                              <Badge variant={needsFocus ? 'warning' : 'success'} size="sm" dot>
+                                {isCourse ? belowAverage ? 'Below average' : 'At/above average' : s.weak ? 'Needs focus' : 'On track'}
                               </Badge>
                             )}
                           </td>
@@ -585,7 +667,15 @@ export default function DashboardPage() {
                           </td>
                         </tr>
                       )
-                    })
+                    }) : (
+                      <tr>
+                        <td colSpan={isCourse ? 5 : 6}>
+                          {isCourse
+                            ? <>No course subjects yet. <Link to="/reviewer">Add course materials</Link> to get started.</>
+                            : 'No subject performance to show yet.'}
+                        </td>
+                      </tr>
+                    )
                   )}
                 </tbody>
               </table>
@@ -595,28 +685,44 @@ export default function DashboardPage() {
             <span className="focus-icon">
               <Icon name="target" size={20} />
             </span>
-            <span className="section-kicker">YOUR NEXT FOCUS</span>
+            <span className="section-kicker">{isCourse ? 'COURSE STUDY FOCUS' : 'YOUR NEXT FOCUS'}</span>
             <h3>
               {loading
                 ? 'Finding your focus…'
-                : weak.length
-                  ? 'A little extra attention.'
-                  : attempts.length
-                    ? 'Looking good so far.'
-                    : 'Every RPh journey starts somewhere.'}
+                : isCourse
+                  ? courseFocusSubjects.length
+                    ? 'Build confidence in a few subjects.'
+                    : attempts.length
+                      ? 'Good progress across your subjects.'
+                      : subjectNames.length
+                        ? 'Ready for your first practice session.'
+                        : 'Add a course subject to begin.'
+                  : weak.length
+                    ? 'A little extra attention.'
+                    : attempts.length
+                      ? 'Looking good so far.'
+                      : 'Every RPh journey starts somewhere.'}
             </h3>
             <p>
               {loading
                 ? 'Your insights are on their way.'
-                : weak.length
-                  ? 'These PhLE modules are below your 75% target. A little focused practice can go a long way.'
-                  : attempts.length
-                    ? 'No Pharmacy modules are flagged right now. Keep building on your progress.'
-                    : 'Complete a practice session to see which PhLE modules need your attention.'}
+                : isCourse
+                  ? courseFocusSubjects.length
+                    ? 'These subjects are below your overall practice average. Choose one for a focused study session.'
+                    : attempts.length
+                      ? 'Keep practicing regularly to strengthen recall across your coursework.'
+                      : subjectNames.length
+                        ? 'Try a short subject practice set to see what you already know.'
+                        : 'Upload course materials to create a subject-based study set, then practice it here.'
+                  : weak.length
+                    ? 'These PhLE modules are below your 75% target. A little focused practice can go a long way.'
+                    : attempts.length
+                      ? 'No Pharmacy modules are flagged right now. Keep building on your progress.'
+                      : 'Complete a practice session to see which PhLE modules need your attention.'}
             </p>
-            {weak.length > 0 && (
+            {attentionSubjects.length > 0 && (
               <ul>
-                {weak.slice(0, 3).map((s) => (
+                {attentionSubjects.slice(0, 3).map((s) => (
                   <li key={s.subject}>
                     <span>{s.subject}</span>
                     <strong>{s.percent}%</strong>
@@ -624,16 +730,18 @@ export default function DashboardPage() {
                 ))}
               </ul>
             )}
-            <Link to="/practice">
-              {attempts.length ? 'Practice a Pharmacy module' : 'Start your first session'}{' '}
+            <Link to={isCourse && !subjectNames.length ? '/reviewer' : '/practice'}>
+              {isCourse
+                ? subjectNames.length ? 'Practice a course subject' : 'Add course materials'
+                : attempts.length ? 'Practice a Pharmacy module' : 'Start your first session'}{' '}
               <Icon name="arrow-right" size={16} />
             </Link>
           </div>
         </div>
       </section>
       <div className="dashboard-endnote">
-        <span>YOUR JOURNEY TO RPh, ONE DAY AT A TIME.</span>
-        <span>LISENSYNC AI / BS PHARMACY</span>
+        <span>{isCourse ? 'YOUR COURSEWORK, ONE DAY AT A TIME.' : 'YOUR JOURNEY TO RPh, ONE DAY AT A TIME.'}</span>
+        <span>{isCourse ? 'LISENSYNC AI / COURSE MODE' : 'LISENSYNC AI / BS PHARMACY'}</span>
       </div>
     </div>
   )

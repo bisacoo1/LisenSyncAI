@@ -1127,3 +1127,157 @@ textarea:focus-visible, [tabindex]:focus-visible {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Center the study card while keeping Lilo nearby without covering answers. */
+.practice-session-panel {
+  display: block;
+}
+.practice-session-content {
+  width: 100%;
+  max-width: 920px;
+  margin: 0 auto;
+}
+.practice-companion {
+  position: static;
+  width: min(100%, 240px);
+  margin: 24px auto 0;
+}
+.practice-companion .tts-mascot {
+  width: min(200px, 100%) !important;
+  animation: practice-lilo-float 3.6s ease-in-out infinite;
+}
+@keyframes practice-lilo-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+@media (min-width: 1360px) {
+  .practice-companion {
+    position: fixed;
+    top: 50%;
+    right: clamp(16px, 2vw, 32px);
+    z-index: var(--z-sticky);
+    width: 184px;
+    margin: 0;
+    transform: translateY(-50%);
+  }
+  .practice-companion .tts-mascot {
+    width: 184px !important;
+  }
+}
+@media (max-width: 480px) {
+  .practice-companion { width: min(100%, 200px); margin-top: 20px; }
+  .practice-companion .tts-mascot { width: min(168px, 100%) !important; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .practice-companion .tts-mascot { animation: none; }
+}
+
+.course-overview-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+  align-items: center;
+  gap: clamp(24px, 4vw, 48px);
+  padding: clamp(24px, 3vw, 36px);
+  border: 1px solid var(--warm-border);
+  border-radius: 22px;
+  background: linear-gradient(125deg, var(--warm-bg), var(--panel));
+  box-shadow: var(--shadow-md);
+}
+.course-overview-copy { min-width: 0; }
+.course-overview-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-dim);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .12em;
+}
+.course-overview-kicker svg { color: var(--warm); }
+.course-overview-copy h2 {
+  margin: 15px 0 9px;
+  color: var(--text);
+  font-family: var(--font-display);
+  font-size: clamp(27px, 3vw, 36px);
+  font-weight: 400;
+  line-height: 1.15;
+  letter-spacing: -.025em;
+}
+.course-overview-copy p {
+  max-width: 460px;
+  margin: 0;
+  color: var(--text-dim);
+  font-size: 13px;
+  line-height: 1.65;
+}
+.course-overview-action {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 9px;
+  margin-top: 20px;
+  color: var(--primary);
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: none;
+}
+.course-overview-action:hover { color: var(--primary-2); text-decoration: underline; }
+.course-overview-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 140px), 1fr));
+  gap: 10px;
+  min-width: 0;
+}
+.course-overview-metric {
+  min-width: 0;
+  min-height: 142px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 15px;
+  background: var(--panel);
+  color: var(--text);
+  text-decoration: none;
+}
+.course-overview-metric > span {
+  color: var(--muted-strong);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .08em;
+}
+.course-overview-metric > strong {
+  margin: 13px 0 8px;
+  color: var(--text);
+  font-size: 27px;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.course-overview-metric > small {
+  color: var(--text-dim);
+  font-size: 11px;
+  line-height: 1.45;
+}
+.course-overview-metric--link { transition: border-color var(--transition-base), box-shadow var(--transition-base); }
+.course-overview-metric--link:hover {
+  border-color: var(--primary-border);
+  box-shadow: var(--shadow-sm);
+  text-decoration: none;
+}
+.course-overview-metric--link:focus-visible { outline: 3px solid var(--primary); outline-offset: 3px; }
+
+@media (max-width: 900px) {
+  .course-overview-panel { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 640px) {
+  .course-overview-panel { gap: 20px; padding: 22px; border-radius: 18px; }
+  .course-overview-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .course-overview-metric:last-child { grid-column: 1 / -1; }
+}
+@media (max-width: 380px) {
+  .course-overview-panel { padding: 18px; }
+  .course-overview-metrics { grid-template-columns: minmax(0, 1fr); }
+  .course-overview-metric:last-child { grid-column: auto; }
+}
