@@ -285,6 +285,15 @@ input::placeholder, textarea::placeholder { color: var(--muted); opacity: 1; }
 .workspace-content > .container { width: 100%; max-width: 1320px; padding-left: 42px; padding-right: 42px; }
 .workspace-content > .container > div:first-child h1 { font-family: var(--font-display); font-weight: 400 !important; letter-spacing: -.025em; }
 .mobile-topbar { display: none; }
+.app-shell.app-shell--focus { display: block; min-height: 100vh; }
+.app-shell--focus .app-main { width: 100%; min-height: 100vh; }
+.app-shell--focus .workspace-content--focus { min-height: 100vh; }
+.app-shell--focus .workspace-content--focus > .container.practice-page { width: 100%; max-width: 1080px; margin: 0 auto; padding: 28px clamp(18px, 4vw, 48px) 48px; }
+.practice-focus-header { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 12px; margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid var(--border); }
+.practice-focus-header .practice-exit-button { justify-self: start; min-height: 44px; }
+.practice-focus-title { grid-column: 2; text-align: center; }
+.practice-focus-title > span { color: var(--muted); font-size: 9px; font-weight: 700; letter-spacing: .14em; }
+.practice-focus-title h1 { margin: 4px 0 0; color: var(--text); font-size: 21px; font-weight: 700; line-height: 1.2; }
 
 /* Dashboard */
 .dashboard-page { width: 100%; max-width: 1400px; margin: 0 auto; padding: 39px 43px 30px; }
@@ -675,6 +684,10 @@ input::placeholder, textarea::placeholder { color: var(--muted); opacity: 1; }
 }
 @media (max-width: 480px) {
   .landing-cta .landing-primary-button { margin-left: 0; }
+  .app-shell--focus .workspace-content--focus > .container.practice-page { padding: 16px 16px 32px; }
+  .practice-focus-header { margin-bottom: 15px; padding-bottom: 12px; }
+  .practice-focus-header .practice-exit-button { gap: 5px; padding: 8px; font-size: 12px; }
+  .practice-focus-title h1 { font-size: 18px; }
   .reviewer-upload-dropzone { align-items: flex-start; flex-wrap: wrap; gap: 12px; padding: 17px; }
   .reviewer-upload-icon { width: 44px; height: 44px; border-radius: 13px; }
   .reviewer-upload-copy { flex-basis: calc(100% - 60px); }

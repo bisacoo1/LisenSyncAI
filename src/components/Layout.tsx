@@ -16,7 +16,7 @@ const pageNames: Record<string, string> = {
   '/onboarding': 'Set up your profile'
 }
 
-export function Layout({ children }: { children?: ReactNode }) {
+export function Layout({ children, focus = false }: { children?: ReactNode; focus?: boolean }) {
   const { profile } = useAuth()
   const location = useLocation()
   const [mobileOpen, setMobileOpen] = useState(false)
@@ -95,69 +95,75 @@ export function Layout({ children }: { children?: ReactNode }) {
   }, [mobileOpen])
 
   return (
-    <div className={`app-shell${collapsed ? ' is-collapsed' : ''}`}>
+    <div className={`app-shell${collapsed ? ' is-collapsed' : ''}${focus ? ' app-shell--focus' : ''}`}>
       <a href="#main-content" className="skip-link">
         Skip to main content
       </a>
-      <div className="mobile-topbar">
-        <button
-          ref={mobileMenuButton}
-          className="mobile-toggle"
-          onClick={() => setMobileOpen(true)}
-          aria-label="Open menu"
-          aria-controls="main-sidebar"
-          aria-expanded={mobileOpen}
-        >
-          <Icon name="menu" size={21} />
-        </button>
-        <Brand />
-        <span className="mobile-topbar-label">BS PHARMACY · PhLE</span>
-      </div>
+      {!focus && (
+        <>
+          <div className="mobile-topbar">
+            <button
+              ref={mobileMenuButton}
+              className="mobile-toggle"
+              onClick={() => setMobileOpen(true)}
+              aria-label="Open menu"
+              aria-controls="main-sidebar"
+              aria-expanded={mobileOpen}
+            >
+              <Icon name="menu" size={21} />
+            </button>
+            <Brand />
+            <span className="mobile-topbar-label">BS PHARMACY · PhLE</span>
+          </div>
 
-      <Sidebar
-        open={mobileOpen}
-        collapsed={collapsed}
-        onNavigate={() => setMobileOpen(false)}
-        onToggle={() => {
-          if (window.innerWidth <= 900) setMobileOpen(false)
-          else setCollapsed((value) => !value)
-        }}
-      />
+          <Sidebar
+            open={mobileOpen}
+            collapsed={collapsed}
+            onNavigate={() => setMobileOpen(false)}
+            onToggle={() => {
+              if (window.innerWidth <= 900) setMobileOpen(false)
+              else setCollapsed((value) => !value)
+            }}
+          />
 
-      {mobileOpen && (
-        <button className="sidebar-backdrop" onClick={() => setMobileOpen(false)} aria-label="Close menu" />
+          {mobileOpen && (
+            <button className="sidebar-backdrop" onClick={() => setMobileOpen(false)} aria-label="Close menu" />
+          )}
+        </>
       )}
 
       <main className="app-main" id="main-content" tabIndex={-1}>
-        <div className="workspace-topbar">
-          <div className="workspace-breadcrumb">
-            <span>PHARMACY STUDY SPACE</span>
-            <Icon name="chevron-right" size={14} />
-            <strong>{pageName}</strong>
-          </div>
-          <div className="workspace-topbar-right">
-            <span className="workspace-date">
-              <Icon name="calendar" size={16} />
-              {new Date().toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
-            </span>
-            {profile && (
-              <span className="workspace-program">
-                <Icon name="pill" size={13} />
-                {profile.track === 'course' ? 'Course mode' : PHARMACY_PROGRAM.shortName}
+        {!focus && (
+          <div className="workspace-topbar">
+            <div className="workspace-breadcrumb">
+              <span>PHARMACY STUDY SPACE</span>
+              <Icon name="chevron-right" size={14} />
+              <strong>{pageName}</strong>
+            </div>
+            <div className="workspace-topbar-right">
+              <span className="workspace-date">
+                <Icon name="calendar" size={16} />
+                {new Date().toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
               </span>
-            )}
-            <button
-              className="theme-toggle min-touch touch-manipulation"
-              onClick={toggleTheme}
-              aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
-              aria-pressed={isDark}
-            >
-              <Icon name={isDark ? 'sun' : 'moon'} size={16} />
-              <span>{isDark ? 'Light' : 'Dark'}</span>
-            </button>
+              {profile && (
+                <span className="workspace-program">
+                  <Icon name="pill" size={13} />
+                  {profile.track === 'course' ? 'Course mode' : PHARMACY_PROGRAM.shortName}
+                </span>
+              )}
+              <button
+                className="theme-toggle min-touch touch-manipulation"
+                onClick={toggleTheme}
+                aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+                aria-pressed={isDark}
+              >
+                <Icon name={isDark ? 'sun' : 'moon'} size={16} />
+                <span>{isDark ? 'Light' : 'Dark'}</span>
+              </button>
+            </div>
           </div>
-        </div>
-        <div className="workspace-content">
+        )}
+        <div className={`workspace-content${focus ? ' workspace-content--focus' : ''}`}>
           <Suspense
             fallback={
               <div className="container workspace-loading" role="status">

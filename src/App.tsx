@@ -78,7 +78,7 @@ export default function App() {
       </Route>
       <Route
         element={
-          <Layout>
+          <Layout focus>
             <ProtectedRoute>
               <PracticePage />
             </ProtectedRoute>

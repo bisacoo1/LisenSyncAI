@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { WorkspacePageHeader } from '@/components/WorkspacePageHeader'
 import { useAuth } from '@/context/AuthContext'
 import { getProgram } from '@/lib/syllabus'
 import { supabase } from '@/lib/supabase'
@@ -272,14 +271,15 @@ export default function PracticePage() {
 
   return (
     <div className="container workspace-page practice-page">
-      <WorkspacePageHeader
-        eyebrow={isCourse ? 'COURSE STUDY SESSION' : 'PHARMACY DAILY PRACTICE'}
-        index="03"
-        title={<>Practice, <em>your way.</em></>}
-        description={isCourse
-          ? 'Choose a subject and practice mode, then build confidence one question at a time.'
-          : 'Choose a PhLE module and active-recall mode to build clinical and pharmaceutical confidence one question at a time.'}
-      />
+      <header className="practice-focus-header">
+        <Button className="practice-exit-button" variant="ghost" leftIcon="arrow-left" onClick={() => navigate('/dashboard')}>
+          Exit practice
+        </Button>
+        <div className="practice-focus-title">
+          <span>FOCUSED STUDY</span>
+          <h1>Practice</h1>
+        </div>
+      </header>
 
       <Card variant="elevated" className="practice-controls-card">
         <CardContent className="practice-controls-content">
