@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>LisenSync AI — TTS Mascot Preview</title>
+<style>
+  :root{
+    --primary:#1d56a8; --primary-2:#164385; --primary-3:#0f2f5f;
+    --bg:#f6f9fd; --panel:#ffffff; --text:#12233d; --muted:#5b6b84;
+    --border:#dce5f2; --radius-lg:16px; --radius-full:999px;
+    --shadow-sm:0 2px 6px rgba(16,35,62,.05); --shadow-md:0 8px 24px rgba(16,35,62,.08);
+    --cyan:#38d6ff;
+    font-family:"Inter",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);padding:40px 24px 80px;line-height:1.55}
+  .wrap{max-width:1080px;margin:0 auto}
+  h1{font-size:26px;letter-spacing:-.02em;margin-bottom:6px}
+  .lede{color:var(--muted);font-size:15px;margin-bottom:36px}
+  h2{font-size:12px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);margin:40px 0 14px;font-weight:600}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius-lg);box-shadow:var(--shadow-sm);padding:24px}
+  .row{display:flex;gap:24px;align-items:center;flex-wrap:wrap}
+  .col{display:grid;gap:14px}
+  .mascot{display:inline-flex;align-items:center;justify-content:center;position:relative;flex:0 0 auto;line-height:0}
+  .mascot img{width:100%;height:auto;display:block}
+  .mascot.round img{border-radius:var(--radius-full);background:#eef4fb}
+  .mascot.square img,.mascot.speaking img{border-radius:16px;background:#eef4fb}
+  .mascot.on::after{content:"";position:absolute;inset:-6%;border-radius:var(--radius-full);border:2px solid rgba(56,214,255,.6);box-shadow:0 0 0 6px rgba(56,214,255,.14);animation:pulse 1.6s ease-out infinite}
+  .mascot.speaking.on::after{border-radius:16px}
+  @keyframes pulse{0%{transform:scale(.96);opacity:.9}70%{transform:scale(1.06);opacity:.15}100%{transform:scale(1.06);opacity:0}}
+  .label{font-size:12px;color:var(--muted);text-align:center;margin-top:8px}
+  .btn{display:inline-flex;align-items:center;gap:10px;border:0;border-radius:var(--radius-full);padding:10px 18px;font-size:14px;font-weight:600;color:#fff;background:linear-gradient(135deg,var(--primary),var(--primary-2));box-shadow:var(--shadow-sm);cursor:pointer}
+  .btn .mascot img{border-radius:var(--radius-full)}
+  .btn.ghost{background:#fff;color:var(--primary);border:1px solid #bfd6f6;box-shadow:none}
+  .mascot-card{display:flex;align-items:center;gap:16px;padding:16px 20px;background:var(--panel);border:1px solid var(--border);border-left:3px solid var(--cyan);border-radius:var(--radius-lg);box-shadow:var(--shadow-sm);max-width:460px}
+  .mascot-card .name{font-size:13px;font-weight:700}
+  .mascot-card .txt{font-size:13px;color:var(--muted)}
+  .hero{display:grid;grid-template-columns:1.1fr 1fr;gap:8px;align-items:center;background:linear-gradient(135deg,#eef5ff,#e6f7ff);border:1px solid var(--border);border-radius:20px;padding:28px 28px 28px 32px;overflow:hidden}
+  .hero h3{font-size:20px;letter-spacing:-.01em;margin-bottom:8px}
+  .hero p{color:var(--muted);font-size:14px;max-width:34ch}
+  .hero .mascot img{border-radius:20px;background:transparent}
+  .swatches{display:flex;gap:12px;flex-wrap:wrap}
+  .sw{width:104px}
+  .sw div{height:56px;border-radius:12px;border:1px solid rgba(0,0,0,.06);margin-bottom:6px}
+  .sw span{font-size:11px;color:var(--muted);display:block}
+  .sw b{font-size:12px}
+  .scales{display:flex;gap:20px;align-items:flex-end}
+  .scales>div{text-align:center}
+  .pill{display:inline-flex;align-items:center;gap:6px;background:#fff;border:1px solid var(--border);border-radius:var(--radius-full);padding:6px 12px;font-size:12px;color:var(--muted)}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--cyan);box-shadow:0 0 0 3px rgba(56,214,255,.2)}
+  @media(max-width:760px){.hero{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Lilo — the LisenSync AI study owl</h1>
+  <p class="lede">Mascot for the text-to-speech “read aloud” feature in Practice Mode. Soft-3D clay render, LisenSync navy with a cyan on-air accent.</p>
+
+  <h2>Primary art</h2>
+  <div class="row">
+    <div class="mascot speaking" style="width:420px"><img src="mascot-speaking-1200.png" alt="Lilo speaking lesson content aloud" /></div>
+    <div class="col" style="gap:18px">
+      <div class="pill"><span class="dot"></span> Speaking state — used while audio plays</div>
+      <p style="color:var(--muted);font-size:14px;max-width:38ch">Capsule-mic, cyan sound waves and open beak read instantly as “this thing talks”. The lab coat, stethoscope and headset tie pharmacy + audio together in one silhouette.</p>
+    </div>
+  </div>
+
+  <h2>Avatar states</h2>
+  <div class="row">
+    <div><div class="mascot round" style="width:160px"><img src="mascot-avatar-round-256.png" alt="" /></div><div class="label">Idle · 160px</div></div>
+    <div><div class="mascot round on" style="width:160px"><img src="mascot-avatar-round-256.png" alt="" /></div><div class="label">Speaking · pulse ring</div></div>
+    <div><div class="mascot square" style="width:160px"><img src="mascot-avatar-256.png" alt="" /></div><div class="label">Square · cards</div></div>
+    <div><div class="mascot round" style="width:40px"><img src="mascot-avatar-round-256.png" alt="" /></div><div class="label">40px</div></div>
+    <div><div class="mascot round" style="width:28px"><img src="mascot-avatar-round-256.png" alt="" /></div><div class="label">28px</div></div>
+  </div>
+
+  <h2>In context — Practice Mode</h2>
+  <div class="col" style="gap:20px">
+    <div class="hero">
+      <div>
+        <h3>Let Lilo read the rationale to you</h3>
+        <p>Hands-free review for Pharm Chem, Pharmacognosy and beyond. Tap play and follow along with the passage highlighted.</p>
+        <div class="row" style="gap:10px;margin-top:18px">
+          <button class="btn"><span class="mascot" style="width:24px"><img src="mascot-avatar-round-256.png" alt="" /></span> Read aloud</button>
+          <button class="btn ghost">Settings</button>
+        </div>
+      </div>
+      <div class="mascot speaking" style="width:100%"><img src="mascot-speaking-1200.png" alt="Lilo the owl reading a rationale aloud" /></div>
+    </div>
+
+    <div class="row" style="gap:18px;align-items:flex-start">
+      <div class="mascot-card">
+        <div class="mascot round on" style="width:72px"><img src="mascot-avatar-round-256.png" alt="" /></div>
+        <div>
+          <div class="name">Lilo</div>
+          <div class="txt">Reading question 12 aloud · 1.2× speed</div>
+        </div>
+      </div>
+      <div class="mascot-card">
+        <div class="mascot round" style="width:72px"><img src="mascot-avatar-round-256.png" alt="" /></div>
+        <div>
+          <div class="name">Lilo</div>
+          <div class="txt">Tap the speaker icon and I'll walk you through this rationale.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <h2>Palette</h2>
+  <div class="swatches">
+    <div class="sw"><div style="background:#1d56a8"></div><b>Navy</b><span>#1D56A8</span></div>
+    <div class="sw"><div style="background:#164385"></div><b>Deep navy</b><span>#164385</span></div>
+    <div class="sw"><div style="background:#38d6ff"></div><b>On-air cyan</b><span>#38D6FF</span></div>
+    <div class="sw"><div style="background:#f7f1e3"></div><b>Cream</b><span>#F7F1E3</span></div>
+    <div class="sw"><div style="background:#f08a24"></div><b>Beak amber</b><span>#F08A24</span></div>
+    <div class="sw"><div style="background:#eef4fb"></div><b>Mist bg</b><span>#EEF4FB</span></div>
+  </div>
+</div>
+</body>
+</html>
