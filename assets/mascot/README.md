@@ -127,26 +127,40 @@ When prompting for additional poses, always pass the master art as a reference a
 
 ## 10. Logo mark (Lilo in the mortar)
 
-`assets/logo/` holds the app mark, which puts Lilo on the pharmacy symbol.
+`assets/logo/` holds the app mark: Lilo sitting over the mortar-and-pestle, surrounded by the three core
+pharmacy symbols.
 
-**Construction:** navy `#10233E` rounded-square tile → white mortar-and-pestle as a pedestal → Lilo bust on top
-(cream heart-shaped face disks, amber head and beak, navy headphones) → three cyan sound-wave arcs at the right.
+**Construction**, on a navy `#10233E` rounded-square tile (22% corner radius):
 
-**Why this order:** the mortar reads first at small sizes (it is a solid white mass), Lilo reads second, and the
-cyan arcs last. Nothing overlaps, so the mark survives being scaled to 32 px.
+| Zone | Element | Purpose |
+| --- | --- | --- |
+| Center | Lilo bust — amber head, cream heart-shaped face disks, amber eyes, navy headphones | The mascot; the hero shape |
+| Below | White mortar-and-pestle, pestle emerging from the bowl and leaning left | The pharmacy symbol, and a pedestal for Lilo |
+| Upper-left | White **Rx** symbol | Prescription / dispensing |
+| Upper-right | White **pharmacy cross** | Healthcare / clinical |
+| Lower-right | Amber-and-white **capsule** | Dosage forms / Pharmaceutics |
+
+**Note on the sound waves:** earlier drafts used cyan TTS sound arcs. They were removed on request — the mark is
+now purely pharmacy-focused. The TTS identity still lives in the mascot art (`pharmacy-tts-mascot-speaking.png`)
+and in the cyan "on-air" pulse in the Practice Mode UI, so nothing is lost functionally.
+
+**Read order at small sizes:** mortar (solid white mass) → owl face (cream) → corner icons. The corner symbols are
+deliberately smaller than the owl so 32px stays clean; below 24px use the mark without the corner icons.
 
 | File | Use |
 | --- | --- |
-| `assets/logo/lisensync-logo-lilo.png` | master art (1024×1024) |
-| `assets/logo/app/logo-mark-{512,256,192,128,64,32}.png` | tile sizes, rounded corners baked in |
+| `assets/logo/emblem-lilo-pharmacy.png` | master emblem on flat navy (source of truth) |
+| `assets/logo/lisensync-logo-lilo.png` | earlier full-tile draft (kept for reference) |
+| `assets/logo/app/logo-mark-{512,256,192,128,64,32}.png` | tile sizes, corners baked in |
 | `assets/logo/app/favicon.ico` | 16/32/48/64 multi-size favicon |
 | `assets/logo/app/lisensync-logo-lockup.png` | horizontal lockup, dark text — decks, docs, email |
 | `assets/logo/app/lisensync-logo-lockup-inverse.png` | white text on transparency — dark surfaces |
+| `assets/logo/preview/index.html` | visual reference sheet, all sizes in context |
 
 **In the app:** `src/assets/logo-mark.png` (512) is what `Brand.tsx` renders; `public/favicon.ico` and
 `public/logo-mark-192.png` serve the tab icon and apple-touch-icon. The in-app wordmark stays live text so it
 remains crisp and accessible — the PNG lockups are for external/print use only.
 
-**Clear space:** one quarter of the tile width on every side. **Minimum size:** 24 px (tile), 32 px (favicon).
-**Don't:** recolour the tile, drop the cyan waves, or place the mark on a mid-tone blue background — it needs
-either near-white or very dark navy behind it.
+**Clear space:** a quarter of the tile width on every side. **Minimum size:** 24 px (tile), 32 px (favicon).
+**Don't:** recolour the tile, remove the mortar (it is what makes the mark read as pharmacy), or place the mark on
+a mid-tone blue background — it needs near-white or very dark navy behind it.
