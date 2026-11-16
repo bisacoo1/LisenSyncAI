@@ -134,7 +134,9 @@ export default function DashboardPage() {
             </div>
             <div
               className="readiness-orbit"
-              style={{ background: `conic-gradient(#d3e9a0 ${Math.min(overall, 100)}%, rgba(255,255,255,.12) 0)` }}
+              style={{
+                background: `conic-gradient(#7dd3fc ${Math.min(overall, 100)}%, rgba(191, 219, 254, .16) 0)`
+              }}
               aria-label={
                 loading
                   ? 'Loading practice score'
@@ -240,7 +242,7 @@ export default function DashboardPage() {
         <div className="momentum-grid">
           <div className="momentum-card">
             <div className="momentum-card-top">
-              <span className="momentum-icon mint">
+              <span className="momentum-icon cobalt">
                 <Icon name="trophy" size={19} />
               </span>
               <span>01</span>
@@ -251,7 +253,7 @@ export default function DashboardPage() {
           </div>
           <div className="momentum-card">
             <div className="momentum-card-top">
-              <span className="momentum-icon peach">
+              <span className="momentum-icon amber">
                 <Icon name="flame" size={19} />
               </span>
               <span>02</span>
@@ -264,7 +266,7 @@ export default function DashboardPage() {
           </div>
           <div className="momentum-card">
             <div className="momentum-card-top">
-              <span className="momentum-icon lavender">
+              <span className="momentum-icon violet">
                 <Icon name="target" size={19} />
               </span>
               <span>03</span>
@@ -289,7 +291,7 @@ export default function DashboardPage() {
           </div>
           <Link to="/practice?mode=flashcards" className="momentum-card momentum-card--link">
             <div className="momentum-card-top">
-              <span className="momentum-icon yellow">
+              <span className="momentum-icon sky">
                 <Icon name="book-open" size={19} />
               </span>
               <Icon name="arrow-up-right" size={16} />
@@ -368,6 +370,7 @@ export default function DashboardPage() {
                     <th>Attempts</th>
                     <th>Score</th>
                     <th>Status</th>
+                    <th>Drill</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -401,6 +404,15 @@ export default function DashboardPage() {
                               {s.weak ? 'Needs focus' : 'On track'}
                             </Badge>
                           )}
+                        </td>
+                        <td>
+                          <Link
+                            to={`/practice?subject=${encodeURIComponent(s.subject)}`}
+                            className="module-drill-link"
+                            aria-label={`Practice ${s.subject}`}
+                          >
+                            Practice <Icon name="arrow-right" size={12} />
+                          </Link>
                         </td>
                       </tr>
                     )
