@@ -62,7 +62,7 @@ export default function AnalyticsPage() {
     if (!profile || !weakSubjects.length) { setWeakDrills([]); return }
     ;(async () => {
       const names = weakSubjects.map(s => s.subject)
-      const { data } = await supabase.from('practice_items').select('*').eq('user_id', profile!.id).in('subject', names).in('type', ['mcq', 'diagnosis', 'sequence']).limit(12)
+      const { data } = await supabase.from('practice_items').select('*').eq('user_id', profile!.id).in('subject', names).in('type', ['mcq', 'diagnosis', 'sequence', 'enumeration', 'identification']).limit(12)
       setWeakDrills((data as PracticeItem[]) || [])
     })()
   }, [profile, weakSubjects.map(s => s.subject).join('|')])

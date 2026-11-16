@@ -353,15 +353,31 @@ export default function ReviewerPage() {
                   <Button variant="primary" size="lg" leftIcon="book-open" onClick={() => { const m = materials.find(x => x.id === selectedMaterial); if (m) generate('flashcards', m) }} disabled={!!busy || !selectedMaterial} fullWidth>
                     Generate Flashcards
                   </Button>
-                  <Button variant="secondary" size="lg" leftIcon="file-text" onClick={() => { const m = materials.find(x => x.id === selectedMaterial); if (m) generate('mcq', m) }} disabled={!!busy || !selectedMaterial} fullWidth>
-                    Generate PhLE Situational MCQs
-                  </Button>
-                  <Button variant="secondary" size="lg" leftIcon="brain" onClick={() => { const m = materials.find(x => x.id === selectedMaterial); if (m) generate('diagnosis', m) }} disabled={!!busy || !selectedMaterial} fullWidth>
-                    Generate Clinical & Concept Diagnosis
-                  </Button>
-                  <Button variant="secondary" size="lg" leftIcon="chevron-up-down" onClick={() => { const m = materials.find(x => x.id === selectedMaterial); if (m) generate('sequence', m) }} disabled={!!busy || !selectedMaterial} fullWidth>
-                    Generate Priority & Sequence Ordering
-                  </Button>
+                  {isCourse ? (
+                    <>
+                      <Button variant="secondary" size="lg" leftIcon="file-text" onClick={() => { const m = materials.find(x => x.id === selectedMaterial); if (m) generate('mcq', m) }} disabled={!!busy || !selectedMaterial} fullWidth>
+                        Generate Multiple Choice
+                      </Button>
+                      <Button variant="secondary" size="lg" leftIcon="list-checks" onClick={() => { const m = materials.find(x => x.id === selectedMaterial); if (m) generate('enumeration', m) }} disabled={!!busy || !selectedMaterial} fullWidth>
+                        Generate Enumeration
+                      </Button>
+                      <Button variant="secondary" size="lg" leftIcon="search" onClick={() => { const m = materials.find(x => x.id === selectedMaterial); if (m) generate('identification', m) }} disabled={!!busy || !selectedMaterial} fullWidth>
+                        Generate Identification
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <Button variant="secondary" size="lg" leftIcon="file-text" onClick={() => { const m = materials.find(x => x.id === selectedMaterial); if (m) generate('mcq', m) }} disabled={!!busy || !selectedMaterial} fullWidth>
+                        Generate PhLE Situational MCQs
+                      </Button>
+                      <Button variant="secondary" size="lg" leftIcon="brain" onClick={() => { const m = materials.find(x => x.id === selectedMaterial); if (m) generate('diagnosis', m) }} disabled={!!busy || !selectedMaterial} fullWidth>
+                        Generate Clinical & Concept Diagnosis
+                      </Button>
+                      <Button variant="secondary" size="lg" leftIcon="chevron-up-down" onClick={() => { const m = materials.find(x => x.id === selectedMaterial); if (m) generate('sequence', m) }} disabled={!!busy || !selectedMaterial} fullWidth>
+                        Generate Priority & Sequence Ordering
+                      </Button>
+                    </>
+                  )}
                 </div>
               </div>
             </div>

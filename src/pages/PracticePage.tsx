@@ -4,9 +4,9 @@ import { WorkspacePageHeader } from '@/components/WorkspacePageHeader'
 import { useAuth } from '@/context/AuthContext'
 import { getProgram } from '@/lib/syllabus'
 import { supabase } from '@/lib/supabase'
-import { checkDiagnosis, checkSequence, computeProfileStatsUpdate } from '@/lib/analytics'
+import { checkDiagnosis, checkEnumeration, checkSequence, computeProfileStatsUpdate } from '@/lib/analytics'
 import { isCardDue, scheduleReview, type ReviewQuality } from '@/lib/srs'
-import type { Flashcard, McqAnswer, McqQuestion, PracticeItem, PracticeType, SequenceAnswer, SequenceQuestion, DiagnosisAnswer, DiagnosisQuestion, Profile, UserSubject } from '@/types'
+import type { Flashcard, McqAnswer, McqQuestion, PracticeItem, PracticeType, SequenceAnswer, SequenceQuestion, DiagnosisAnswer, DiagnosisQuestion, EnumerationAnswer, Profile, UserSubject } from '@/types'
 import { Card, CardHeader, CardContent, Button, Badge, Icon, EmptyState, Tabs, useToast, type TabItem } from '@/components/ui'
 import LevelUpCelebration from '@/components/LevelUpCelebration'
 import AiHelper from '@/components/AiHelper'
@@ -50,7 +50,7 @@ export default function PracticePage() {
   useEffect(() => {
     const qpMode = searchParams.get('mode')
     const qpSubject = searchParams.get('subject')
-    if (qpMode && ['flashcards', 'mcq', 'diagnosis', 'sequence'].includes(qpMode)) {
+    if (qpMode && ['flashcards', 'mcq', 'diagnosis', 'sequence', 'enumeration', 'identification'].includes(qpMode)) {
       setMode(qpMode as 'flashcards' | PracticeType)
     }
     if (qpSubject) setSubject(qpSubject)
@@ -186,6 +186,24 @@ export default function PracticePage() {
     addToast({ type: correct ? 'success' : 'error', title: correct ? 'Correct order!' : 'Incorrect order', message: current.rationale || `Correct: ${ans.order.join(' → ')}`, duration: 3000 })
   }
 
+  async function submitIdentification() {
+    if (!current) return
+    const ans = current.answer as DiagnosisAnswer
+    const correct = checkDiagnosis(diagInput, ans.expected, ans.acceptable || [])
+    setFeedback({ correct, text: current.rationale || `Expected: ${ans.expected}` })
+    await recordAttempt(correct, { text: diagInput })
+    addToast({ type: correct ? 'success' : 'error', title: correct ? 'Correct!' : 'Incorrect', message: current.rationale || `Expected: ${ans.expected}`, duration: 3000 })
+  }
+
+  async function submitEnumeration() {
+    if (!current) return
+    const ans = current.answer as EnumerationAnswer
+    const correct = checkEnumeration(diagInput, ans.items || [])
+    setFeedback({ correct, text: current.rationale || `Expected items: ${(ans.items || []).join(', ')}` })
+    await recordAttempt(correct, { text: diagInput })
+    addToast({ type: correct ? 'success' : 'error', title: correct ? 'Correct!' : 'Incorrect', message: current.rationale || `Expected: ${(ans.items || []).join(', ')}`, duration: 3000 })
+  }
+
   function questionContext(): string {
     const it = items[idx]
     if (!it) return ''
@@ -204,6 +222,16 @@ export default function PracticePage() {
       const q = it.question as SequenceQuestion
       const a = it.answer as SequenceAnswer
       return `${subj}\nPrompt: ${q.prompt}\nItems: ${q.items.join(' | ')}\nCorrect order: ${a.order.join(' → ')}\nRationale: ${it.rationale || 'none'}`
+    }
+    if (mode === 'enumeration') {
+      const q = it.question as DiagnosisQuestion
+      const a = it.answer as EnumerationAnswer
+      return `${subj}\nPrompt: ${q.prompt}\nExpected items: ${(a.items || []).join(', ')}\nRationale: ${it.rationale || 'none'}`
+    }
+    if (mode === 'identification') {
+      const q = it.question as DiagnosisQuestion
+      const a = it.answer as DiagnosisAnswer
+      return `${subj}\nScenario: ${q.scenario}\nPrompt: ${q.prompt}\nExpected answer: ${a.expected}${a.acceptable?.length ? ` (also acceptable: ${a.acceptable.join(', ')})` : ''}\nRationale: ${it.rationale || 'none'}`
     }
     return ''
   }
@@ -226,7 +254,12 @@ export default function PracticePage() {
   const empty = mode === 'flashcards' ? flashcards.length === 0 : items.length === 0
   const done = mode === 'flashcards' ? idx >= flashcards.length : idx >= items.length
 
-  const modeTabs: TabItem[] = [
+  const modeTabs: TabItem[] = isCourse ? [
+    { value: 'flashcards', label: 'Flashcards', icon: 'book-open' },
+    { value: 'mcq', label: 'Multiple Choice', icon: 'file-text' },
+    { value: 'enumeration', label: 'Enumeration', icon: 'list-checks' },
+    { value: 'identification', label: 'Identification', icon: 'search' },
+  ] : [
     { value: 'flashcards', label: 'Flashcards', icon: 'book-open' },
     { value: 'mcq', label: 'MCQ', icon: 'file-text' },
     { value: 'diagnosis', label: 'Diagnosis', icon: 'brain' },
@@ -561,6 +594,129 @@ export default function PracticePage() {
                         <strong style={{ color: 'var(--success)' }}>Correct order:</strong> <span style={{ marginLeft: 8 }}>{(current.answer as SequenceAnswer).order.join(' → ')}</span>
                       </div>
                     )}
+                  </div>
+                </div>
+              </div>
+            )}
+            {feedback && <AiHelper contextText={questionContext()} program={program.key} subject={subject} itemKey={current.id} />}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Identification Mode (course track) */}
+      {!loading && !empty && !done && current && mode === 'identification' && (
+        <Card variant="elevated">
+          <CardContent style={{ padding: 24 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
+              <Badge variant="primary" size="md">Item {idx + 1} of {items.length} — {current.subject} — Identification</Badge>
+            </div>
+
+            {(current.question as DiagnosisQuestion).scenario && (
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>Context</div>
+                <div style={{ padding: 20, background: 'var(--panel-2)', border: '1px solid var(--border)', borderRadius: 12, lineHeight: 1.7 }}>
+                  {(current.question as DiagnosisQuestion).scenario}
+                </div>
+              </div>
+            )}
+
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>Prompt</div>
+              <div style={{ padding: 16, background: 'var(--primary-bg)', border: '1px solid var(--primary-border)', borderRadius: 10, fontWeight: 500, fontSize: 15 }}>
+                {(current.question as DiagnosisQuestion).prompt}
+              </div>
+            </div>
+
+            <div style={{ marginBottom: 16 }}>
+              <label htmlFor="identification-input" style={{ display: 'block', fontSize: 12, color: 'var(--muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>Your Answer</label>
+              <input
+                id="identification-input"
+                value={diagInput}
+                onChange={e => setDiagInput(e.target.value)}
+                placeholder="Type the term or concept you identify..."
+                disabled={!!feedback}
+                style={{ width: '100%', padding: '14px 16px', borderRadius: 10, border: `1px solid ${feedback ? (feedback.correct ? 'var(--success)' : 'var(--danger)') : 'var(--border)'}`, background: 'var(--panel-2)', color: 'var(--text)', fontSize: 14 }}
+              />
+            </div>
+
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              {!feedback && (
+                <Button variant="primary" size="lg" onClick={submitIdentification} disabled={!diagInput} fullWidth style={{ maxWidth: 200 }}>Submit</Button>
+              )}
+              {feedback && (
+                <Button variant="primary" size="lg" rightIcon="chevron-right" onClick={next} fullWidth style={{ maxWidth: 200 }}>Next</Button>
+              )}
+            </div>
+
+            {feedback && (
+              <div style={{ marginTop: 20, padding: 16, borderRadius: 10, border: `1px solid ${feedback.correct ? 'var(--success-border)' : 'var(--danger-border)'}`, background: feedback.correct ? 'var(--success-bg)' : 'var(--danger-bg)' }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                  <Icon name={feedback.correct ? 'check-circle' : 'x-circle'} size={22} style={{ color: feedback.correct ? 'var(--success)' : 'var(--danger)', flexShrink: 0, marginTop: 2 }} />
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 600, fontSize: 15, color: feedback.correct ? 'var(--success)' : 'var(--danger)' }}>
+                      {feedback.correct ? 'Correct.' : 'Incorrect.'}
+                    </div>
+                    <div style={{ marginTop: 8, color: 'var(--text-dim)', lineHeight: 1.6 }}>
+                      <strong>Rationale / Expected:</strong> {feedback.text}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+            {feedback && <AiHelper contextText={questionContext()} program={program.key} subject={subject} itemKey={current.id} />}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Enumeration Mode (course track) */}
+      {!loading && !empty && !done && current && mode === 'enumeration' && (
+        <Card variant="elevated">
+          <CardContent style={{ padding: 24 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
+              <Badge variant="primary" size="md">Item {idx + 1} of {items.length} — {current.subject} — Enumeration</Badge>
+            </div>
+
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>Prompt</div>
+              <div style={{ padding: 16, background: 'var(--primary-bg)', border: '1px solid var(--primary-border)', borderRadius: 10, fontWeight: 500, fontSize: 15 }}>
+                {(current.question as DiagnosisQuestion).prompt}
+              </div>
+            </div>
+
+            <div style={{ marginBottom: 16 }}>
+              <label htmlFor="enumeration-input" style={{ display: 'block', fontSize: 12, color: 'var(--muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>Your List</label>
+              <textarea
+                id="enumeration-input"
+                value={diagInput}
+                onChange={e => setDiagInput(e.target.value)}
+                placeholder="List each item on a new line or separated by commas..."
+                disabled={!!feedback}
+                rows={6}
+                style={{ width: '100%', padding: '14px 16px', borderRadius: 10, border: `1px solid ${feedback ? (feedback.correct ? 'var(--success)' : 'var(--danger)') : 'var(--border)'}`, background: 'var(--panel-2)', color: 'var(--text)', fontSize: 14, resize: 'vertical', fontFamily: 'inherit' }}
+              />
+              <p style={{ margin: '6px 0 0', fontSize: 12, color: 'var(--muted)' }}>You must list every expected item — order doesn't matter.</p>
+            </div>
+
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              {!feedback && (
+                <Button variant="primary" size="lg" onClick={submitEnumeration} disabled={!diagInput.trim()} fullWidth style={{ maxWidth: 200 }}>Submit</Button>
+              )}
+              {feedback && (
+                <Button variant="primary" size="lg" rightIcon="chevron-right" onClick={next} fullWidth style={{ maxWidth: 200 }}>Next</Button>
+              )}
+            </div>
+
+            {feedback && (
+              <div style={{ marginTop: 20, padding: 16, borderRadius: 10, border: `1px solid ${feedback.correct ? 'var(--success-border)' : 'var(--danger-border)'}`, background: feedback.correct ? 'var(--success-bg)' : 'var(--danger-bg)' }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                  <Icon name={feedback.correct ? 'check-circle' : 'x-circle'} size={22} style={{ color: feedback.correct ? 'var(--success)' : 'var(--danger)', flexShrink: 0, marginTop: 2 }} />
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 600, fontSize: 15, color: feedback.correct ? 'var(--success)' : 'var(--danger)' }}>
+                      {feedback.correct ? 'Correct — all items listed.' : 'Incorrect — check the expected list.'}
+                    </div>
+                    <div style={{ marginTop: 8, color: 'var(--text-dim)', lineHeight: 1.6 }}>
+                      <strong>Rationale / Expected items:</strong> {feedback.text}
+                    </div>
                   </div>
                 </div>
               </div>

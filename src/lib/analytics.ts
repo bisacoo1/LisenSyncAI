@@ -45,6 +45,22 @@ export function checkSequence(userOrder: string[], correct: string[]) {
   return nu.every((v, i) => v === nc[i])
 }
 
+export function checkEnumeration(userInput: string, correctItems: string[]) {
+  const userItems = userInput
+    .split(/[\n,;]+/)
+    .map(s => normalizeText(s))
+    .filter(Boolean)
+  const expected = correctItems.map(normalizeText).filter(Boolean)
+  if (!userItems.length || userItems.length !== expected.length) return false
+  const remaining = [...expected]
+  for (const u of userItems) {
+    const i = remaining.findIndex(e => e === u || e.includes(u) || u.includes(e))
+    if (i === -1) return false
+    remaining.splice(i, 1)
+  }
+  return true
+}
+
 export interface ProfileStatsUpdate {
   xp?: number
   level?: number

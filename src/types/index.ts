@@ -87,7 +87,9 @@ export interface Flashcard {
   last_quality?: number | null
 }
 
-export type PracticeType = 'mcq' | 'diagnosis' | 'sequence' | 'flashcard_drill'
+export type PracticeType = 'mcq' | 'diagnosis' | 'sequence' | 'flashcard_drill' | 'enumeration' | 'identification'
+
+export interface EnumerationAnswer { items: string[] }
 
 export interface McqQuestion {
   stem: string
@@ -115,7 +117,7 @@ export interface PracticeItem {
   subject: string
   type: PracticeType
   question: McqQuestion | DiagnosisQuestion | SequenceQuestion | Record<string, unknown>
-  answer: McqAnswer | DiagnosisAnswer | SequenceAnswer | Record<string, unknown>
+  answer: McqAnswer | DiagnosisAnswer | SequenceAnswer | EnumerationAnswer | Record<string, unknown>
   rationale: string | null
   difficulty?: string
 }
