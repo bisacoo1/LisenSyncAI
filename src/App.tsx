@@ -8,6 +8,7 @@ import LandingPage from '@/pages/LandingPage'
 
 const OnboardingPage = lazy(() => import('@/pages/OnboardingPage'))
 const DashboardPage = lazy(() => import('@/pages/DashboardPage'))
+const MyReviewersPage = lazy(() => import('@/pages/MyReviewersPage'))
 const ReviewerPage = lazy(() => import('@/pages/ReviewerPage'))
 const PracticePage = lazy(() => import('@/pages/PracticePage'))
 const MockExamPage = lazy(() => import('@/pages/MockExamPage'))
@@ -75,6 +76,17 @@ export default function App() {
         }
       >
         <Route path="/reviewer" />
+      </Route>
+      <Route
+        element={
+          <Layout>
+            <ProtectedRoute>
+              <MyReviewersPage />
+            </ProtectedRoute>
+          </Layout>
+        }
+      >
+        <Route path="/reviewers" />
       </Route>
       <Route
         element={

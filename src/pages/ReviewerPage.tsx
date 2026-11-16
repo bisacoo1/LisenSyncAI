@@ -43,6 +43,11 @@ function getErrorMessage(error: unknown) {
   return 'An unexpected error occurred.'
 }
 
+function flashcardPracticePath(card: Flashcard) {
+  const path = `/practice?mode=flashcards&subject=${encodeURIComponent(card.subject)}`
+  return card.material_id ? `${path}&material=${encodeURIComponent(card.material_id)}` : path
+}
+
 export default function ReviewerPage() {
   const { profile, user } = useAuth()
   const navigate = useNavigate()
@@ -76,6 +81,10 @@ export default function ReviewerPage() {
     else if (program) setSubject(program.subjects[0])
   }, [program, isCourse])
   useEffect(() => { if (profile) loadMaterials() }, [profile?.id])
+  useEffect(() => {
+    const requestedMaterial = searchParams.get('material')
+    if (requestedMaterial) setSelectedMaterial(requestedMaterial)
+  }, [searchParams])
 
   /* Scroll the requested reviewer function into view when arriving from the sidebar Upload section */
   useEffect(() => {
@@ -117,7 +126,7 @@ export default function ReviewerPage() {
     const { data } = await supabase.from('review_materials').select('*').eq('user_id', profile.id).order('created_at', { ascending: false })
     const list = (data as ReviewMaterial[]) || []
     setMaterials(list)
-    if (list.length && !selectedMaterial) setSelectedMaterial(list[0].id)
+    if (list.length && !selectedMaterial) setSelectedMaterial(searchParams.get('material') || list[0].id)
     const { data: fc } = await supabase.from('flashcards').select('*').eq('user_id', profile.id).order('created_at', { ascending: false }).limit(30)
     setFlashcards((fc as Flashcard[]) || [])
     if (isCourse) {
@@ -280,7 +289,7 @@ export default function ReviewerPage() {
       if (type === 'flashcards') {
         addToast({ type: 'success', title: 'Flashcards generated', message: `${count} flashcards for ${mat.subject}` })
         setMsg(`Generated ${count} flashcards for ${mat.subject}.`)
-        navigate(`/practice?mode=flashcards&subject=${encodeURIComponent(mat.subject)}`)
+        navigate(`/practice?mode=flashcards&subject=${encodeURIComponent(mat.subject)}&material=${encodeURIComponent(mat.id)}`)
       } else {
         addToast({ type: 'success', title: `${type.toUpperCase()} generated`, message: `${count} ${type} items for ${mat.subject}` })
         setMsg(`Generated ${count} ${type} items for ${mat.subject}.`)
@@ -476,7 +485,7 @@ export default function ReviewerPage() {
               variant="secondary"
               size="sm"
               leftIcon="book-open"
-              onClick={() => navigate(`/practice?mode=flashcards&subject=${encodeURIComponent(flashcards[0].subject)}`)}
+              onClick={() => navigate(flashcardPracticePath(flashcards[0]))}
             >
               Practice flashcards
             </Button>
@@ -654,8 +663,8 @@ export default function ReviewerPage() {
               <Button variant="secondary" onClick={() => setSelectedCard(null)} style={{ flex: 1 }}>
                 Close
               </Button>
-              <Button variant="primary" onClick={() => { setSelectedCard(null); navigate(`/practice?mode=flashcards&subject=${encodeURIComponent(selectedCard.subject)}`) }} style={{ flex: 1 }}>
-                Practice this subject
+              <Button variant="primary" onClick={() => { setSelectedCard(null); navigate(flashcardPracticePath(selectedCard)) }} style={{ flex: 1 }}>
+                Practice this set
               </Button>
             </div>
           </div>

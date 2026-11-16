@@ -13,10 +13,11 @@ import AiHelper from '@/components/AiHelper'
 export default function PracticePage() {
   const { profile, user, refreshProfile } = useAuth()
   const navigate = useNavigate()
-  const [searchParams] = useSearchParams()
+  const [searchParams, setSearchParams] = useSearchParams()
   const program = profile ? getProgram(profile.board_program) : null
   const [mode, setMode] = useState<'flashcards' | PracticeType>('mcq')
   const [subject, setSubject] = useState<string>('')
+  const [materialId, setMaterialId] = useState('')
   const [items, setItems] = useState<PracticeItem[]>([])
   const [flashcards, setFlashcards] = useState<Flashcard[]>([])
   const [idx, setIdx] = useState(0)
@@ -40,8 +41,7 @@ export default function PracticePage() {
       setMode('mcq')
     }
     setSubject(qpSubject || '')
-    // Clear query params without reload
-    window.history.replaceState({}, '', window.location.pathname)
+    setMaterialId(searchParams.get('material') || '')
   }, [searchParams])
 
   useEffect(() => {
@@ -49,19 +49,23 @@ export default function PracticePage() {
     load()
     return () => { loadRequest.current += 1 }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [profile?.id, subject, mode])
+  }, [profile?.id, subject, mode, materialId])
 
   async function load() {
     if (!profile) return
     const request = ++loadRequest.current
     setLoading(true); setIdx(0); setReveal(false); setFeedback(null); setSelected(null); setDiagInput('')
     if (mode === 'flashcards') {
-      const { data } = await supabase.from('flashcards').select('*').eq('user_id', profile.id).eq('subject', subject).order('next_review_at', { ascending: true, nullsFirst: true }).limit(50)
+      let query = supabase.from('flashcards').select('*').eq('user_id', profile.id).eq('subject', subject)
+      if (materialId) query = query.eq('material_id', materialId)
+      const { data } = await query.order('next_review_at', { ascending: true, nullsFirst: true }).limit(50)
       if (request !== loadRequest.current) return
       setFlashcards((data as Flashcard[]) || [])
       setItems([])
     } else {
-      const { data } = await supabase.from('practice_items').select('*').eq('user_id', profile.id).eq('subject', subject).eq('type', mode).limit(50)
+      let query = supabase.from('practice_items').select('*').eq('user_id', profile.id).eq('subject', subject).eq('type', mode)
+      if (materialId) query = query.eq('material_id', materialId)
+      const { data } = await query.limit(50)
       if (request !== loadRequest.current) return
       const list = (data as PracticeItem[]) || []
       setItems(list)
@@ -86,12 +90,22 @@ export default function PracticePage() {
   // render an item from the previous mode as if it had the new question shape.
   const current = useMemo(() => {
     const item = items[idx]
-    return item?.type === mode && item.subject === subject ? item : undefined
-  }, [items, idx, mode, subject])
+    return item?.type === mode && item.subject === subject && (!materialId || item.material_id === materialId) ? item : undefined
+  }, [items, idx, mode, subject, materialId])
   const currentCard = useMemo(() => {
     const card = flashcards[idx]
-    return card?.subject === subject ? card : undefined
-  }, [flashcards, idx, subject])
+    return card?.subject === subject && (!materialId || card.material_id === materialId) ? card : undefined
+  }, [flashcards, idx, subject, materialId])
+
+  function selectMode(value: string) {
+    const nextMode = value as 'flashcards' | PracticeType
+    setMode(nextMode)
+    const params = new URLSearchParams(searchParams)
+    params.set('mode', nextMode)
+    if (subject) params.set('subject', subject)
+    if (materialId) params.set('material', materialId)
+    setSearchParams(params, { replace: true })
+  }
 
   async function bumpProfileStats(isCorrect: boolean) {
     if (!user || !profile) return
@@ -259,8 +273,8 @@ export default function PracticePage() {
   return (
     <div className="container workspace-page practice-page">
       <header className="practice-focus-header">
-        <Button className="practice-exit-button" variant="ghost" leftIcon="arrow-left" onClick={() => navigate('/dashboard')}>
-          Browse study sets
+        <Button className="practice-exit-button" variant="ghost" leftIcon="arrow-left" onClick={() => navigate('/reviewers')}>
+          Browse reviewers
         </Button>
         <div className="practice-focus-title">
           <span>FOCUSED STUDY</span>
@@ -273,7 +287,7 @@ export default function PracticePage() {
           <div className="practice-controls-grid">
             <div className="practice-mode-control">
               <span className="practice-control-label">STUDY MODE</span>
-              <Tabs className="practice-mode-tabs" tabs={modeTabs} value={mode} onChange={(v) => setMode(v as 'flashcards' | PracticeType)} variant="scrollable" ariaLabel="Practice mode" fullWidth />
+              <Tabs className="practice-mode-tabs" tabs={modeTabs} value={mode} onChange={selectMode} variant="scrollable" ariaLabel="Practice mode" fullWidth />
               <span className="practice-scroll-hint">Scroll for more modes <Icon name="arrow-right" size={13} /></span>
             </div>
           </div>
@@ -323,7 +337,7 @@ export default function PracticePage() {
               icon="book-open"
               title="Choose a study set"
               description="Open a subject folder to choose from the flashcards and practice sets you have available."
-              action={{ label: 'Browse study sets', onClick: () => navigate('/dashboard'), variant: 'primary' }}
+              action={{ label: 'Browse reviewers', onClick: () => navigate('/reviewers'), variant: 'primary' }}
             />
           </CardContent>
         </Card>
@@ -336,7 +350,7 @@ export default function PracticePage() {
               icon={mode === 'flashcards' ? 'book-open' : 'file-text'}
               title="No items found"
               description={`No ${mode === 'flashcards' ? 'flashcards' : `${mode.toUpperCase()} questions`} are available for ${subject} yet. Choose another available set or upload a reviewer to generate more.`}
-              action={{ label: 'Browse study sets', onClick: () => navigate('/dashboard'), variant: 'primary' }}
+              action={{ label: 'Browse reviewers', onClick: () => navigate('/reviewers'), variant: 'primary' }}
             />
           </CardContent>
         </Card>
@@ -347,10 +361,10 @@ export default function PracticePage() {
           <CardContent style={{ padding: 32, textAlign: 'center' }}>
             <Icon name="check-circle" size={48} style={{ color: 'var(--success)', marginBottom: 12 }} />
             <h3 style={{ margin: '0 0 8px' }}>Session Complete</h3>
-            <p style={{ margin: 0, color: 'var(--muted)' }}>Reload to practice again or browse your subject folders for another set.</p>
+            <p style={{ margin: 0, color: 'var(--muted)' }}>Reload to practice again or browse your reviewer folders for another set.</p>
             <div style={{ marginTop: 16, display: 'flex', gap: 8, justifyContent: 'center' }}>
               <Button variant="primary" leftIcon="rotate-ccw" onClick={load}>Practice Again</Button>
-              <Button variant="secondary" onClick={() => navigate('/dashboard')}>Browse another set</Button>
+              <Button variant="secondary" onClick={() => navigate('/reviewers')}>Browse another set</Button>
             </div>
           </CardContent>
         </Card>
