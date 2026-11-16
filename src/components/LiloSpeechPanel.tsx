@@ -9,10 +9,10 @@ interface LiloSpeechPanelProps {
 }
 
 const LILO_LINES = [
-  "Ready? Let's take this one step at a time.",
-  "Take a breath. You've got this.",
-  "Listen for the key details in this one.",
-  "Let's focus on what the question is asking.",
+  "Kaya mo 'to! Let's take this one step at a time.",
+  "Ready ka na? Listen for the key details.",
+  "Let's break this down, step by step.",
+  "Take your time. Kaya mo 'yan.",
 ]
 
 export default function LiloSpeechPanel({ text }: LiloSpeechPanelProps) {
@@ -21,6 +21,17 @@ export default function LiloSpeechPanel({ text }: LiloSpeechPanelProps) {
   const [spokenText, setSpokenText] = useState('')
   const nextLine = useRef(0)
   const speechVersion = useRef(0)
+  const voices = useRef<SpeechSynthesisVoice[]>([])
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return
+    const updateVoices = () => {
+      voices.current = window.speechSynthesis.getVoices()
+    }
+    updateVoices()
+    window.speechSynthesis.addEventListener('voiceschanged', updateVoices)
+    return () => window.speechSynthesis.removeEventListener('voiceschanged', updateVoices)
+  }, [])
 
   useEffect(() => () => {
     speechVersion.current += 1
@@ -52,7 +63,15 @@ export default function LiloSpeechPanel({ text }: LiloSpeechPanelProps) {
     const fullText = `${line} ${message}`
     const version = ++speechVersion.current
     const utterance = new SpeechSynthesisUtterance(fullText)
-    utterance.lang = 'en-US'
+    const voice = voices.current.find(candidate => /^(en-ph|fil-ph|tl-ph)\b/i.test(candidate.lang))
+      ?? voices.current.find(candidate => /\b(filipino|tagalog)\b/i.test(candidate.name))
+      ?? voices.current.find(candidate => /^en-/i.test(candidate.lang))
+    if (voice) {
+      utterance.voice = voice
+      utterance.lang = voice.lang
+    } else {
+      utterance.lang = /^(en|fil|tl)-ph/i.test(navigator.language) ? navigator.language : 'en-US'
+    }
     utterance.rate = 0.94
     utterance.pitch = 1.08
     utterance.onstart = () => {
