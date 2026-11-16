@@ -41,6 +41,7 @@ export default function DashboardPage() {
   const [attempts, setAttempts] = useState<Attempt[]>([])
   const [dueCards, setDueCards] = useState(0)
   const [dueSubject, setDueSubject] = useState('')
+  const [hasInProgressMock, setHasInProgressMock] = useState(false)
   const [reviewerCount, setReviewerCount] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
   const [examDateInput, setExamDateInput] = useState('')
@@ -51,7 +52,7 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!profile) return
     ;(async () => {
-      const { data } = await supabase.from('attempts').select('*').eq('user_id', profile.id).limit(500)
+      const { data } = await supabase.from('attempts').select('*').eq('user_id', profile.id).order('created_at', { ascending: false }).limit(500)
       setAttempts((data as Attempt[]) || [])
       const dueBefore = new Date().toISOString()
       const { count } = await supabase
@@ -60,6 +61,22 @@ export default function DashboardPage() {
         .eq('user_id', profile.id)
         .lte('next_review_at', dueBefore)
       setDueCards(count || 0)
+      if (isCourse) {
+        setHasInProgressMock(false)
+      } else {
+        const { data: activeMock, error: activeMockError } = await supabase
+          .from('mock_exams')
+          .select('id')
+          .eq('user_id', profile.id)
+          .eq('status', 'in_progress')
+          .limit(1)
+          .maybeSingle()
+        if (activeMockError) {
+          addToast({ type: 'error', title: 'Could not load mock exam status', message: activeMockError.message })
+        } else {
+          setHasInProgressMock(Boolean(activeMock))
+        }
+      }
       setDueSubject('')
       if (count) {
         const { data: firstDueCard, error: dueSubjectError } = await supabase
@@ -96,6 +113,9 @@ export default function DashboardPage() {
   const readiness = readinessLabel(overall)
   const subjectStats = computeSubjectStats(attempts, subjectNames)
   const weak = subjectStats.filter((s) => s.weak && s.total > 0)
+  const focusSubject = weak.slice().sort((a, b) => a.percent - b.percent)[0]
+    || subjectStats.find(s => s.total === 0)
+    || subjectStats.slice().sort((a, b) => a.percent - b.percent)[0]
   const dueFlashcardPath = dueSubject
     ? `/practice?mode=flashcards&subject=${encodeURIComponent(dueSubject)}`
     : '/practice'
@@ -107,6 +127,65 @@ export default function DashboardPage() {
   const dailyCompleted =
     profile.daily_goal_date === new Date().toISOString().slice(0, 10) ? profile.daily_items_completed || 0 : 0
   const dailyGoal = profile.daily_goal || 20
+  const studyPlanSteps: { icon: IconName; title: string; description: string; action: string; to: string }[] = []
+  if (hasInProgressMock) {
+    studyPlanSteps.push({
+      icon: 'timer',
+      title: 'Continue your PhLE mock exam',
+      description: 'Finish the timed simulation you already started.',
+      action: 'Resume exam',
+      to: '/mock',
+    })
+  }
+  if (dueCards > 0) {
+    studyPlanSteps.push({
+      icon: 'book-open',
+      title: `Review ${dueCards} due flashcard${dueCards === 1 ? '' : 's'}`,
+      description: 'A quick spaced-repetition review keeps key facts fresh.',
+      action: 'Review cards',
+      to: dueFlashcardPath,
+    })
+  }
+  if (focusSubject && !(reviewerCount === 0 && attempts.length === 0 && dueCards === 0 && !hasInProgressMock)) {
+    studyPlanSteps.push({
+      icon: 'target',
+      title: focusSubject.total === 0
+        ? `Build a baseline in ${focusSubject.subject}`
+        : focusSubject.weak
+          ? `Practice ${focusSubject.subject}`
+          : `Keep your recall sharp in ${focusSubject.subject}`,
+      description: focusSubject.total === 0
+        ? 'Start with a short set to see what you already know.'
+        : `${focusSubject.percent}% across ${focusSubject.total} attempts${focusSubject.weak ? ' — this module needs extra attention' : ' — your lowest-scoring module so far'}.`,
+      action: 'Start practice',
+      to: `/practice?subject=${encodeURIComponent(focusSubject.subject)}`,
+    })
+  }
+  if (!studyPlanSteps.length && reviewerCount === 0) {
+    studyPlanSteps.push({
+      icon: 'upload',
+      title: 'Create your first study set',
+      description: 'Add a Pharmacy reviewer to build personalized practice material.',
+      action: 'Add a reviewer',
+      to: '/reviewer',
+    })
+  } else if (!studyPlanSteps.length && !isCourse) {
+    studyPlanSteps.push({
+      icon: 'timer',
+      title: 'Check your exam readiness',
+      description: 'Try a timed simulation to see how you perform across the PhLE modules.',
+      action: 'Take a mock exam',
+      to: '/mock',
+    })
+  } else if (!studyPlanSteps.length) {
+    studyPlanSteps.push({
+      icon: 'brain',
+      title: 'Continue your study session',
+      description: 'Choose a subject and keep building your Pharmacy knowledge.',
+      action: 'Start practice',
+      to: '/practice',
+    })
+  }
   const primaryAction =
     !loading && reviewerCount === 0 && attempts.length === 0
       ? { label: 'Add your first reviewer', to: '/reviewer' }
@@ -348,6 +427,41 @@ export default function DashboardPage() {
             </small>
           </Link>
         </div>
+      </section>
+
+      <section className="dashboard-section study-plan-section" aria-labelledby="study-plan-title">
+        <div className="dashboard-section-heading">
+          <div>
+            <span className="section-kicker">YOUR NEXT BEST STEPS</span>
+            <h2 id="study-plan-title">Today’s smart study plan</h2>
+          </div>
+          <span className="study-plan-goal">
+            <Icon name="target" size={15} aria-hidden="true" />
+            {dailyCompleted} of {dailyGoal} items today
+          </span>
+        </div>
+        {loading ? (
+          <div className="study-plan-loading" aria-label="Preparing your study plan">
+            <Skeleton variant="text" width={260} />
+            <Skeleton variant="text" width={190} />
+          </div>
+        ) : (
+          <ol className="study-plan-list">
+            {studyPlanSteps.map((step, index) => (
+              <li key={`${step.title}-${index}`}>
+                <Link to={step.to} className="study-plan-step">
+                  <span className="study-plan-step-number">{String(index + 1).padStart(2, '0')}</span>
+                  <span className="study-plan-step-icon" aria-hidden="true"><Icon name={step.icon} size={19} /></span>
+                  <span className="study-plan-step-copy">
+                    <strong>{step.title}</strong>
+                    <small>{step.description}</small>
+                  </span>
+                  <span className="study-plan-step-action">{step.action}<Icon name="arrow-right" size={15} /></span>
+                </Link>
+              </li>
+            ))}
+          </ol>
+        )}
       </section>
 
       <section className="dashboard-section" aria-labelledby="toolkit-title">

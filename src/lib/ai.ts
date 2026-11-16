@@ -234,3 +234,38 @@ export async function explainText(params: {
   const { text, model } = await geminiGenerate([{ text: prompt }], 0.5)
   return { explanation: text || 'No explanation generated.', model }
 }
+
+export async function generateStudyHint(params: {
+  contextText: string
+  program: BoardProgramKey
+  subject: string
+  previousHints?: string[]
+  forbiddenAnswers?: string[]
+}): Promise<string> {
+  if (!params.contextText.trim()) throw new Error('There is no question available to hint on.')
+
+  const prog = getProgram(params.program)
+  const previousHints = params.previousHints || []
+  const prompt = [
+    `You are a supportive ${prog.name} study tutor for ${params.subject}.`,
+    `Give exactly one brief, progressively more specific study hint (${previousHints.length + 1} of 2) for the question below.`,
+    'Do not state or quote the answer, identify the correct option, solve the problem, or list expected items.',
+    'Point the student toward a concept, clue, or reasoning step they should consider. Use 1–2 sentences and return only the hint.',
+    previousHints.length ? `Hints already given; do not repeat them:\n${previousHints.join('\n')}` : '',
+    `Question context:\n${params.contextText}`,
+  ].filter(Boolean).join('\n\n')
+  const { text } = await geminiGenerate([{ text: prompt }], 0.35)
+  const hint = text.trim()
+  if (!hint) throw new Error('AI did not return a study hint. Please try again.')
+
+  const normalizedHint = hint.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
+  const includesAnswer = (params.forbiddenAnswers || []).some(answer => {
+    const normalizedAnswer = answer.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
+    return normalizedAnswer.length >= 4 && normalizedHint.includes(normalizedAnswer)
+  })
+  if (includesAnswer) {
+    throw new Error('That hint was too close to the answer. Try again or answer the question first.')
+  }
+
+  return hint
+}

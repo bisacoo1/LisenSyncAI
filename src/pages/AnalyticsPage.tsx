@@ -43,6 +43,37 @@ export default function AnalyticsPage() {
   const overall = useMemo(() => overallPercent(attempts), [attempts])
   const readiness = readinessLabel(overall)
   const weakSubjects = stats.filter(s => s.weak && s.total > 0)
+  const recentPractice = useMemo(() => {
+    const now = Date.now()
+    const week = 7 * 24 * 60 * 60 * 1000
+    const recent = attempts.filter(a => {
+      const time = a.created_at ? new Date(a.created_at).getTime() : NaN
+      return time >= now - week && time <= now
+    })
+    const previous = attempts.filter(a => {
+      const time = a.created_at ? new Date(a.created_at).getTime() : NaN
+      return time >= now - 2 * week && time < now - week
+    })
+    return {
+      recentCount: recent.length,
+      recentAccuracy: recent.length ? overallPercent(recent) : null,
+      previousCount: previous.length,
+      previousAccuracy: previous.length ? overallPercent(previous) : null,
+    }
+  }, [attempts])
+  const strongestSubject = stats.filter(s => s.total > 0).slice().sort((a, b) => b.percent - a.percent || b.total - a.total)[0]
+  const lowestSubject = stats.filter(s => s.total > 0).slice().sort((a, b) => a.percent - b.percent || b.total - a.total)[0]
+  const submittedExams = useMemo(
+    () => exams.filter(e => e.status === 'submitted' && e.score != null)
+      .slice()
+      .sort((a, b) => new Date(b.submitted_at || b.started_at).getTime() - new Date(a.submitted_at || a.started_at).getTime()),
+    [exams]
+  )
+  const latestMock = submittedExams[0]
+  const previousMock = submittedExams[1]
+  const latestMockScore = latestMock?.score
+  const previousMockScore = previousMock?.score
+  const latestMockPassed = latestMock?.passed ?? (latestMockScore != null ? latestMockScore >= PASSING_RATE : null)
 
   const trend = useMemo(() => {
     const byDay: Record<string, { correct: number; total: number }> = {}
@@ -121,6 +152,50 @@ export default function AnalyticsPage() {
           </CardContent>
         </Card>
       </div>
+
+      <Card variant="outlined" style={{ marginBottom: 24 }}>
+        <CardHeader title="Progress insights" icon="activity" subtitle="A closer look at your recent practice, module strengths, and PhLE mock exams" />
+        <CardContent>
+          <div className="progress-insights-grid">
+            <article className="progress-insight">
+              <span className="progress-insight-label"><Icon name="trending-up" size={15} aria-hidden="true" /> LAST 7 DAYS</span>
+              <strong>{recentPractice.recentAccuracy == null ? '—' : `${recentPractice.recentAccuracy}%`}</strong>
+              <p>
+                {recentPractice.recentAccuracy == null
+                  ? 'Practice this week to start a fresh progress comparison.'
+                  : recentPractice.previousAccuracy == null
+                    ? `${recentPractice.recentCount} responses this week; a comparison will appear after another week of practice.`
+                    : `${recentPractice.recentCount} responses; ${recentPractice.recentAccuracy - recentPractice.previousAccuracy >= 0 ? '+' : ''}${recentPractice.recentAccuracy - recentPractice.previousAccuracy} points vs. the previous 7 days.`}
+              </p>
+            </article>
+            <article className="progress-insight">
+              <span className="progress-insight-label"><Icon name="star" size={15} aria-hidden="true" /> STRONGEST {isCourse ? 'SUBJECT' : 'MODULE'}</span>
+              <strong>{strongestSubject ? `${strongestSubject.percent}%` : '—'}</strong>
+              <p>{strongestSubject ? `${strongestSubject.subject} · ${strongestSubject.total} attempts` : 'Complete practice to see your strongest area.'}</p>
+            </article>
+            <article className="progress-insight">
+              <span className="progress-insight-label"><Icon name="target" size={15} aria-hidden="true" /> {isCourse ? 'FOCUS AREA' : 'MODULE TO REVISIT'}</span>
+              <strong>{lowestSubject ? `${lowestSubject.percent}%` : '—'}</strong>
+              <p>
+                {lowestSubject
+                  ? `${lowestSubject.subject} · ${lowestSubject.total} attempts${lowestSubject.weak ? `, below the ${PASSING_RATE}% target` : ', currently on track'}`
+                  : 'Complete practice to identify a focus area.'}
+              </p>
+            </article>
+            {!isCourse && (
+              <article className="progress-insight">
+                <span className="progress-insight-label"><Icon name="timer" size={15} aria-hidden="true" /> LATEST MOCK EXAM</span>
+                <strong>{latestMockScore == null ? '—' : `${latestMockScore}%`}</strong>
+                <p>
+                  {latestMockScore != null
+                    ? `${latestMockPassed ? 'Passed' : 'Below target'}${previousMockScore == null ? '' : ` · ${latestMockScore - previousMockScore >= 0 ? '+' : ''}${latestMockScore - previousMockScore} points vs. prior exam`}`
+                    : 'Submit your first mock exam to track exam-to-exam progress.'}
+                </p>
+              </article>
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Per-Subject Performance */}
       <Card variant="outlined" style={{ marginBottom: 24 }}>

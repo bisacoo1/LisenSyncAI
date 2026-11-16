@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { getProgram } from '@/lib/syllabus'
 import { supabase } from '@/lib/supabase'
+import { generateStudyHint } from '@/lib/ai'
 import { checkDiagnosis, checkEnumeration, checkSequence, computeProfileStatsUpdate } from '@/lib/analytics'
 import { isCardDue, scheduleReview, type ReviewQuality } from '@/lib/srs'
 import type { Flashcard, McqAnswer, McqQuestion, PracticeItem, PracticeType, SequenceAnswer, SequenceQuestion, DiagnosisAnswer, DiagnosisQuestion, EnumerationAnswer, Profile } from '@/types'
@@ -29,6 +30,9 @@ export default function PracticePage() {
   const [feedback, setFeedback] = useState<{ correct: boolean; text: string } | null>(null)
   const [loading, setLoading] = useState(false)
   const loadRequest = useRef(0)
+  const hintRequest = useRef(0)
+  const [hints, setHints] = useState<string[]>([])
+  const [hintLoading, setHintLoading] = useState(false)
   const [levelUp, setLevelUp] = useState<number | null>(null)
   const { addToast } = useToast()
   const isCourse = profile?.track === 'course'
@@ -97,6 +101,14 @@ export default function PracticePage() {
     const card = flashcards[idx]
     return card?.subject === subject && (!materialId || card.material_id === materialId) ? card : undefined
   }, [flashcards, idx, subject, materialId])
+  const hintKey = `${mode}:${subject}:${materialId}:${idx}:${current?.id || currentCard?.id || ''}`
+
+  useEffect(() => {
+    hintRequest.current += 1
+    setHints([])
+    setHintLoading(false)
+    return () => { hintRequest.current += 1 }
+  }, [hintKey])
 
   function selectMode(value: string) {
     const nextMode = value as 'flashcards' | PracticeType
@@ -246,6 +258,57 @@ export default function PracticePage() {
       return `${subj}\nScenario: ${q.scenario}\nPrompt: ${q.prompt}${answer}`
     }
     return ''
+  }
+
+  function hintBlockedAnswers(): string[] {
+    if (mode === 'flashcards') return currentCard ? [currentCard.back] : []
+    if (!current) return []
+    if (mode === 'mcq') {
+      const question = current.question as McqQuestion
+      const answer = current.answer as McqAnswer
+      return [question.options[answer.correctIndex] || '']
+    }
+    if (mode === 'diagnosis' || mode === 'identification') {
+      const answer = current.answer as DiagnosisAnswer
+      return [answer.expected, ...(answer.acceptable || [])]
+    }
+    if (mode === 'sequence') {
+      const answer = current.answer as SequenceAnswer
+      return [answer.order.join(' | ')]
+    }
+    if (mode === 'enumeration') {
+      const answer = current.answer as EnumerationAnswer
+      return answer.items || []
+    }
+    return []
+  }
+
+  async function requestHint() {
+    if (!program || hintLoading || hints.length >= 2) return
+    const contextText = mode === 'flashcards' ? currentCard?.front || '' : questionContext(false)
+    if (!contextText.trim()) return
+    const request = ++hintRequest.current
+    setHintLoading(true)
+    try {
+      const hint = await generateStudyHint({
+        contextText,
+        program: program.key,
+        subject,
+        previousHints: hints,
+        forbiddenAnswers: hintBlockedAnswers(),
+      })
+      if (request === hintRequest.current) setHints(previous => [...previous, hint])
+    } catch (error) {
+      if (request === hintRequest.current) {
+        addToast({
+          type: 'error',
+          title: 'Hint unavailable',
+          message: error instanceof Error ? error.message : 'Please try again.',
+        })
+      }
+    } finally {
+      if (request === hintRequest.current) setHintLoading(false)
+    }
   }
 
   function studySpeechText(): string {
@@ -793,6 +856,32 @@ export default function PracticePage() {
         </Card>
       )}
 
+      {!loading && !empty && !done && !feedback && !reveal && (current || currentCard) && (
+        <section className="practice-hint-panel" aria-label="Study hints">
+          <div className="practice-hint-copy">
+            <span className="practice-hint-icon" aria-hidden="true"><Icon name="brain" size={18} /></span>
+            <div>
+              <h3>Need a nudge?</h3>
+              <p>Get a small clue without revealing the answer.</p>
+            </div>
+          </div>
+          {hints.length > 0 && (
+            <ol className="practice-hint-list" aria-live="polite">
+              {hints.map((hint, index) => <li key={`${index}-${hint}`}>{hint}</li>)}
+            </ol>
+          )}
+          <Button
+            variant="secondary"
+            size="sm"
+            leftIcon="brain"
+            onClick={requestHint}
+            loading={hintLoading}
+            disabled={hints.length >= 2}
+          >
+            {hintLoading ? 'Thinking…' : hints.length >= 2 ? 'No more hints' : hints.length ? 'Get another hint' : 'Get a hint'}
+          </Button>
+        </section>
+      )}
       {levelUp != null && <LevelUpCelebration level={levelUp} onClose={() => setLevelUp(null)} />}
       </div>
       <aside className="practice-companion" aria-label="Study with Lilo">
