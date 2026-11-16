@@ -6,10 +6,10 @@ import { supabase } from '@/lib/supabase'
 import { checkDiagnosis, checkEnumeration, checkSequence, computeProfileStatsUpdate } from '@/lib/analytics'
 import { isCardDue, scheduleReview, type ReviewQuality } from '@/lib/srs'
 import type { Flashcard, McqAnswer, McqQuestion, PracticeItem, PracticeType, SequenceAnswer, SequenceQuestion, DiagnosisAnswer, DiagnosisQuestion, EnumerationAnswer, Profile } from '@/types'
-import { Card, CardHeader, CardContent, Button, Badge, Icon, EmptyState, Tabs, TtsMascot, useToast, type TabItem } from '@/components/ui'
+import { Card, CardHeader, CardContent, Button, Badge, Icon, EmptyState, Tabs, useToast, type TabItem } from '@/components/ui'
 import LevelUpCelebration from '@/components/LevelUpCelebration'
 import AiHelper from '@/components/AiHelper'
-import LiloChatPanel from '@/components/LiloChatPanel'
+import LiloSpeechPanel from '@/components/LiloSpeechPanel'
 
 export default function PracticePage() {
   const { profile, user, refreshProfile } = useAuth()
@@ -248,12 +248,53 @@ export default function PracticePage() {
     return ''
   }
 
-  function chatContext(): string {
-    const card = currentCard
-    if (mode === 'flashcards' && card) {
-      return `Board subject: ${card.subject}\nFlashcard prompt: ${card.front}${reveal ? `\nAnswer: ${card.back}` : ''}`
+  function studySpeechText(): string {
+    if (mode === 'flashcards') {
+      if (!currentCard) return ''
+      return reveal
+        ? `Flashcard: ${currentCard.front}. Answer: ${currentCard.back}`
+        : `Flashcard: ${currentCard.front}`
     }
-    return questionContext(Boolean(feedback)) || (subject ? `Board subject: ${subject}` : '')
+    if (!current) return ''
+
+    if (mode === 'mcq') {
+      const question = current.question as McqQuestion
+      const options = question.options
+        .map((option, index) => `Option ${String.fromCharCode(65 + index)}: ${option}`)
+        .join('. ')
+      const answer = current.answer as McqAnswer
+      const feedbackText = feedback
+        ? `The correct answer is ${String.fromCharCode(65 + answer.correctIndex)}: ${question.options[answer.correctIndex]}. ${current.rationale || feedback.text}`
+        : ''
+      return `${question.stem}. ${options}. ${feedbackText}`.trim()
+    }
+
+    if (mode === 'sequence') {
+      const question = current.question as SequenceQuestion
+      const answer = current.answer as SequenceAnswer
+      return [
+        question.prompt,
+        `Items: ${question.items.join(', ')}.`,
+        feedback ? `The correct order is ${answer.order.join(', ')}. ${current.rationale || feedback.text}` : '',
+      ].filter(Boolean).join(' ')
+    }
+
+    if (mode === 'enumeration') {
+      const question = current.question as DiagnosisQuestion
+      const answer = current.answer as EnumerationAnswer
+      return [
+        question.prompt,
+        feedback ? `The expected items are ${(answer.items || []).join(', ')}. ${current.rationale || feedback.text}` : '',
+      ].filter(Boolean).join(' ')
+    }
+
+    const question = current.question as DiagnosisQuestion
+    const answer = current.answer as DiagnosisAnswer
+    return [
+      question.scenario,
+      question.prompt,
+      feedback ? `The expected answer is ${answer.expected}. ${current.rationale || feedback.text}` : '',
+    ].filter(Boolean).join(' ')
   }
 
   function moveSeq(i: number, dir: -1 | 1) {
@@ -289,7 +330,7 @@ export default function PracticePage() {
   const sessionProgress = sessionLength ? Math.round(((idx + 1) / sessionLength) * 100) : 0
   const sessionLabel = mode === 'flashcards' ? 'Card' : 'Question'
   const selectedModeLabel = modeTabs.find(tab => tab.value === mode)?.label || 'Practice'
-  const chatConversationKey = `${mode}:${subject}:${materialId}:${idx}:${current?.id ?? currentCard?.id ?? ''}`
+  const speechContextKey = `${mode}:${subject}:${materialId}:${idx}:${current?.id ?? currentCard?.id ?? ''}:${reveal}:${Boolean(feedback)}`
   return (
     <div className="container workspace-page practice-page">
       <header className="practice-focus-header">
@@ -755,16 +796,7 @@ export default function PracticePage() {
       {levelUp != null && <LevelUpCelebration level={levelUp} onClose={() => setLevelUp(null)} />}
       </div>
       <aside className="practice-companion" aria-label="Study with Lilo">
-        <div className="practice-companion-visual">
-          <TtsMascot size={240} variant="idle" />
-        </div>
-        <LiloChatPanel
-          key={chatConversationKey}
-          contextText={chatContext()}
-          conversationKey={chatConversationKey}
-          program={program.key}
-          subject={subject}
-        />
+        <LiloSpeechPanel key={speechContextKey} text={studySpeechText()} />
       </aside>
       </div>
       {modeTabs.filter(tab => tab.value !== mode).map(tab => (

@@ -9,7 +9,7 @@ import {
   LockKeyholeOpen, LogIn, LogOut, Mail, Medal, Menu, MessageSquare, Microscope, Minus, Moon,
   Move, PenLine, PieChart, Pill, Plus, RefreshCw, RotateCcw, Save, Search, Settings,
   Share2, Shield, ShieldCheck, Sparkles, Star, Stethoscope, Sun, Target, Timer, Trash2, TrendingUp, TriangleAlert,
-  Trophy, Upload, UserRound, X, XCircle, CircleAlert,
+  Trophy, Upload, UserRound, Volume2, X, XCircle, CircleAlert,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -94,6 +94,7 @@ const icons = {
   loader: LoaderCircle,
   save: Save,
   comment: MessageSquare,
+  'volume-2': Volume2,
   flame: Flame,
   bookmark: Bookmark,
   'clipboard-list': ClipboardList,
