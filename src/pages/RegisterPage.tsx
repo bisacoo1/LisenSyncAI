@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { supabase, supabaseConfigured } from '@/lib/supabase'
-import { PROGRAM_LIST } from '@/lib/syllabus'
+import { DEFAULT_PROGRAM, PHARMACY_PROGRAM } from '@/lib/syllabus'
 import { upsertProfile } from '@/context/AuthContext'
-import type { BoardProgramKey } from '@/types'
-import { Button, Input, Select, Icon, useToast } from '@/components/ui'
+import { PASSING_RATE } from '@/types'
+import { Button, Input, Icon, useToast } from '@/components/ui'
 
 export default function RegisterPage() {
   const nav = useNavigate()
@@ -12,7 +12,6 @@ export default function RegisterPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
-  const [program, setProgram] = useState<BoardProgramKey>('criminology')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const { addToast } = useToast()
@@ -35,7 +34,7 @@ export default function RegisterPage() {
     const user = data.user
     if (user) {
       try {
-        await upsertProfile(user.id, program, fullName)
+        await upsertProfile(user.id, DEFAULT_PROGRAM, fullName)
       } catch (err: any) {
         console.warn('Profile upsert deferred:', err?.message)
       }
@@ -45,20 +44,18 @@ export default function RegisterPage() {
     else nav('/login')
   }
 
-  const selectedProgram = PROGRAM_LIST.find((p) => p.key === program)
-
   return (
     <div className="auth-form-page auth-form-page--register">
       <div className="auth-form-heading">
         <span className="section-kicker">
-          <span className="eyebrow-dot" /> LET'S GET STARTED
+          <span className="eyebrow-dot" /> BS PHARMACY · PhLE REVIEW
         </span>
         <h1>
           Make space
           <br />
-          for <em>what's next.</em>
+          for <em>your RPh.</em>
         </h1>
-        <p>Create your account and make your review feel a little more manageable.</p>
+        <p>Create your Pharmacy study account and organize your review across all 6 PRC board modules.</p>
       </div>
       {error && (
         <div className="auth-error" role="alert">
@@ -67,6 +64,18 @@ export default function RegisterPage() {
         </div>
       )}
       <form onSubmit={onSubmit} className="auth-form">
+        <div className="pharmacy-program-banner" aria-label="Selected board exam track">
+          <span className="pharmacy-program-banner-icon">
+            <Icon name="pill" size={18} />
+          </span>
+          <div className="pharmacy-program-banner-copy">
+            <span className="pharmacy-program-banner-kicker">INCLUDED BOARD TRACK</span>
+            <strong>{PHARMACY_PROGRAM.name}</strong>
+            <span>
+              {PHARMACY_PROGRAM.subjects.length} official PRC PhLE modules · {PASSING_RATE}% passing benchmark
+            </span>
+          </div>
+        </div>
         <Input
           label="Full name"
           autoComplete="name"
@@ -109,17 +118,6 @@ export default function RegisterPage() {
             </button>
           }
         />
-        <div>
-          <Select
-            label="PRC board program"
-            value={program}
-            onChange={(e) => setProgram(e.target.value as BoardProgramKey)}
-            options={PROGRAM_LIST.map((p) => ({ value: p.key, label: p.name }))}
-            leftIcon="flag"
-            fullWidth
-          />
-          <p className="auth-field-hint">{selectedProgram?.description}</p>
-        </div>
         <Button
           variant="primary"
           type="submit"
@@ -129,7 +127,7 @@ export default function RegisterPage() {
           rightIcon="arrow-right"
           className="auth-submit"
         >
-          {loading ? 'Creating account…' : 'Create your account'}
+          {loading ? 'Creating account…' : 'Create Pharmacy account'}
         </Button>
       </form>
       <div className="auth-form-bottom">

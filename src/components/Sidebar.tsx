@@ -1,6 +1,7 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { Brand } from '@/components/Brand'
+import { PHARMACY_PROGRAM } from '@/lib/syllabus'
 import { Icon, Tooltip, type IconName } from '@/components/ui'
 
 const navItems: { path: string; label: string; icon: IconName }[] = [
@@ -132,19 +133,19 @@ export function Sidebar({
 
       <div className="sidebar-bottom">
         <div className="sidebar-note">
-          <Icon name="sparkles" size={17} />
+          <Icon name="pill" size={17} />
           <span>
             <strong>A little, every day.</strong>
-            <small>It all adds up to exam day.</small>
+            <small>One step closer to RPh.</small>
           </span>
         </div>
         {user && (
           <div className="sidebar-profile">
             <span className="sidebar-avatar">{initials}</span>
             <div className="sidebar-profile-text">
-              <span className="sidebar-profile-name">{profile?.full_name || 'Licensure candidate'}</span>
+              <span className="sidebar-profile-name">{profile?.full_name || 'Pharmacy candidate'}</span>
               <span className="sidebar-profile-program">
-                {profile ? profile.board_program.replace(/_/g, ' ') : 'Set up your profile'}
+                {profile ? PHARMACY_PROGRAM.shortName : 'Set up your profile'}
               </span>
             </div>
             <Tooltip content="Sign out" position="right">

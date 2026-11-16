@@ -2,7 +2,7 @@ import { WorkspacePageHeader } from '@/components/WorkspacePageHeader'
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
-import { getProgram } from '@/lib/syllabus'
+import { getProgram, getSubjectDetail } from '@/lib/syllabus'
 import { supabase } from '@/lib/supabase'
 import { computeSubjectStats, overallPercent, readinessLabel } from '@/lib/analytics'
 import { PASSING_RATE, type Attempt, type MockExam, type PracticeItem } from '@/types'
@@ -62,8 +62,8 @@ export default function AnalyticsPage() {
   return (
     <div className="container workspace-page">
       <WorkspacePageHeader
-        eyebrow="THE BIG PICTURE" index="05" title={<>Your progress, <em>in focus.</em></>}
-        description={`See your subject scores and find where to focus next as you work toward the ${PASSING_RATE}% benchmark.`}
+        eyebrow="PHARMACY READINESS" index="05" title={<>Your PhLE progress, <em>in focus.</em></>}
+        description={`Track your accuracy across all 6 BS Pharmacy modules and spot where to focus next to clear the ${PASSING_RATE}% PRC passing mark.`}
         action={<Badge variant={loading || attempts.length === 0 ? 'default' : readiness.tone === 'ok' ? 'success' : readiness.tone === 'warn' ? 'warning' : 'danger'} size="lg">
           <Icon name={loading || attempts.length === 0 ? 'activity' : readiness.tone === 'ok' ? 'check-circle' : readiness.tone === 'warn' ? 'alert-triangle' : 'alert-circle'} size={14} />
           {loading ? 'Loading progress' : attempts.length === 0 ? 'No practice data yet' : `Overall: ${overall}% — ${readiness.label}`}
@@ -91,9 +91,9 @@ export default function AnalyticsPage() {
               <Icon name="flag" size={28} />
             </div>
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 4, fontWeight: 500 }}>TARGET BENCHMARK</div>
+              <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 4, fontWeight: 500 }}>PhLE TARGET BENCHMARK</div>
               <div style={{ fontSize: 36, fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--success)' }}>{PASSING_RATE}%</div>
-              <p className="muted" style={{ marginTop: 4, fontSize: 13 }}>PRC licensure passing mark</p>
+              <p className="muted" style={{ marginTop: 4, fontSize: 13 }}>PRC Pharmacist Licensure passing mark</p>
             </div>
           </CardContent>
         </Card>
@@ -104,9 +104,9 @@ export default function AnalyticsPage() {
               <Icon name={weakSubjects.length > 0 ? 'alert-triangle' : 'check-circle'} size={28} />
             </div>
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 4, fontWeight: 500 }}>WEAK SUBJECTS</div>
+              <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 4, fontWeight: 500 }}>WEAK MODULES</div>
               <div style={{ fontSize: 36, fontWeight: 700, letterSpacing: '-0.02em', color: attempts.length === 0 ? 'var(--muted)' : weakSubjects.length > 0 ? 'var(--danger)' : 'var(--success)' }}>{loading || attempts.length === 0 ? '—' : weakSubjects.length}</div>
-              <p className="muted" style={{ marginTop: 4, fontSize: 13 }}>{loading ? 'Loading subjects' : attempts.length === 0 ? 'Start practicing to see your focus areas' : weakSubjects.length > 0 ? 'Subjects below 75%' : 'No attempted subjects below 75%'}</p>
+              <p className="muted" style={{ marginTop: 4, fontSize: 13 }}>{loading ? 'Loading modules' : attempts.length === 0 ? 'Start practicing to see your focus areas' : weakSubjects.length > 0 ? 'PhLE modules below 75%' : 'No attempted modules below 75%'}</p>
             </div>
           </CardContent>
         </Card>
@@ -114,42 +114,59 @@ export default function AnalyticsPage() {
 
       {/* Per-Subject Performance */}
       <Card variant="outlined" style={{ marginBottom: 24 }}>
-        <CardHeader title="Per-Subject Performance" icon="bar-chart" subtitle={`${program.name} • ${stats.length} subjects tracked`} />
+        <CardHeader title="Per-Module PhLE Performance" icon="bar-chart" subtitle={`${program.name} • ${stats.length} PhLE modules tracked`} />
         <CardContent>
-          <div className="table-wrapper" role="region" aria-label="Per-subject performance, scrollable table" tabIndex={0} style={{ overflowX: 'auto' }}>
-            <table className="table" style={{ minWidth: 700 }}>
+          <div className="table-wrapper" role="region" aria-label="Per-module performance, scrollable table" tabIndex={0} style={{ overflowX: 'auto' }}>
+            <table className="table" style={{ minWidth: 740 }}>
               <thead>
                 <tr>
-                  <th>Subject</th>
-                  <th style={{width: 100}}>Correct</th>
-                  <th style={{width: 100}}>Total</th>
-                  <th style={{minWidth: 240}}>Score</th>
-                  <th style={{width: 180}}>Status</th>
+                  <th>PhLE Module</th>
+                  <th style={{width: 80}}>Weight</th>
+                  <th style={{width: 90}}>Correct</th>
+                  <th style={{width: 90}}>Total</th>
+                  <th style={{minWidth: 230}}>Score</th>
+                  <th style={{width: 170}}>Status</th>
                 </tr>
               </thead>
               <tbody>
-                {stats.map(s => (
-                  <tr key={s.subject}>
-                    <td style={{ fontWeight: 500 }}>{s.subject}</td>
-                    <td style={{ fontVariantNumeric: 'tabular-nums' }}>{s.correct}</td>
-                    <td style={{ fontVariantNumeric: 'tabular-nums', color: 'var(--muted)' }}>{s.total}</td>
-                    <td>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                        {s.total > 0 ? <ProgressBar value={s.percent} max={100} size="sm" ariaLabel={`${s.subject} practice score`} variant={s.percent >= PASSING_RATE ? 'success' : s.percent >= 60 ? 'warning' : 'danger'} style={{ flex: 1, minWidth: 150 }} /> : <div aria-hidden="true" style={{ flex: 1, minWidth: 150, height: 4, borderRadius: 999, background: 'var(--panel-2)' }} />}
-                        <span style={{ fontSize: 12, fontWeight: 600, fontVariantNumeric: 'tabular-nums', minWidth: 45, color: s.total === 0 ? 'var(--muted)' : s.percent >= PASSING_RATE ? 'var(--success)' : s.percent >= 60 ? 'var(--warning)' : 'var(--danger)' }}>{s.total === 0 ? '—' : `${s.percent}%`}</span>
-                      </div>
-                    </td>
-                    <td>
-                      {s.total === 0 ? (
-                        <Badge variant="default" size="sm">No data</Badge>
-                      ) : (
-                        <Badge variant={s.weak ? 'danger' : 'success'} size="sm" dot>
-                          {s.weak ? 'Needs remediation' : 'On track'}
-                        </Badge>
-                      )}
-                    </td>
-                  </tr>
-                ))}
+                {stats.map(s => {
+                  const detail = getSubjectDetail(s.subject)
+                  return (
+                    <tr key={s.subject}>
+                      <td style={{ fontWeight: 500 }}>
+                        <div className="subject-cell">
+                          {detail && (
+                            <span className="subject-cell-icon" aria-hidden="true">
+                              <Icon name={detail.icon} size={14} />
+                            </span>
+                          )}
+                          <div>
+                            <div>{s.subject}</div>
+                            {detail && <span className="subject-cell-sub">{detail.moduleCode}</span>}
+                          </div>
+                        </div>
+                      </td>
+                      <td style={{ fontVariantNumeric: 'tabular-nums', color: 'var(--muted)' }}>{detail ? `${detail.weightPercent}%` : '—'}</td>
+                      <td style={{ fontVariantNumeric: 'tabular-nums' }}>{s.correct}</td>
+                      <td style={{ fontVariantNumeric: 'tabular-nums', color: 'var(--muted)' }}>{s.total}</td>
+                      <td>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                          {s.total > 0 ? <ProgressBar value={s.percent} max={100} size="sm" ariaLabel={`${s.subject} practice score`} variant={s.percent >= PASSING_RATE ? 'success' : s.percent >= 60 ? 'warning' : 'danger'} style={{ flex: 1, minWidth: 150 }} /> : <div aria-hidden="true" style={{ flex: 1, minWidth: 150, height: 4, borderRadius: 999, background: 'var(--panel-2)' }} />}
+                          <span style={{ fontSize: 12, fontWeight: 600, fontVariantNumeric: 'tabular-nums', minWidth: 45, color: s.total === 0 ? 'var(--muted)' : s.percent >= PASSING_RATE ? 'var(--success)' : s.percent >= 60 ? 'var(--warning)' : 'var(--danger)' }}>{s.total === 0 ? '—' : `${s.percent}%`}</span>
+                        </div>
+                      </td>
+                      <td>
+                        {s.total === 0 ? (
+                          <Badge variant="default" size="sm">No data</Badge>
+                        ) : (
+                          <Badge variant={s.weak ? 'danger' : 'success'} size="sm" dot>
+                            {s.weak ? 'Needs remediation' : 'On track'}
+                          </Badge>
+                        )}
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>

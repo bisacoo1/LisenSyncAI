@@ -3,6 +3,7 @@ import { Link, Outlet, useLocation } from 'react-router-dom'
 import { Sidebar } from '@/components/Sidebar'
 import { Brand } from '@/components/Brand'
 import { useAuth } from '@/context/AuthContext'
+import { PHARMACY_PROGRAM } from '@/lib/syllabus'
 import { Icon } from '@/components/ui'
 
 const pageNames: Record<string, string> = {
@@ -79,7 +80,7 @@ export function Layout({ children }: { children?: ReactNode }) {
           <Icon name="menu" size={21} />
         </button>
         <Brand />
-        <span className="mobile-topbar-label">STUDY SPACE</span>
+        <span className="mobile-topbar-label">BS PHARMACY · PhLE</span>
       </div>
 
       <Sidebar
@@ -99,7 +100,7 @@ export function Layout({ children }: { children?: ReactNode }) {
       <main className="app-main" id="main-content" tabIndex={-1}>
         <div className="workspace-topbar">
           <div className="workspace-breadcrumb">
-            <span>MY STUDY SPACE</span>
+            <span>PHARMACY STUDY SPACE</span>
             <Icon name="chevron-right" size={14} />
             <strong>{pageName}</strong>
           </div>
@@ -108,7 +109,12 @@ export function Layout({ children }: { children?: ReactNode }) {
               <Icon name="calendar" size={16} />
               {new Date().toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
             </span>
-            {profile && <span className="workspace-program">{profile.board_program.replace(/_/g, ' ')}</span>}
+            {profile && (
+              <span className="workspace-program">
+                <Icon name="pill" size={13} />
+                {PHARMACY_PROGRAM.shortName}
+              </span>
+            )}
           </div>
         </div>
         <div className="workspace-content">
@@ -135,18 +141,26 @@ export function AuthLayout({ children }: { children?: ReactNode }) {
         <Brand inverse />
         <div className="auth-visual-copy">
           <span className="auth-kicker">
-            <span /> YOUR NEXT CHAPTER STARTS HERE
+            <span /> BS PHARMACY · PRC PhLE REVIEW
           </span>
           <h2>
             Good things come
             <br />
             to those who <em>prepare.</em>
           </h2>
-          <p>A little focus today. A lot more confidence on exam day.</p>
+          <p>Focused review across all 6 Pharmacy board modules—for steady confidence on PhLE exam day.</p>
+          <ul className="auth-module-pills" aria-label="BS Pharmacy PhLE modules">
+            {PHARMACY_PROGRAM.subjectDetails.map((mod) => (
+              <li key={mod.name}>
+                <span>{mod.moduleNumber}</span>
+                {mod.name}
+              </li>
+            ))}
+          </ul>
         </div>
         <div className="auth-visual-footer">
-          <span>THE LISENSYNC STUDY SPACE</span>
-          <span>01 / 03</span>
+          <span>BS PHARMACY STUDY SPACE</span>
+          <span>06 PhLE MODULES</span>
         </div>
       </aside>
       <main className="auth-main">
@@ -161,7 +175,7 @@ export function AuthLayout({ children }: { children?: ReactNode }) {
           {children}
         </div>
         <div className="auth-copyright">
-          © {new Date().getFullYear()} LisenSync AI <span>Made for your next chapter.</span>
+          © {new Date().getFullYear()} LisenSync AI <span>Built for future Registered Pharmacists (RPh).</span>
         </div>
       </main>
     </div>

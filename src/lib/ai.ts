@@ -145,14 +145,14 @@ export async function generatePracticeItemsFromFile(params: MaterialSource & {
   const prog = getProgram(params.program)
   const count = params.count || 5
   const parts = await sourceParts(params)
-  const common = `Program: ${prog.name}\nSubject: ${params.subject}\nAll questions must be board-exam level, aligned to the syllabus, and include step-by-step rationale. Return ONLY a valid JSON array.`
+  const common = `Program: ${prog.name}\nPhLE Module / Subject: ${params.subject}\nAll questions must be PRC Pharmacist Licensure Examination (PhLE) board-exam level, aligned to the official BS Pharmacy syllabus, and include step-by-step rationale. Return ONLY a valid JSON array.`
   let spec = ''
   if (params.type === 'mcq') {
-    spec = `Generate ${count} PRC-style situational multiple-choice questions (higher-order thinking). Each: {"type":"mcq","question":{"stem":"scenario-based stem","options":["A text","B text","C text","D text"]},"answer":{"correctIndex":0},"rationale":"step-by-step rationale explaining why correct and others are not"}`
+    spec = `Generate ${count} PRC PhLE-style situational multiple-choice questions (higher-order clinical, dispensing, or pharmaceutical science thinking). Each: {"type":"mcq","question":{"stem":"scenario-based stem","options":["A text","B text","C text","D text"]},"answer":{"correctIndex":0},"rationale":"step-by-step rationale explaining why correct and others are not"}`
   } else if (params.type === 'diagnosis') {
-    spec = `Generate ${count} case/concept diagnosis items. Each: {"type":"diagnosis","question":{"scenario":"clinical/legal/mathematical scenario","prompt":"Identify the exact principle, disease, law, or formula that applies"},"answer":{"expected":"exact expected identification","acceptable":["synonyms/variants"]},"rationale":"step-by-step rationale"}`
+    spec = `Generate ${count} clinical/pharmaceutical case & concept diagnosis items. Each: {"type":"diagnosis","question":{"scenario":"clinical, dispensing, pharmacokinetic, pharmacognosy, compounding, or pharmacy jurisprudence scenario","prompt":"Identify the exact drug, mechanism, condition, pharmaceutical principle, law, or calculation formula that applies"},"answer":{"expected":"exact expected identification","acceptable":["synonyms/variants"]},"rationale":"step-by-step rationale"}`
   } else if (params.type === 'sequence') {
-    spec = `Generate ${count} priority/sequence ordering items. Each: {"type":"sequence","question":{"prompt":"Arrange the following in the correct chronological/priority order","items":["step A","step B","step C","step D"]},"answer":{"order":["step ... in correct order"]},"rationale":"step-by-step rationale for the order"}. Ensure answer.order is a permutation of question.items.`
+    spec = `Generate ${count} priority/sequence ordering items for pharmacy practice, compounding, QC testing, or clinical intervention. Each: {"type":"sequence","question":{"prompt":"Arrange the following steps in the correct chronological/priority order","items":["step A","step B","step C","step D"]},"answer":{"order":["step ... in correct order"]},"rationale":"step-by-step rationale for the order"}. Ensure answer.order is a permutation of question.items.`
   } else {
     spec = `Generate ${count} active-recall drills. Each: {"type":"flashcard_drill","question":{"stem":"drill prompt"},"answer":{"expected":"answer"},"rationale":"brief rationale"}`
   }
@@ -165,7 +165,7 @@ export async function generatePracticeItemsFromFile(params: MaterialSource & {
   return arr.map((it: any) => ({
     type: params.type,
     subject: params.subject,
-    board_program: params.program,
+    board_program: prog.key,
     question: it.question,
     answer: it.answer,
     rationale: it.rationale || null,

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
-import { getProgram } from '@/lib/syllabus'
+import { getProgram, getSubjectDetail } from '@/lib/syllabus'
 import { supabase } from '@/lib/supabase'
 import { computeSubjectStats, overallPercent, readinessLabel } from '@/lib/analytics'
 import { PASSING_RATE, type Attempt } from '@/types'
@@ -12,7 +12,7 @@ const tools: { number: string; icon: IconName; title: string; description: strin
     number: '01',
     icon: 'upload',
     title: 'Make your study set',
-    description: 'Turn your review materials into flashcards and drills.',
+    description: 'Turn your Pharmacy handouts and drug monographs into flashcards and clinical drills.',
     action: 'Add a reviewer',
     to: '/reviewer'
   },
@@ -20,7 +20,7 @@ const tools: { number: string; icon: IconName; title: string; description: strin
     number: '02',
     icon: 'brain',
     title: 'Put it into practice',
-    description: 'Recall, apply, and build on what you know.',
+    description: 'Drill pharmacology, calculations, dispensing, and case-based recall.',
     action: 'Start practicing',
     to: '/practice'
   },
@@ -28,7 +28,7 @@ const tools: { number: string; icon: IconName; title: string; description: strin
     number: '03',
     icon: 'timer',
     title: 'Try the real thing',
-    description: 'Get exam-day ready with a timed simulation.',
+    description: 'Get exam-day ready with a timed 6-module PhLE mock simulation.',
     action: 'Take a mock exam',
     to: '/mock'
   }
@@ -93,12 +93,15 @@ export default function DashboardPage() {
       <header className="dashboard-heading">
         <div>
           <div className="section-kicker">
-            <span className="eyebrow-dot" /> YOUR STUDY OVERVIEW <span>/ 01</span>
+            <span className="eyebrow-dot" /> BS PHARMACY OVERVIEW <span>/ 01</span>
           </div>
           <h1>
             A good day to <em>make progress.</em>
           </h1>
-          <p>{firstName ? `Welcome back, ${firstName}. ` : 'Welcome back. '}Here's where your review stands.</p>
+          <p>
+            {firstName ? `Welcome back, ${firstName}. ` : 'Welcome back. '}Here's how your PhLE preparation stands
+            across all 6 Pharmacy modules.
+          </p>
         </div>
         <Link to="/practice" className="workspace-primary-link">
           Continue studying <Icon name="arrow-right" size={17} />
@@ -109,9 +112,9 @@ export default function DashboardPage() {
         <section className="readiness-panel" aria-labelledby="readiness-title">
           <div className="readiness-topline">
             <span>
-              <Icon name="sparkles" size={16} /> YOUR READINESS
+              <Icon name="pill" size={16} /> PhLE READINESS
             </span>
-            <span>THE BIG PICTURE / 01</span>
+            <span>BS PHARMACY / 01</span>
           </div>
           <div className="readiness-body">
             <div className="readiness-copy">
@@ -123,10 +126,10 @@ export default function DashboardPage() {
                 {loading
                   ? 'Gathering your progress…'
                   : attempts.length === 0
-                    ? 'Your progress starts with your first practice session.'
+                    ? 'Your Pharmacy progress starts with your first practice session.'
                     : overall >= PASSING_RATE
-                      ? 'You are on track. Keep that momentum going.'
-                      : `${readiness.label}. Every practice session gets you closer.`}
+                      ? 'You are on track for the PhLE. Keep that momentum going.'
+                      : `${readiness.label}. Every practice session gets you closer to RPh.`}
               </p>
             </div>
             <div
@@ -136,20 +139,20 @@ export default function DashboardPage() {
                 loading
                   ? 'Loading practice score'
                   : attempts.length
-                    ? `Overall score ${overall} percent, benchmark ${PASSING_RATE} percent`
-                    : `No practice score yet; benchmark ${PASSING_RATE} percent`
+                    ? `Overall score ${overall} percent, PhLE benchmark ${PASSING_RATE} percent`
+                    : `No practice score yet; PhLE benchmark ${PASSING_RATE} percent`
               }
             >
               <div>
                 <Icon name="target" size={20} />
                 <strong>{PASSING_RATE}%</strong>
-                <span>YOUR TARGET</span>
+                <span>PhLE TARGET</span>
               </div>
             </div>
           </div>
           <div className="readiness-progress-label">
             <span>{attempts.length ? `${overall}% overall` : 'Your starting point'}</span>
-            <span>PRC BENCHMARK {PASSING_RATE}%</span>
+            <span>PRC PhLE BENCHMARK {PASSING_RATE}%</span>
           </div>
           <div
             className="readiness-progress"
@@ -168,7 +171,7 @@ export default function DashboardPage() {
               <strong>{loading ? '—' : attempts.length}</strong> attempts tracked
             </span>
             <span>
-              <strong>{program.subjects.length}</strong> board subjects
+              <strong>{program.subjects.length}</strong> PhLE modules
             </span>
             <Link to="/analytics">
               View analytics <Icon name="arrow-up-right" size={15} />
@@ -181,14 +184,14 @@ export default function DashboardPage() {
             <span className="countdown-icon">
               <Icon name="calendar" size={21} />
             </span>
-            <span>THE COUNTDOWN</span>
+            <span>PhLE COUNTDOWN</span>
             <Icon name="arrow-up-right" size={17} />
           </div>
           <div className="countdown-content">
             <span className="countdown-overline">A DATE TO WORK TOWARDS</span>
             <h2 id="countdown-title">
               {daysLeft == null ? (
-                'Your exam day.'
+                'Your PhLE exam day.'
               ) : daysLeft < 0 ? (
                 'A new date awaits.'
               ) : (
@@ -199,9 +202,9 @@ export default function DashboardPage() {
             </h2>
             <p>
               {daysLeft == null
-                ? 'Set your target date and make every study day count.'
+                ? 'Set your target Pharmacist Licensure Exam date and make every study day count.'
                 : daysLeft < 0
-                  ? 'Your target date has passed. Set a new one to keep going.'
+                  ? 'Your target date has passed. Set a new PhLE date to keep going.'
                   : `Until ${examDate!.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}`}
             </p>
           </div>
@@ -335,8 +338,8 @@ export default function DashboardPage() {
       <section className="dashboard-section" aria-labelledby="subjects-title">
         <div className="dashboard-section-heading">
           <div>
-            <span className="section-kicker">THE ROAD AHEAD</span>
-            <h2 id="subjects-title">Your subjects, at a glance</h2>
+            <span className="section-kicker">THE SIX PhLE MODULES</span>
+            <h2 id="subjects-title">Your Pharmacy subjects, at a glance</h2>
           </div>
           <Link className="section-link" to="/analytics">
             Detailed analytics <Icon name="arrow-right" size={16} />
@@ -346,7 +349,7 @@ export default function DashboardPage() {
           <div className="subject-panel">
             <div className="panel-title">
               <div>
-                <h3>Subject performance</h3>
+                <h3>PhLE Module Performance</h3>
                 <p>{program.name}</p>
               </div>
               <Icon name="bar-chart" size={20} />
@@ -354,37 +357,54 @@ export default function DashboardPage() {
             <div
               className="table-wrapper"
               role="region"
-              aria-label="Subject performance, scrollable table"
+              aria-label="PhLE module performance, scrollable table"
               tabIndex={0}
             >
               <table className="table subject-table">
                 <thead>
                   <tr>
-                    <th>Subject</th>
+                    <th>PhLE Module</th>
+                    <th>Weight</th>
                     <th>Attempts</th>
                     <th>Score</th>
                     <th>Status</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {subjectStats.map((s) => (
-                    <tr key={s.subject}>
-                      <td>{s.subject}</td>
-                      <td>{loading ? '—' : s.total}</td>
-                      <td>{loading || s.total === 0 ? '—' : `${s.percent}%`}</td>
-                      <td>
-                        {loading ? (
-                          <Skeleton variant="text" width={55} />
-                        ) : s.total === 0 ? (
-                          <Badge size="sm">No data yet</Badge>
-                        ) : (
-                          <Badge variant={s.weak ? 'warning' : 'success'} size="sm" dot>
-                            {s.weak ? 'Needs focus' : 'On track'}
-                          </Badge>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
+                  {subjectStats.map((s) => {
+                    const detail = getSubjectDetail(s.subject)
+                    return (
+                      <tr key={s.subject}>
+                        <td>
+                          <div className="subject-cell">
+                            {detail && (
+                              <span className="subject-cell-icon" aria-hidden="true">
+                                <Icon name={detail.icon} size={14} />
+                              </span>
+                            )}
+                            <div>
+                              <div>{s.subject}</div>
+                              {detail && <span className="subject-cell-sub">{detail.moduleCode}</span>}
+                            </div>
+                          </div>
+                        </td>
+                        <td>{detail ? `${detail.weightPercent}%` : '—'}</td>
+                        <td>{loading ? '—' : s.total}</td>
+                        <td>{loading || s.total === 0 ? '—' : `${s.percent}%`}</td>
+                        <td>
+                          {loading ? (
+                            <Skeleton variant="text" width={55} />
+                          ) : s.total === 0 ? (
+                            <Badge size="sm">No data yet</Badge>
+                          ) : (
+                            <Badge variant={s.weak ? 'warning' : 'success'} size="sm" dot>
+                              {s.weak ? 'Needs focus' : 'On track'}
+                            </Badge>
+                          )}
+                        </td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>
@@ -401,16 +421,16 @@ export default function DashboardPage() {
                   ? 'A little extra attention.'
                   : attempts.length
                     ? 'Looking good so far.'
-                    : 'Every journey starts somewhere.'}
+                    : 'Every RPh journey starts somewhere.'}
             </h3>
             <p>
               {loading
                 ? 'Your insights are on their way.'
                 : weak.length
-                  ? 'These subjects are below your 75% target. A little practice can go a long way.'
+                  ? 'These PhLE modules are below your 75% target. A little focused practice can go a long way.'
                   : attempts.length
-                    ? 'No subjects are flagged right now. Keep building on your progress.'
-                    : 'Complete a practice session to see which subjects need your attention.'}
+                    ? 'No Pharmacy modules are flagged right now. Keep building on your progress.'
+                    : 'Complete a practice session to see which PhLE modules need your attention.'}
             </p>
             {weak.length > 0 && (
               <ul>
@@ -423,15 +443,15 @@ export default function DashboardPage() {
               </ul>
             )}
             <Link to="/practice">
-              {attempts.length ? 'Practice a subject' : 'Start your first session'}{' '}
+              {attempts.length ? 'Practice a Pharmacy module' : 'Start your first session'}{' '}
               <Icon name="arrow-right" size={16} />
             </Link>
           </div>
         </div>
       </section>
       <div className="dashboard-endnote">
-        <span>YOUR JOURNEY, ONE DAY AT A TIME.</span>
-        <span>LISENSYNC AI / STUDY SPACE</span>
+        <span>YOUR JOURNEY TO RPh, ONE DAY AT A TIME.</span>
+        <span>LISENSYNC AI / BS PHARMACY</span>
       </div>
     </div>
   )

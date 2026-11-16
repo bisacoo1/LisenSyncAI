@@ -3,7 +3,8 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { Brand } from '@/components/Brand'
 import { Icon, type IconName } from '@/components/ui'
-import { PROGRAM_LIST } from '@/lib/syllabus'
+import { PHARMACY_PROGRAM } from '@/lib/syllabus'
+import { PASSING_RATE } from '@/types'
 import { supabase, supabaseConfigured } from '@/lib/supabase'
 import studyDesk from '@/assets/study-desk.jpg'
 
@@ -11,30 +12,33 @@ const steps: { number: string; icon: IconName; title: string; description: strin
   {
     number: '01',
     icon: 'upload',
-    title: 'Bring your notes',
-    description: 'Upload your review materials and turn them into a study set built around your subjects.',
+    title: 'Bring your pharmacy notes',
+    description:
+      'Upload your lecture decks, drug monographs, and review handouts organized by PhLE board module.',
     note: 'PDF · DOCX · PPT'
   },
   {
     number: '02',
     icon: 'brain',
-    title: 'Make it stick',
-    description: 'Build confidence with flashcards, situational questions, and case-based drills.',
+    title: 'Master drugs & clinical cases',
+    description:
+      'Build recall with flashcards, PhLE situational MCQs, clinical diagnosis, and dispensing priority drills.',
     note: 'ACTIVE RECALL'
   },
   {
     number: '03',
     icon: 'target',
-    title: 'See your progress',
-    description: 'Try a timed mock exam and find the subjects that could use a little more attention.',
-    note: 'PRACTICE WITH PURPOSE'
+    title: 'Simulate board exam day',
+    description:
+      'Take a timed 6-module PhLE mock exam aligned to the PRC Table of Specifications and find weak spots early.',
+    note: 'TOS-ALIGNED MOCK'
   }
 ]
 
-const programs: { icon: IconName; name: string; label: string }[] = [
-  { icon: 'shield', name: 'Criminology', label: 'THE CRIMINOLOGIST' },
-  { icon: 'sparkles', name: 'Pharmacy', label: 'THE PHARMACIST' },
-  { icon: 'activity', name: 'Civil Engineering', label: 'THE ENGINEER' }
+const examSpecs = [
+  { value: '06', label: 'PhLE modules' },
+  { value: `${PHARMACY_PROGRAM.mockDurationMinutes}m`, label: 'Mock simulation' },
+  { value: `${PASSING_RATE}%`, label: 'PRC pass mark' }
 ]
 
 export default function LandingPage() {
@@ -66,7 +70,7 @@ export default function LandingPage() {
         if (!active || results.some((result) => result.error || result.count == null)) return
         if (!results.some((result) => (result.count ?? 0) > 0)) return
         setStats([
-          { label: 'Study profiles', value: profiles.count!, icon: 'user' },
+          { label: 'Pharmacy learners', value: profiles.count!, icon: 'user' },
           { label: 'Review materials', value: materials.count!, icon: 'file-text' },
           { label: 'Practice items', value: items.count!, icon: 'book-open' },
           { label: 'Mock exams completed', value: mocks.count!, icon: 'timer' }
@@ -85,10 +89,10 @@ export default function LandingPage() {
       <div className="landing-announcement">
         <div className="landing-wrap announcement-inner">
           <span>
-            THE LICENSURE STUDY SPACE <i /> MADE FOR YOUR NEXT CHAPTER
+            THE BS PHARMACY STUDY SPACE <i /> BUILT FOR THE PRC PhLE
           </span>
           <span className="announcement-right">
-            A LITTLE PROGRESS, EVERY DAY <Icon name="arrow-up-right" size={13} />
+            ALL 06 BOARD MODULES IN ONE PLACE <Icon name="arrow-up-right" size={13} />
           </span>
         </div>
       </div>
@@ -99,7 +103,7 @@ export default function LandingPage() {
           <nav className="landing-nav-links" aria-label="Page navigation">
             <a href="#how-it-works">How it works</a>
             <a href="#study-tools">Study tools</a>
-            <a href="#programs">Programs</a>
+            <a href="#syllabus">PhLE Syllabus</a>
           </nav>
           <div className="landing-nav-actions">
             <Link to="/login" className="landing-sign-in">
@@ -116,99 +120,101 @@ export default function LandingPage() {
         <section className="landing-hero landing-wrap">
           <div className="landing-hero-copy">
             <div className="landing-eyebrow">
-              <span className="eyebrow-dot" /> YOUR PRC REVIEW COMPANION <span className="eyebrow-index">/ 01</span>
+              <span className="eyebrow-dot" /> BS PHARMACY · PRC PhLE COMPANION{' '}
+              <span className="eyebrow-index">/ 01</span>
             </div>
             <h1>
-              Your next chapter starts with a <em>good study day.</em>
+              Your RPh chapter starts with a <em>good study day.</em>
             </h1>
             <p>
-              Turn your notes into meaningful practice, track your progress, and head into your board exam feeling a
-              little more ready.
+              Turn your BS Pharmacy handouts into active-recall flashcards, clinical case drills, and timed PhLE mock
+              exams—aligned across all 6 PRC board modules.
             </p>
             <div className="landing-hero-actions">
               <Link to="/register" className="landing-primary-button">
-                Start reviewing <Icon name="arrow-right" size={19} />
+                Start Pharmacy review <Icon name="arrow-right" size={19} />
               </Link>
-              <a href="#how-it-works" className="landing-text-link">
-                See how it works <Icon name="arrow-down" size={16} />
+              <a href="#syllabus" className="landing-text-link">
+                Explore the 6 PhLE modules <Icon name="arrow-down" size={16} />
               </a>
             </div>
             <div className="hero-footnote">
               <span className="hero-footnote-icon">
-                <Icon name="book-open" size={17} />
+                <Icon name="pill" size={17} />
               </span>
               <span>
-                For the long nights, small wins,
+                For the late pharmacology nights, small wins,
                 <br />
-                <strong>and the license at the end.</strong>
+                <strong>and the RPh license at the end.</strong>
               </span>
             </div>
           </div>
 
           <div className="landing-hero-visual">
-            <img src={studyDesk} alt="An open notebook and pencil on a sunlit study desk" />
+            <img src={studyDesk} alt="An open notebook and pencil on a sunlit Pharmacy study desk" />
             <div className="hero-image-overlay" />
             <div className="hero-image-top">
               <span>
-                <Icon name="sparkles" size={15} /> A SPACE TO FOCUS
+                <Icon name="flask" size={15} /> BS PHARMACY · PhLE
               </span>
-              <span>VOL. 01 / THE REVIEW</span>
+              <span>06 MODULES / THE REVIEW</span>
             </div>
-            <div className="hero-stamp" aria-label="75 percent passing benchmark">
-              <span>THE GOAL</span>
+            <div className="hero-stamp" aria-label="75 percent PhLE passing benchmark">
+              <span>PhLE GOAL</span>
               <strong>
-                75<small>%</small>
+                {PASSING_RATE}
+                <small>%</small>
               </strong>
               <span>PASSING BENCHMARK</span>
             </div>
             <div className="hero-note-card">
               <div className="hero-note-header">
                 <span>
-                  <Icon name="list-checks" size={17} /> THE STUDY FLOW
+                  <Icon name="list-checks" size={17} /> THE PhLE STUDY FLOW
                 </span>
                 <span>01 — 03</span>
               </div>
               <div className="hero-note-row">
                 <span>01</span>
-                <strong>Gather your notes</strong>
+                <strong>Upload Pharmacy handouts</strong>
                 <Icon name="check" size={15} />
               </div>
               <div className="hero-note-row">
                 <span>02</span>
-                <strong>Practice what matters</strong>
+                <strong>Drill drugs &amp; clinical cases</strong>
                 <Icon name="check" size={15} />
               </div>
               <div className="hero-note-row">
                 <span>03</span>
-                <strong>Grow your confidence</strong>
+                <strong>Master all 6 PhLE modules</strong>
                 <Icon name="arrow-up-right" size={15} />
               </div>
             </div>
             <div className="hero-photo-caption">
-              <span>THE STUDY SESSIONS</span>
-              <span>THAT ADD UP.</span>
+              <span>PHARMACY STUDY SESSIONS</span>
+              <span>THAT ADD UP TO RPh.</span>
             </div>
           </div>
         </section>
 
-        <section className="landing-route" aria-label="Your study journey">
+        <section className="landing-route" aria-label="Your Pharmacy study journey">
           <div className="landing-wrap landing-route-inner">
             <div className="route-intro">
-              <Icon name="sparkles" size={18} />
+              <Icon name="pill" size={18} />
               <span>
                 FROM NOTES
                 <br />
-                <strong>TO KNOW-HOW</strong>
+                <strong>TO LICENSED RPh</strong>
               </span>
             </div>
             <div className="route-step">
-              <span>01</span> UPLOAD YOUR REVIEWER
+              <span>01</span> UPLOAD PHARMACY NOTES
             </div>
             <div className="route-step">
-              <span>02</span> PRACTICE YOUR WAY
+              <span>02</span> DRILL CLINICAL CASES
             </div>
             <div className="route-step">
-              <span>03</span> TRACK WHAT MATTERS
+              <span>03</span> TRACK ALL 6 MODULES
             </div>
             <span className="route-end">
               <Icon name="arrow-up-right" size={18} />
@@ -223,13 +229,14 @@ export default function LandingPage() {
                 THE METHOD <span> / 01</span>
               </span>
               <h2>
-                Big goals.
+                Six PhLE modules.
                 <br />
                 <em>Small, steady steps.</em>
               </h2>
             </div>
             <p>
-              Preparing for your boards is a journey. LisenSync helps you find a rhythm, one study session at a time.
+              Preparing for the Pharmacist Licensure Examination takes focus. LisenSync helps you turn dense Pharmacy
+              reviewers into a calm, consistent daily rhythm.
             </p>
           </div>
           <div className="method-grid" id="study-tools">
@@ -258,7 +265,7 @@ export default function LandingPage() {
           <section className="landing-activity" aria-labelledby="landing-activity-title">
             <div className="landing-wrap landing-activity-inner">
               <div className="landing-activity-intro">
-                <span className="section-kicker">THE STUDY SPACE / 02</span>
+                <span className="section-kicker">THE PHARMACY STUDY SPACE / 02</span>
                 <h2 id="landing-activity-title">
                   A little progress, <em>together.</em>
                 </h2>
@@ -277,41 +284,53 @@ export default function LandingPage() {
           </section>
         )}
 
-        <section id="programs" className="landing-programs">
+        <section id="syllabus" className="landing-programs">
           <div className="landing-wrap programs-layout">
             <div className="programs-copy">
               <span className="section-kicker">
-                YOUR PATH <span> / 02</span>
+                THE PhLE SYLLABUS <span> / 02</span>
               </span>
               <h2>
-                Made for the
+                Built for all six
                 <br />
-                <em>work ahead.</em>
+                <em>Pharmacy modules.</em>
               </h2>
               <p>
-                Choose your board program and make your study space your own. Your subjects and practice stay together,
-                wherever you are in your review.
+                Every reviewer upload, flashcard deck, clinical diagnosis drill, and mock exam maps directly to the PRC
+                Pharmacist Licensure Examination Table of Specifications—so every study hour moves your readiness
+                forward.
               </p>
+              <div className="syllabus-spec-row" aria-label="Pharmacist Licensure Examination overview">
+                {examSpecs.map((spec) => (
+                  <div className="syllabus-spec-item" key={spec.label}>
+                    <strong>{spec.value}</strong>
+                    <span>{spec.label}</span>
+                  </div>
+                ))}
+              </div>
               <Link to="/register" className="programs-link">
-                Find your study rhythm <Icon name="arrow-right" size={18} />
+                Start your Pharmacy review <Icon name="arrow-right" size={18} />
               </Link>
             </div>
             <div className="program-list">
               <div className="program-list-heading">
-                <span>EXPLORE OUR PROGRAMS</span>
-                <span>0{PROGRAM_LIST.length} AVAILABLE</span>
+                <span>BS PHARMACY · PRC PhLE MODULES</span>
+                <span>0{PHARMACY_PROGRAM.subjectDetails.length} MODULES · 100% TOS</span>
               </div>
-              {programs.map((program, index) => (
-                <div className="program-row" key={program.name}>
-                  <span className="program-number">0{index + 1}</span>
+              {PHARMACY_PROGRAM.subjectDetails.map((mod) => (
+                <div className="program-row program-row--module" key={mod.name}>
+                  <span className="program-number">{mod.moduleNumber}</span>
                   <span className="program-icon">
-                    <Icon name={program.icon} size={19} />
+                    <Icon name={mod.icon} size={19} />
                   </span>
                   <span className="program-name">
-                    <small>{program.label}</small>
-                    <strong>{program.name}</strong>
+                    <small>{mod.moduleCode.toUpperCase()}</small>
+                    <strong>{mod.name}</strong>
+                    <span className="program-desc">{mod.description}</span>
                   </span>
-                  <Icon name="arrow-up-right" size={19} />
+                  <span className="program-weight" aria-label={`${mod.weightPercent} percent exam weight`}>
+                    {mod.weightPercent}%
+                  </span>
                 </div>
               ))}
             </div>
@@ -320,12 +339,12 @@ export default function LandingPage() {
 
         <section className="landing-cta landing-wrap">
           <div className="cta-star">
-            <Icon name="sparkles" size={23} />
+            <Icon name="pill" size={23} />
           </div>
           <div>
-            <span className="section-kicker">YOUR NEXT CHAPTER IS WAITING</span>
+            <span className="section-kicker">YOUR RPh CHAPTER IS WAITING</span>
             <h2>Ready when you are.</h2>
-            <p>Make today a good day to begin.</p>
+            <p>Make today a good day to begin your BS Pharmacy review.</p>
           </div>
           <Link to="/register" className="landing-primary-button">
             Create your account <Icon name="arrow-right" size={19} />
@@ -336,7 +355,7 @@ export default function LandingPage() {
       <footer className="landing-footer">
         <div className="landing-wrap landing-footer-inner">
           <Brand />
-          <p>Made for the journey to licensed.</p>
+          <p>Made for BS Pharmacy candidates on the journey to RPh.</p>
           <div>
             <Link to="/login">Sign in</Link>
             <Link to="/register">Get started</Link>

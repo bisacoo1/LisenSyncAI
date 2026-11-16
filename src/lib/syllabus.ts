@@ -1,70 +1,91 @@
-import { BoardProgram, BoardProgramKey } from '@/types'
+import { BoardProgram, BoardProgramKey, SubjectDetail } from '@/types'
 
-export const BOARD_PROGRAMS: Record<BoardProgramKey, BoardProgram> = {
-  criminology: {
-    key: 'criminology',
-    name: 'BS Criminology (Criminologist Licensure Examination)',
-    description: 'Review aligned to core criminology licensure subjects and PRC-style situational competencies.',
-    subjects: [
-      'Criminal Law and Jurisprudence',
-      'Law Enforcement Administration',
-      'Crime Detection and Investigation',
-      'Criminalistics',
-      'Correctional Administration',
-      'Criminology'
-    ],
-    tos: [
-      { subject: 'Criminal Law and Jurisprudence', items: 20, weightPercent: 20 },
-      { subject: 'Law Enforcement Administration', items: 20, weightPercent: 20 },
-      { subject: 'Crime Detection and Investigation', items: 15, weightPercent: 15 },
-      { subject: 'Criminalistics', items: 20, weightPercent: 20 },
-      { subject: 'Correctional Administration', items: 10, weightPercent: 10 },
-      { subject: 'Criminology', items: 15, weightPercent: 15 }
-    ],
-    mockDurationMinutes: 240
+export const DEFAULT_PROGRAM: BoardProgramKey = 'pharmacy'
+
+export const PHARMACY_SUBJECTS: SubjectDetail[] = [
+  {
+    name: 'Pharmaceutical Chemistry',
+    moduleNumber: '01',
+    moduleCode: 'Module 1',
+    description: 'Inorganic & organic medicinal chemistry, structure-activity relationships, and drug analysis.',
+    items: 20,
+    weightPercent: 20,
+    icon: 'flask',
   },
-  pharmacy: {
-    key: 'pharmacy',
-    name: 'BS Pharmacy (Pharmacist Licensure Examination)',
-    description: 'Review aligned to pharmacy practice, sciences, and PRC-style clinical/case competencies.',
-    subjects: [
-      'Pharmaceutical Chemistry',
-      'Pharmacognosy',
-      'Practice of Pharmacy',
-      'Pharmacology-Pharmacokinetics',
-      'Pharmaceutics',
-      'Quality Assurance/Quality Control'
-    ],
-    tos: [
-      { subject: 'Pharmaceutical Chemistry', items: 20, weightPercent: 20 },
-      { subject: 'Pharmacognosy', items: 15, weightPercent: 15 },
-      { subject: 'Practice of Pharmacy', items: 17, weightPercent: 17 },
-      { subject: 'Pharmacology-Pharmacokinetics', items: 15, weightPercent: 15 },
-      { subject: 'Pharmaceutics', items: 17, weightPercent: 17 },
-      { subject: 'Quality Assurance/Quality Control', items: 16, weightPercent: 16 }
-    ],
-    mockDurationMinutes: 300
+  {
+    name: 'Pharmacognosy',
+    moduleNumber: '02',
+    moduleCode: 'Module 2',
+    description: 'Natural products, phytochemistry, plant-derived therapeutics, and herbal monographs.',
+    items: 15,
+    weightPercent: 15,
+    icon: 'leaf',
   },
-  civil_engineering: {
-    key: 'civil_engineering',
-    name: 'BS Civil Engineering (Civil Engineer Licensure Examination)',
-    description: 'Review aligned to civil engineering board subjects, computations, and situational problem solving.',
-    subjects: [
-      'Mathematics, Surveying and Transportation Engineering',
-      'Hydraulics and Geotechnical Engineering',
-      'Structural Engineering and Construction'
-    ],
-    tos: [
-      { subject: 'Mathematics, Surveying and Transportation Engineering', items: 35, weightPercent: 35 },
-      { subject: 'Hydraulics and Geotechnical Engineering', items: 30, weightPercent: 30 },
-      { subject: 'Structural Engineering and Construction', items: 35, weightPercent: 35 }
-    ],
-    mockDurationMinutes: 300
-  }
+  {
+    name: 'Practice of Pharmacy',
+    moduleNumber: '03',
+    moduleCode: 'Module 3',
+    description: 'Dispensing, clinical pharmacy, pharmacotherapy, jurisprudence, and patient counseling.',
+    items: 17,
+    weightPercent: 17,
+    icon: 'stethoscope',
+  },
+  {
+    name: 'Pharmacology-Pharmacokinetics',
+    moduleNumber: '04',
+    moduleCode: 'Module 4',
+    description: 'Mechanisms of action, ADME, clinical toxicology, drug interactions, and biopharmaceutics.',
+    items: 15,
+    weightPercent: 15,
+    icon: 'heart-pulse',
+  },
+  {
+    name: 'Pharmaceutics',
+    moduleNumber: '05',
+    moduleCode: 'Module 5',
+    description: 'Dosage form design, compounding, physical pharmacy, and pharmaceutical calculations.',
+    items: 17,
+    weightPercent: 17,
+    icon: 'pill',
+  },
+  {
+    name: 'Quality Assurance/Quality Control',
+    moduleNumber: '06',
+    moduleCode: 'Module 6',
+    description: 'cGMP standards, pharmaceutical testing, stability, microbiology, and regulatory compliance.',
+    items: 16,
+    weightPercent: 16,
+    icon: 'shield-check',
+  },
+]
+
+export const PHARMACY_PROGRAM: BoardProgram = {
+  key: 'pharmacy',
+  name: 'BS Pharmacy (Pharmacist Licensure Examination)',
+  shortName: 'BS Pharmacy · PhLE',
+  examAcronym: 'PhLE',
+  description:
+    'Focused review aligned to all 6 PRC Pharmacist Licensure Examination (PhLE) modules, clinical cases, and pharmaceutical sciences.',
+  subjects: PHARMACY_SUBJECTS.map((s) => s.name),
+  subjectDetails: PHARMACY_SUBJECTS,
+  tos: PHARMACY_SUBJECTS.map((s) => ({
+    subject: s.name,
+    items: s.items,
+    weightPercent: s.weightPercent,
+  })),
+  mockDurationMinutes: 300,
 }
 
-export const PROGRAM_LIST = Object.values(BOARD_PROGRAMS)
+export const BOARD_PROGRAMS: Record<BoardProgramKey, BoardProgram> = {
+  pharmacy: PHARMACY_PROGRAM,
+}
 
-export function getProgram(key: BoardProgramKey) {
-  return BOARD_PROGRAMS[key]
+export const PROGRAM_LIST = [PHARMACY_PROGRAM]
+
+export function getProgram(_key?: BoardProgramKey | string | null): BoardProgram {
+  return PHARMACY_PROGRAM
+}
+
+export function getSubjectDetail(subjectName: string): SubjectDetail | undefined {
+  return PHARMACY_SUBJECTS.find((s) => s.name === subjectName)
 }

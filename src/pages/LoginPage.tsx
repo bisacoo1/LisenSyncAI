@@ -34,14 +34,14 @@ export default function LoginPage() {
     <div className="auth-form-page">
       <div className="auth-form-heading">
         <span className="section-kicker">
-          <span className="eyebrow-dot" /> WELCOME BACK
+          <span className="eyebrow-dot" /> WELCOME BACK, FUTURE RPh
         </span>
         <h1>
           Pick up where
           <br />
           <em>you left off.</em>
         </h1>
-        <p>Your study space is ready when you are.</p>
+        <p>Your BS Pharmacy study space is ready when you are.</p>
       </div>
       {error && (
         <div className="auth-error" role="alert">
