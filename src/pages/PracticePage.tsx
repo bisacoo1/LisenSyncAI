@@ -6,7 +6,7 @@ import { supabase } from '@/lib/supabase'
 import { checkDiagnosis, checkEnumeration, checkSequence, computeProfileStatsUpdate } from '@/lib/analytics'
 import { isCardDue, scheduleReview, type ReviewQuality } from '@/lib/srs'
 import type { Flashcard, McqAnswer, McqQuestion, PracticeItem, PracticeType, SequenceAnswer, SequenceQuestion, DiagnosisAnswer, DiagnosisQuestion, EnumerationAnswer, Profile } from '@/types'
-import { Card, CardHeader, CardContent, Button, Badge, Icon, EmptyState, Tabs, TtsMascotCard, useToast, type TabItem } from '@/components/ui'
+import { Card, CardHeader, CardContent, Button, Badge, Icon, EmptyState, Tabs, TtsMascot, useToast, type TabItem } from '@/components/ui'
 import LevelUpCelebration from '@/components/LevelUpCelebration'
 import AiHelper from '@/components/AiHelper'
 
@@ -269,16 +269,6 @@ export default function PracticePage() {
   const sessionProgress = sessionLength ? Math.round(((idx + 1) / sessionLength) * 100) : 0
   const sessionLabel = mode === 'flashcards' ? 'Card' : 'Question'
   const selectedModeLabel = modeTabs.find(tab => tab.value === mode)?.label || 'Practice'
-  const mascotMessage = !subject
-    ? 'Pick a reviewer set to get started.'
-    : loading
-      ? 'Getting your study set ready.'
-      : done
-        ? 'Nice work finishing this set. Ready for another round?'
-        : mode === 'flashcards'
-          ? 'Try to recall the answer before you flip the card.'
-          : 'Take a breath, trust what you know, and tackle one question at a time.'
-
   return (
     <div className="container workspace-page practice-page">
       <header className="practice-focus-header">
@@ -743,14 +733,8 @@ export default function PracticePage() {
 
       {levelUp != null && <LevelUpCelebration level={levelUp} onClose={() => setLevelUp(null)} />}
       </div>
-      <aside className="practice-companion" aria-label="Lilo, your study buddy">
-        <TtsMascotCard
-          className="practice-companion-card"
-          size={96}
-          variant="idle"
-          text={mascotMessage}
-          subtitle={subject ? `${subject} · ${selectedModeLabel}` : 'Your study buddy'}
-        />
+      <aside className="practice-companion" aria-label="Lilo, your study mascot">
+        <TtsMascot size={176} variant="idle" />
       </aside>
       </div>
       {modeTabs.filter(tab => tab.value !== mode).map(tab => (
