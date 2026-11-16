@@ -9,9 +9,9 @@ interface LiloSpeechPanelProps {
 }
 
 const LILO_LINES = [
-  "Kaya mo 'to! Let's take this one step at a time.",
-  "Ready ka na? Listen for the key details.",
-  "Let's break this down, step by step.",
+  "Okay, let's take this one step at a time.",
+  "Ready ka na? We can go through this slowly.",
+  "Let's gently focus on the key details.",
   "Take your time. Kaya mo 'yan.",
 ]
 
@@ -72,8 +72,9 @@ export default function LiloSpeechPanel({ text }: LiloSpeechPanelProps) {
     } else {
       utterance.lang = /^(en|fil|tl)-ph/i.test(navigator.language) ? navigator.language : 'en-US'
     }
-    utterance.rate = 0.94
-    utterance.pitch = 1.08
+    utterance.rate = 0.86
+    utterance.pitch = 1.02
+    utterance.volume = 0.78
     utterance.onstart = () => {
       if (version === speechVersion.current) setIsSpeaking(true)
     }
