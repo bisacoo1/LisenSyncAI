@@ -116,13 +116,13 @@ async function fileParts(supabase: ReturnType<typeof createClient>, userId: stri
 
 function practiceSpec(type: RequestBody['type'], count: number) {
   if (type === 'mcq') {
-    return `Generate ${count} PRC-style situational multiple-choice questions (higher-order thinking). Each: {"type":"mcq","question":{"stem":"scenario-based stem","options":["A text","B text","C text","D text"]},"answer":{"correctIndex":0},"rationale":"step-by-step rationale explaining why correct and others are not"}`
+    return `Generate ${count} PRC PhLE-style situational multiple-choice questions (higher-order clinical, dispensing, or pharmaceutical science thinking). Each: {"type":"mcq","question":{"stem":"scenario-based stem","options":["A text","B text","C text","D text"]},"answer":{"correctIndex":0},"rationale":"step-by-step rationale explaining why correct and others are not"}`
   }
   if (type === 'diagnosis') {
-    return `Generate ${count} case/concept diagnosis items. Each: {"type":"diagnosis","question":{"scenario":"clinical/legal/mathematical scenario","prompt":"Identify the exact principle, disease, law, or formula that applies"},"answer":{"expected":"exact expected identification","acceptable":["synonyms/variants"]},"rationale":"step-by-step rationale"}`
+    return `Generate ${count} clinical/pharmaceutical case & concept diagnosis items. Each: {"type":"diagnosis","question":{"scenario":"clinical, dispensing, pharmacokinetic, pharmacognosy, compounding, or pharmacy jurisprudence scenario","prompt":"Identify the exact drug, mechanism, condition, pharmaceutical principle, law, or calculation formula that applies"},"answer":{"expected":"exact expected identification","acceptable":["synonyms/variants"]},"rationale":"step-by-step rationale"}`
   }
   if (type === 'sequence') {
-    return `Generate ${count} priority/sequence ordering items. Each: {"type":"sequence","question":{"prompt":"Arrange the following in the correct chronological/priority order","items":["step A","step B","step C","step D"]},"answer":{"order":["step ... in correct order"]},"rationale":"step-by-step rationale for the order"}. Ensure answer.order is a permutation of question.items.`
+    return `Generate ${count} priority/sequence ordering items for pharmacy practice, compounding, QC testing, or clinical intervention. Each: {"type":"sequence","question":{"prompt":"Arrange the following steps in the correct chronological/priority order","items":["step A","step B","step C","step D"]},"answer":{"order":["step ... in correct order"]},"rationale":"step-by-step rationale for the order"}. Ensure answer.order is a permutation of question.items.`
   }
   return `Generate ${count} active-recall drills. Each: {"type":"flashcard_drill","question":{"stem":"drill prompt"},"answer":{"expected":"answer"},"rationale":"brief rationale"}`
 }
@@ -166,7 +166,7 @@ Deno.serve(async (req) => {
       const parts = await fileParts(supabase, userData.user.id, body)
       const { text, model } = await geminiGenerate([
         ...parts,
-        { text: `You are an expert PRC licensure exam reviewer for ${body.programName || 'a PRC board program'}. Create concise, accurate active-recall flashcards strictly aligned to the official board syllabus. Subject: ${body.subject || 'General'}. Generate ${count} flashcards from the uploaded document. Each item: {"front":"question/prompt","back":"answer with key facts"}. Return ONLY a valid JSON array.` },
+        { text: `You are an expert PRC licensure exam reviewer for ${body.programName || 'BS Pharmacy (Pharmacist Licensure Examination)'}. Create concise, accurate active-recall flashcards strictly aligned to the official board syllabus. Subject: ${body.subject || 'General'}. Generate ${count} flashcards from the uploaded document. Each item: {"front":"question/prompt","back":"answer with key facts"}. Return ONLY a valid JSON array.` },
       ], 0.4)
       const out = extractJson(text)
       const cards = (Array.isArray(out) ? out : []).filter((card) => card?.front && card?.back)
@@ -176,7 +176,7 @@ Deno.serve(async (req) => {
     if (body.action === 'practice') {
       const count = Math.min(Math.max(body.count || 5, 1), 15)
       const parts = await fileParts(supabase, userData.user.id, body)
-      const common = `Program: ${body.programName || 'a PRC board program'}\nSubject: ${body.subject || 'General'}\nAll questions must be board-exam level, aligned to the syllabus, and include step-by-step rationale. Return ONLY a valid JSON array.`
+      const common = `Program: ${body.programName || 'BS Pharmacy (Pharmacist Licensure Examination)'}\nSubject: ${body.subject || 'General'}\nAll questions must be board-exam level, aligned to the syllabus, and include step-by-step rationale. Return ONLY a valid JSON array.`
       const { text, model } = await geminiGenerate([
         ...parts,
         { text: `${common}\n${practiceSpec(body.type, count)}\nGenerate items from the uploaded document.` },
@@ -189,7 +189,7 @@ Deno.serve(async (req) => {
       if (!body.selectedText?.trim()) return json(400, { error: 'Selected text is required.' })
       const prompt = body.followUp
         ? `The user previously asked about this text and you explained it. Now they have a follow-up question. Selected text: "${body.selectedText}". Follow-up question: "${body.followUp}". Answer the follow-up question based on the context of the selected text. Be concise and educational.`
-        : `You are an expert ${body.programName || 'PRC board'} board exam reviewer. Explain the following selected text from a review document. Subject: ${body.subject || 'General'}. Provide a clear, educational explanation that helps the student understand the concept. Include key points, definitions, and any important details. Selected text: "${body.selectedText}"`
+        : `You are an expert ${body.programName || 'BS Pharmacy (PhLE)'} board exam reviewer. Explain the following selected text from a review document. Subject: ${body.subject || 'General'}. Provide a clear, educational explanation that helps the student understand the concept. Include key points, definitions, and any important details. Selected text: "${body.selectedText}"`
       const { text, model } = await geminiGenerate([{ text: prompt }], 0.5)
       return json(200, { explanation: text || 'No explanation generated.', model })
     }

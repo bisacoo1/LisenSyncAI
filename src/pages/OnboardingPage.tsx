@@ -1,15 +1,14 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth, upsertProfile } from '@/context/AuthContext'
-import { PROGRAM_LIST } from '@/lib/syllabus'
-import type { BoardProgramKey } from '@/types'
-import { Card, CardHeader, CardContent, Button, Input, Select, Icon, useToast } from '@/components/ui'
+import { DEFAULT_PROGRAM, PHARMACY_PROGRAM } from '@/lib/syllabus'
+import { PASSING_RATE } from '@/types'
+import { Card, CardHeader, CardContent, Button, Input, Icon, useToast } from '@/components/ui'
 
 export default function OnboardingPage() {
   const { user, profile, refreshProfile } = useAuth()
   const nav = useNavigate()
   const [fullName, setFullName] = useState(profile?.full_name || '')
-  const [program, setProgram] = useState<BoardProgramKey>((profile?.board_program as BoardProgramKey) || 'criminology')
   const [examDate, setExamDate] = useState(profile?.target_exam_date || '')
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
@@ -21,9 +20,9 @@ export default function OnboardingPage() {
     setError(null)
     setSaving(true)
     try {
-      await upsertProfile(user.id, program, fullName, examDate || null)
+      await upsertProfile(user.id, DEFAULT_PROGRAM, fullName, examDate || null)
       await refreshProfile()
-      addToast({ type: 'success', title: 'Profile saved', message: 'Welcome to LisenSync AI!' })
+      addToast({ type: 'success', title: 'Profile saved', message: 'Welcome to your BS Pharmacy study space!' })
       nav('/dashboard')
     } catch (err: any) {
       setError(err.message || 'Failed to save profile')
@@ -33,26 +32,27 @@ export default function OnboardingPage() {
     }
   }
 
-  const selectedProgram = PROGRAM_LIST.find((p) => p.key === program)
-
   return (
     <div className="onboarding-page">
       <header className="workspace-page-header">
         <div>
           <div className="section-kicker">
-            <span className="eyebrow-dot" /> A SPACE THAT'S YOURS <span>/ 00</span>
+            <span className="eyebrow-dot" /> BS PHARMACY · PhLE SETUP <span>/ 00</span>
           </div>
           <h1>
-            Let's set <em>your path.</em>
+            Let's set up <em>your PhLE plan.</em>
           </h1>
-          <p>Choose your board program and we'll bring your subjects, practice, and progress together in one place.</p>
+          <p>
+            Personalize your Pharmacy review profile. Your reviewers, practice drills, mock exams, and analytics are
+            automatically aligned to all 6 PRC Pharmacist Licensure Examination modules.
+          </p>
         </div>
       </header>
       <Card variant="elevated">
         <CardHeader
-          title="Your review profile"
-          icon="flag"
-          subtitle="You can set a target exam date now or add one later."
+          title="Your Pharmacy review profile"
+          icon="pill"
+          subtitle="You can set a target PhLE date now or update it later from your dashboard."
         />
         <CardContent style={{ paddingTop: 0 }}>
           {error && (
@@ -75,7 +75,37 @@ export default function OnboardingPage() {
             </div>
           )}
 
-          <form onSubmit={onSave} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <form onSubmit={onSave} style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+            <div className="pharmacy-program-banner" aria-label="Pharmacy licensure program syllabus">
+              <span className="pharmacy-program-banner-icon">
+                <Icon name="flask" size={18} />
+              </span>
+              <div className="pharmacy-program-banner-copy">
+                <span className="pharmacy-program-banner-kicker">PRC BOARD PROGRAM</span>
+                <strong>{PHARMACY_PROGRAM.name}</strong>
+                <span>
+                  {PHARMACY_PROGRAM.subjects.length} official modules · {PHARMACY_PROGRAM.mockDurationMinutes}-min mock
+                  · {PASSING_RATE}% passing mark
+                </span>
+              </div>
+            </div>
+
+            <div className="pharmacy-module-grid" aria-label="Included PhLE modules">
+              {PHARMACY_PROGRAM.subjectDetails.map((mod) => (
+                <div className="pharmacy-module-chip" key={mod.name}>
+                  <span className="pharmacy-module-chip-icon">
+                    <Icon name={mod.icon} size={14} />
+                  </span>
+                  <div className="pharmacy-module-chip-text">
+                    <span>
+                      {mod.moduleCode} · {mod.weightPercent}%
+                    </span>
+                    <strong>{mod.name}</strong>
+                  </div>
+                </div>
+              ))}
+            </div>
+
             <Input
               label="Full name"
               value={fullName}
@@ -85,32 +115,20 @@ export default function OnboardingPage() {
               fullWidth
             />
 
-            <div>
-              <Select
-                label="PRC Board Program"
-                value={program}
-                onChange={(e) => setProgram(e.target.value as BoardProgramKey)}
-                options={PROGRAM_LIST.map((p) => ({ value: p.key, label: p.name }))}
-                leftIcon="flag"
-                fullWidth
-              />
-              <p style={{ marginTop: 6, fontSize: 12, color: 'var(--muted)' }}>{selectedProgram?.description}</p>
-            </div>
-
             <Input
-              label="Target exam date (optional)"
+              label="Target PhLE exam date (optional)"
               type="date"
               value={examDate}
               onChange={(e) => setExamDate(e.target.value)}
               leftIcon="calendar"
               fullWidth
             />
-            <p style={{ marginTop: -8, fontSize: 12, color: 'var(--muted)' }}>
-              We'll show a countdown on your dashboard to keep you on track.
+            <p style={{ marginTop: -10, fontSize: 12, color: 'var(--muted)' }}>
+              We'll show a countdown on your dashboard to keep your Pharmacy review on track.
             </p>
 
-            <Button variant="primary" type="submit" fullWidth size="lg" loading={saving} style={{ marginTop: 8 }}>
-              {saving ? 'Saving…' : 'Save and continue'}
+            <Button variant="primary" type="submit" fullWidth size="lg" loading={saving} style={{ marginTop: 4 }}>
+              {saving ? 'Saving…' : 'Save and enter Pharmacy workspace'}
             </Button>
           </form>
         </CardContent>

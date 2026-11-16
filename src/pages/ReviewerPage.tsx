@@ -116,7 +116,7 @@ export default function ReviewerPage() {
       }
 
       const { data, error } = await supabase.from('review_materials').insert({
-        user_id: user.id, title, board_program: profile.board_program, subject,
+        user_id: user.id, title, board_program: program.key, subject,
         source_filename: file.name,
         file_uri: storagePath,
         mime_type: file.type,
@@ -149,11 +149,11 @@ export default function ReviewerPage() {
         const cards = await generateFlashcardsFromFile({
           ...source,
           subject: mat.subject,
-          program: profile.board_program,
+          program: program.key,
           count: 10
         })
         if (cards.length) {
-          const rows = cards.map(c => ({ user_id: user.id, material_id: mat.id, board_program: profile.board_program, subject: mat.subject, front: c.front, back: c.back }))
+          const rows = cards.map(c => ({ user_id: user.id, material_id: mat.id, board_program: program.key, subject: mat.subject, front: c.front, back: c.back }))
           const { error } = await supabase.from('flashcards').insert(rows)
           if (error) throw error
         }
@@ -164,12 +164,12 @@ export default function ReviewerPage() {
         const items = await generatePracticeItemsFromFile({
           ...source,
           subject: mat.subject,
-          program: profile.board_program,
+          program: program.key,
           type,
           count: 5
         })
         if (items.length) {
-          const rows = items.map(it => ({ user_id: user.id, material_id: mat.id, board_program: profile.board_program, subject: mat.subject, type, question: it.question, answer: it.answer, rationale: it.rationale }))
+          const rows = items.map(it => ({ user_id: user.id, material_id: mat.id, board_program: program.key, subject: mat.subject, type, question: it.question, answer: it.answer, rationale: it.rationale }))
           const { error } = await supabase.from('practice_items').insert(rows)
           if (error) throw error
         }
@@ -200,8 +200,8 @@ export default function ReviewerPage() {
   return (
     <div className="container workspace-page">
       <WorkspacePageHeader
-        eyebrow="YOUR STUDY LIBRARY" index="02" title={<>Your <em>reviewers.</em></>}
-        description="Give your notes a new life. Upload a reviewer to create flashcards and practice drills for your board subjects."
+        eyebrow="PHARMACY STUDY LIBRARY" index="02" title={<>Your <em>Pharmacy reviewers.</em></>}
+        description="Give your BS Pharmacy notes a new life. Upload lecture decks, drug monographs, or review handouts to create PhLE flashcards and clinical drills."
         action={!aiConfigured() && <Badge variant="warning" size="md"><Icon name="alert-triangle" size={12} /> AI not configured</Badge>}
       />
 
@@ -247,17 +247,17 @@ export default function ReviewerPage() {
                 label="Title"
                 value={title}
                 onChange={e => setTitle(e.target.value)}
-                placeholder="e.g. Crim Law Handout - Revised Penal Code"
+                placeholder="e.g. Pharmacology Handout - Autonomic Nervous System Drugs"
                 leftIcon="file-text"
                 fullWidth
               />
 
               <Select
-                label="Board Subject"
+                label="PhLE Module / Subject"
                 value={subject}
                 onChange={e => setSubject(e.target.value)}
-                options={program.subjects.map(s => ({ value: s, label: s }))}
-                leftIcon="book-open"
+                options={program.subjectDetails.map(m => ({ value: m.name, label: `${m.moduleCode} — ${m.name} (${m.weightPercent}%)` }))}
+                leftIcon="pill"
                 fullWidth
               />
 
@@ -301,7 +301,7 @@ export default function ReviewerPage() {
 
         {/* Generate Section */}
         <Card variant="elevated" ref={generateCardRef}>
-          <CardHeader title="Generate from Saved Material" icon="brain" subtitle={`Generates items tagged by the material's board subject and aligned to ${program.name}`} />
+          <CardHeader title="Generate from Saved Material" icon="brain" subtitle="Generates PhLE study items tagged to the material's BS Pharmacy module" />
           <CardContent>
             <Select
               label="Material"
@@ -318,10 +318,10 @@ export default function ReviewerPage() {
                 Generate Flashcards
               </Button>
               <Button variant="secondary" size="lg" leftIcon="file-text" onClick={() => generate('mcq')} disabled={!!busy || !selectedMaterial} fullWidth>
-                Generate PRC-Style Situational MCQs
+                Generate PhLE Situational MCQs
               </Button>
               <Button variant="secondary" size="lg" leftIcon="brain" onClick={() => generate('diagnosis')} disabled={!!busy || !selectedMaterial} fullWidth>
-                Generate Case & Concept Diagnosis
+                Generate Clinical & Concept Diagnosis
               </Button>
               <Button variant="secondary" size="lg" leftIcon="chevron-up-down" onClick={() => generate('sequence')} disabled={!!busy || !selectedMaterial} fullWidth>
                 Generate Priority & Sequence Ordering
@@ -389,13 +389,13 @@ export default function ReviewerPage() {
                 style={{ maxWidth: 420 }}
               />
               <Select
-                label="Subject"
+                label="PhLE Module"
                 value={subjectFilter}
                 onChange={e => setSubjectFilter(e.target.value)}
-                options={[{ value: '', label: 'All subjects' }, ...program.subjects.map(s => ({ value: s, label: s }))]}
-                leftIcon="book-open"
+                options={[{ value: '', label: 'All Pharmacy modules' }, ...program.subjectDetails.map(m => ({ value: m.name, label: `${m.moduleCode} — ${m.name}` }))]}
+                leftIcon="pill"
                 fullWidth
-                style={{ maxWidth: 260 }}
+                style={{ maxWidth: 280 }}
               />
               <Select
                 label="Sort by"

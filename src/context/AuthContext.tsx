@@ -62,7 +62,7 @@ export function useAuth() {
   return ctx
 }
 
-export async function upsertProfile(id: string, board_program: BoardProgramKey, full_name?: string, target_exam_date?: string | null) {
+export async function upsertProfile(id: string, board_program: BoardProgramKey = 'pharmacy', full_name?: string, target_exam_date?: string | null) {
   const { error } = await supabase.from('profiles').upsert({ id, board_program, full_name: full_name || null, target_exam_date: target_exam_date ?? null, updated_at: new Date().toISOString() })
   if (error) throw error
 }

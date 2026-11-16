@@ -112,13 +112,13 @@ export default function PracticePage() {
   }
 
   async function recordAttempt(correct: boolean, response: unknown) {
-    if (!user || !profile) return
+    if (!user || !profile || !program) return
     try {
       const it = items[idx]
       const { error: attemptError } = await supabase.from('attempts').insert({
         user_id: user.id,
         practice_item_id: it?.id || null,
-        board_program: profile.board_program,
+        board_program: program.key,
         subject,
         type: mode,
         user_response: response,
@@ -221,7 +221,7 @@ export default function PracticePage() {
 
   return (
     <div className="container workspace-page">
-      <WorkspacePageHeader eyebrow="YOUR DAILY PRACTICE" index="03" title={<>Practice, <em>your way.</em></>} description="Choose a subject, pick a mode, and build confidence one question at a time." />
+      <WorkspacePageHeader eyebrow="PHARMACY DAILY PRACTICE" index="03" title={<>Practice, <em>your way.</em></>} description="Choose a PhLE module, pick an active-recall mode, and build clinical and pharmaceutical confidence one question at a time." />
 
       <Card variant="elevated" style={{ marginBottom: 20 }}>
         <CardContent>
@@ -232,14 +232,16 @@ export default function PracticePage() {
               <span className="practice-scroll-hint">Scroll for more modes <Icon name="arrow-right" size={13} /></span>
             </div>
             <div>
-              <label htmlFor="practice-subject" style={{ display: 'block', fontSize: 12, color: 'var(--muted)', marginBottom: 6, fontWeight: 500 }}>BOARD SUBJECT</label>
+              <label htmlFor="practice-subject" style={{ display: 'block', fontSize: 12, color: 'var(--muted)', marginBottom: 6, fontWeight: 500 }}>PhLE MODULE / SUBJECT</label>
               <select
                 id="practice-subject"
                 value={subject}
                 onChange={e => setSubject(e.target.value)}
                 style={{ width: '100%', padding: '10px 14px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel-2)', color: 'var(--text)', fontSize: 14 }}
               >
-                {program.subjects.map(s => <option key={s} value={s}>{s}</option>)}
+                {program.subjectDetails.map(m => (
+                  <option key={m.name} value={m.name}>{m.moduleCode} — {m.name} ({m.weightPercent}%)</option>
+                ))}
               </select>
             </div>
           </div>
@@ -357,7 +359,7 @@ export default function PracticePage() {
         <Card variant="elevated">
           <CardContent style={{ padding: 24 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
-              <Badge variant="primary" size="md">Item {idx + 1} of {items.length} — {current.subject} — PRC Situational MCQ</Badge>
+              <Badge variant="primary" size="md">Item {idx + 1} of {items.length} — {current.subject} — PhLE Situational MCQ</Badge>
             </div>
 
             <h3 style={{ margin: '0 0 24px', fontSize: 18, fontWeight: 600, lineHeight: 1.5 }}>{(current.question as McqQuestion).stem}</h3>
@@ -413,7 +415,7 @@ export default function PracticePage() {
                 </div>
               </div>
             )}
-            {feedback && <AiHelper contextText={questionContext()} program={profile.board_program} subject={subject} itemKey={current.id} />}
+            {feedback && <AiHelper contextText={questionContext()} program={program.key} subject={subject} itemKey={current.id} />}
           </CardContent>
         </Card>
       )}
@@ -423,7 +425,7 @@ export default function PracticePage() {
         <Card variant="elevated">
           <CardContent style={{ padding: 24 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
-              <Badge variant="primary" size="md">Item {idx + 1} of {items.length} — {current.subject} — Case & Concept Diagnosis</Badge>
+              <Badge variant="primary" size="md">Item {idx + 1} of {items.length} — {current.subject} — Clinical &amp; Concept Diagnosis</Badge>
             </div>
 
             <div style={{ marginBottom: 16 }}>
@@ -446,7 +448,7 @@ export default function PracticePage() {
                 id="diagnosis-input"
                 value={diagInput}
                 onChange={e => setDiagInput(e.target.value)}
-                placeholder="Identify the concept, principle, or law..."
+                placeholder="Identify the drug class, mechanism, disease, principle, or pharmacy law..."
                 disabled={!!feedback}
                 style={{ width: '100%', padding: '14px 16px', borderRadius: 10, border: `1px solid ${feedback ? (feedback.correct ? 'var(--success)' : 'var(--danger)') : 'var(--border)'}`, background: 'var(--panel-2)', color: 'var(--text)', fontSize: 14 }}
               />
@@ -476,7 +478,7 @@ export default function PracticePage() {
                 </div>
               </div>
             )}
-            {feedback && <AiHelper contextText={questionContext()} program={profile.board_program} subject={subject} itemKey={current.id} />}
+            {feedback && <AiHelper contextText={questionContext()} program={program.key} subject={subject} itemKey={current.id} />}
           </CardContent>
         </Card>
       )}
@@ -490,7 +492,7 @@ export default function PracticePage() {
             </div>
 
             <h3 style={{ margin: '0 0 8px', fontSize: 18, fontWeight: 600 }}>{(current.question as SequenceQuestion).prompt}</h3>
-            <p className="muted" style={{ marginBottom: 20 }}>Arrange items in the correct chronological/priority order (top = first).</p>
+            <p className="muted" style={{ marginBottom: 20 }}>Arrange the clinical, dispensing, or procedural steps in the correct priority order (top = first).</p>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {seqOrder.map((item, i) => (
@@ -539,7 +541,7 @@ export default function PracticePage() {
                 </div>
               </div>
             )}
-            {feedback && <AiHelper contextText={questionContext()} program={profile.board_program} subject={subject} itemKey={current.id} />}
+            {feedback && <AiHelper contextText={questionContext()} program={program.key} subject={subject} itemKey={current.id} />}
           </CardContent>
         </Card>
       )}

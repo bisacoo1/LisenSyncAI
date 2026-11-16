@@ -1,7 +1,7 @@
 import { WorkspacePageHeader } from '@/components/WorkspacePageHeader'
 import { useEffect, useRef, useState } from 'react'
 import { useAuth } from '@/context/AuthContext'
-import { getProgram } from '@/lib/syllabus'
+import { getProgram, getSubjectDetail } from '@/lib/syllabus'
 import { supabase } from '@/lib/supabase'
 import { PASSING_RATE, type Attempt, type DiagnosisAnswer, type DiagnosisQuestion, type McqAnswer, type McqQuestion, type MockExam, type MockExamItem, type PracticeItem, type Profile, type SequenceAnswer, type SequenceQuestion } from '@/types'
 import { checkDiagnosis, checkSequence, computeBulkStatsUpdate } from '@/lib/analytics'
@@ -130,7 +130,7 @@ export default function MockExamPage() {
       }
       if (pool.length === 0) { setErr('No practice items available. Generate MCQ, diagnosis, or sequence items in Reviewer & Generate first.'); setBusy(false); return }
       const { data: ex, error } = await supabase.from('mock_exams').insert({
-        user_id: user.id, board_program: profile.board_program, title: `${program.name} - Mock Simulation`,
+        user_id: user.id, board_program: program.key, title: `${program.name} - Mock Simulation`,
         duration_minutes: program.mockDurationMinutes, tos: program.tos, total_items: pool.length, status: 'in_progress'
       }).select().single()
       if (error) throw error
@@ -161,7 +161,7 @@ export default function MockExamPage() {
         else if (it.type === 'sequence') correct = checkSequence(resp?.order || [], (it.answer as SequenceAnswer).order || [])
         if (correct) correctCount++
         await supabase.from('mock_exam_items').update({ user_response: resp ?? null, is_correct: correct }).eq('id', it.id)
-        await supabase.from('attempts').insert({ user_id: user.id, practice_item_id: it.practice_item_id, board_program: exam.board_program, subject: it.subject, type: it.type, user_response: resp ?? null, is_correct: correct })
+        await supabase.from('attempts').insert({ user_id: user.id, practice_item_id: it.practice_item_id, board_program: program?.key || 'pharmacy', subject: it.subject, type: it.type, user_response: resp ?? null, is_correct: correct })
       }
       const score = items.length ? Math.round((correctCount / items.length) * 1000) / 10 : 0
       const passed = score >= PASSING_RATE
@@ -209,7 +209,7 @@ export default function MockExamPage() {
   if (!exam) {
     return (
       <div className="container workspace-page">
-        <WorkspacePageHeader eyebrow="PRACTICE FOR THE BIG DAY" index="04" title={<>Your <em>mock exam.</em></>} description="Get a feel for exam day with a timed, multi-subject simulation. Answers and rationales appear after you submit." />
+        <WorkspacePageHeader eyebrow="PhLE BOARD SIMULATION" index="04" title={<>Your <em>PhLE mock exam.</em></>} description="Experience a timed 6-module Pharmacist Licensure Examination simulation weighted to the PRC Table of Specifications. Answers and rationales appear after you submit." />
 
         {err && (
           <div role="alert" style={{ marginBottom: 16, padding: 16, background: 'var(--danger-bg)', border: '1px solid var(--danger-border)', borderRadius: 10, color: 'var(--danger)', display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -220,27 +220,42 @@ export default function MockExamPage() {
 
         <div className="grid grid-2">
           <Card variant="elevated">
-            <CardHeader title={program.name} icon="timer" subtitle={`${program.mockDurationMinutes} minutes • ${PASSING_RATE}% passing benchmark`} />
+            <CardHeader title={program.name} icon="pill" subtitle={`${program.mockDurationMinutes} minutes (5 hrs) • ${program.subjects.length} PhLE modules • ${PASSING_RATE}% passing benchmark`} />
             <CardContent>
               <div style={{ marginBottom: 20 }}>
-                <h4 style={{ margin: '0 0 12px', fontSize: 14, fontWeight: 600 }}>Table of Specifications (TOS)</h4>
-                <div className="table-wrapper" role="region" aria-label="Exam specifications, scrollable table" tabIndex={0} style={{ overflowX: 'auto' }}>
+                <h4 style={{ margin: '0 0 12px', fontSize: 14, fontWeight: 600 }}>PhLE Table of Specifications (TOS)</h4>
+                <div className="table-wrapper" role="region" aria-label="PhLE exam specifications, scrollable table" tabIndex={0} style={{ overflowX: 'auto' }}>
                   <table className="table">
-                    <thead><tr><th>Subject</th><th style={{width: 80}}>Items</th><th style={{width: 100}}>Weight</th></tr></thead>
+                    <thead><tr><th>PhLE Module</th><th style={{width: 80}}>Items</th><th style={{width: 100}}>Weight</th></tr></thead>
                     <tbody>
-                      {program.tos.map(t => (
-                        <tr key={t.subject}>
-                          <td>{t.subject}</td>
-                          <td style={{fontVariantNumeric: 'tabular-nums', fontWeight: 600}}>{t.items}</td>
-                          <td style={{fontVariantNumeric: 'tabular-nums', color: 'var(--muted)'}}>{t.weightPercent}%</td>
-                        </tr>
-                      ))}
+                      {program.tos.map(t => {
+                        const detail = getSubjectDetail(t.subject)
+                        return (
+                          <tr key={t.subject}>
+                            <td>
+                              <div className="subject-cell">
+                                {detail && (
+                                  <span className="subject-cell-icon" aria-hidden="true">
+                                    <Icon name={detail.icon} size={14} />
+                                  </span>
+                                )}
+                                <div>
+                                  <div>{t.subject}</div>
+                                  {detail && <span className="subject-cell-sub">{detail.moduleCode}</span>}
+                                </div>
+                              </div>
+                            </td>
+                            <td style={{fontVariantNumeric: 'tabular-nums', fontWeight: 600}}>{t.items}</td>
+                            <td style={{fontVariantNumeric: 'tabular-nums', color: 'var(--muted)'}}>{t.weightPercent}%</td>
+                          </tr>
+                        )
+                      })}
                     </tbody>
                   </table>
                 </div>
               </div>
               <Button variant="primary" fullWidth size="lg" leftIcon="timer" onClick={startExam} disabled={busy}>
-                {busy ? 'Starting…' : 'Start Mock Exam'}
+                {busy ? 'Starting…' : 'Start PhLE Mock Exam'}
               </Button>
             </CardContent>
           </Card>
@@ -477,7 +492,7 @@ export default function MockExamPage() {
                     aria-label="Your identification"
                     value={resp?.text || ''}
                     onChange={e => setResponse(it.id, { text: e.target.value }, true)}
-                    placeholder="Enter the exact concept/principle/law/formula..."
+                    placeholder="Enter the drug class, mechanism, principle, pharmacy law, or formula..."
                     style={{ padding: '14px 16px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel-2)', color: 'var(--text)', fontSize: 14 }}
                   />
                 </div>

@@ -1,23 +1,23 @@
 # LisenSync AI
 
-**LisenSync AI: An AI-Powered Licensure Exam Reviewer and Mock Assessment System**
+**LisenSync AI: An AI-Powered BS Pharmacy (PhLE) Licensure Exam Reviewer and Mock Assessment System**
 
-A specialized study and assessment platform for PRC board exam programs (e.g. BS Criminology, BS Pharmacy, BS Civil Engineering), focused on licensure exam readiness and the 75% PRC passing benchmark.
+A specialized study and assessment platform focused on **BS Pharmacy** and the **PRC Pharmacist Licensure Examination (PhLE)** across all 6 official board modules (Pharmaceutical Chemistry, Pharmacognosy, Practice of Pharmacy, Pharmacology-Pharmacokinetics, Pharmaceutics, and Quality Assurance/Quality Control), aligned to the 75% PRC passing benchmark.
 
 ## Stack
 - React + TypeScript + Vite
 - Supabase (Auth, Postgres, Storage, RLS)
-- OpenAI-compatible API for AI generation (configurable)
+- Gemini API for AI generation (configurable)
 
 ## Core Features
-- **Board Program Onboarding**: Select licensure program; subjects, prompts, and analytics align to official board syllabus.
-- **Reviewer-to-Flashcards & Drills**: Upload review handouts/PDFs; AI extracts text and generates active-recall flashcards and situational drills tagged by board subject.
-- **PRC-Style Assessment Modes**:
-  - Situational MCQs with higher-order thinking and step-by-step rationales
-  - Case & Concept Diagnosis (identify principle, disease, law, or formula from scenarios)
-  - Priority & Sequence Ordering (arrange procedures/interventions in correct order)
-- **Timed Board Exam Mock Simulation**: Multi-subject mock aligned to Table of Specifications (TOS), countdown timer, no instant answers until submission.
-- **Readiness Analytics**: Scores per board subject, weak-topic flags, and targeted remediation drills toward the 75% passing mark.
+- **BS Pharmacy (PhLE) Study Setup**: Pre-configured around all 6 official Pharmacist Licensure Examination modules, TOS weights, prompts, and readiness analytics.
+- **Reviewer-to-Flashcards & Drills**: Upload Pharmacy review handouts/PDFs; AI extracts text and generates active-recall flashcards and situational drills tagged by PhLE module.
+- **PhLE-Style Assessment Modes**:
+  - Situational MCQs with higher-order clinical and pharmaceutical science thinking and step-by-step rationales
+  - Clinical & Concept Diagnosis (identify drug class, mechanism, disease, principle, pharmacy law, or formula from scenarios)
+  - Priority & Sequence Ordering (arrange dispensing, compounding, QC, or clinical procedures in correct order)
+- **Timed 6-Module PhLE Mock Simulation**: Multi-module mock aligned to the PRC Table of Specifications (TOS), 300-minute countdown timer, no instant answers until submission.
+- **Readiness Analytics**: Scores per PhLE module, weak-topic flags, and targeted remediation drills toward the 75% passing mark.
 
 ## Setup
 

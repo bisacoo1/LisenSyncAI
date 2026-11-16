@@ -1,10 +1,25 @@
-export type BoardProgramKey = 'criminology' | 'pharmacy' | 'civil_engineering'
+export type BoardProgramKey = 'pharmacy'
+
+export type PharmacySubjectIcon = 'flask' | 'leaf' | 'stethoscope' | 'heart-pulse' | 'pill' | 'shield-check'
+
+export interface SubjectDetail {
+  name: string
+  moduleNumber: string
+  moduleCode: string
+  description: string
+  items: number
+  weightPercent: number
+  icon: PharmacySubjectIcon
+}
 
 export interface BoardProgram {
   key: BoardProgramKey
   name: string
+  shortName: string
+  examAcronym: string
   description: string
   subjects: string[]
+  subjectDetails: SubjectDetail[]
   tos: TosAllocation[]
   mockDurationMinutes: number
 }
