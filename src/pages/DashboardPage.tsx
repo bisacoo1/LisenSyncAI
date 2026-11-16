@@ -40,6 +40,7 @@ export default function DashboardPage() {
   const program = profile ? getProgram(profile.board_program) : null
   const [attempts, setAttempts] = useState<Attempt[]>([])
   const [dueCards, setDueCards] = useState(0)
+  const [reviewerCount, setReviewerCount] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
   const [examDateInput, setExamDateInput] = useState('')
   const [savingDate, setSavingDate] = useState(false)
@@ -57,6 +58,11 @@ export default function DashboardPage() {
         .eq('user_id', profile.id)
         .lte('next_review_at', new Date().toISOString())
       setDueCards(count || 0)
+      const { count: materialCount, error: materialCountError } = await supabase
+        .from('review_materials')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', profile.id)
+      if (!materialCountError) setReviewerCount(materialCount ?? 0)
       if (isCourse) {
         const { data: subs } = await supabase.from('user_subjects').select('*').eq('user_id', profile.id).order('name')
         setUserSubjects((subs as UserSubject[]) || [])
@@ -80,6 +86,12 @@ export default function DashboardPage() {
   const dailyCompleted =
     profile.daily_goal_date === new Date().toISOString().slice(0, 10) ? profile.daily_items_completed || 0 : 0
   const dailyGoal = profile.daily_goal || 20
+  const primaryAction =
+    !loading && reviewerCount === 0 && attempts.length === 0
+      ? { label: 'Add your first reviewer', to: '/reviewer' }
+      : !loading && dueCards > 0
+        ? { label: 'Review due flashcards', to: '/practice?mode=flashcards' }
+        : { label: 'Continue studying', to: '/practice' }
 
   async function saveExamDate() {
     if (!profile || !examDateInput) return
@@ -106,12 +118,15 @@ export default function DashboardPage() {
             A good day to <em>make progress.</em>
           </h1>
           <p>
-            {firstName ? `Welcome back, ${firstName}. ` : 'Welcome back. '}Here's how your PhLE preparation stands
-            across all 6 Pharmacy modules.
+            {loading
+              ? 'Getting your study space ready…'
+              : !attempts.length && reviewerCount === 0
+                ? `${firstName ? `Welcome, ${firstName}. ` : ''}Add a reviewer to create your first personalized study set.`
+                : `${firstName ? `Welcome back, ${firstName}. ` : 'Welcome back. '}Here's how your PhLE preparation stands across all 6 Pharmacy modules.`}
           </p>
         </div>
-        <Link to="/practice" className="workspace-primary-link">
-          Continue studying <Icon name="arrow-right" size={17} />
+        <Link to={primaryAction.to} className="workspace-primary-link">
+          {primaryAction.label} <Icon name="arrow-right" size={17} />
         </Link>
       </header>
 

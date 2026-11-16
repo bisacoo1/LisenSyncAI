@@ -9,6 +9,15 @@ import { supabase } from '@/lib/supabase'
 import type { Flashcard, PracticeType, ReviewMaterial, UserSubject } from '@/types'
 import { Card, CardHeader, CardContent, Button, Badge, Icon, Input, Select, EmptyState, Skeleton, useToast, Modal } from '@/components/ui'
 
+type GeneratedStudySet = 'flashcards' | Exclude<PracticeType, 'flashcard_drill'>
+const DEFAULT_COURSE_SUBJECT = 'General'
+const COURSE_STUDY_SETS: { type: GeneratedStudySet; label: string }[] = [
+  { type: 'flashcards', label: 'flashcards' },
+  { type: 'mcq', label: 'multiple choice questions' },
+  { type: 'enumeration', label: 'enumeration questions' },
+  { type: 'identification', label: 'identification questions' },
+]
+
 function fileIcon(mimeType: string | null | undefined) {
   if (!mimeType) return 'file-text'
   if (mimeType.includes('pdf')) return 'file-pdf'
@@ -39,6 +48,7 @@ export default function ReviewerPage() {
   const [err, setErr] = useState<string | null>(null)
   const [flashcards, setFlashcards] = useState<Flashcard[]>([])
   const [selectedMaterial, setSelectedMaterial] = useState<string>('')
+  const [generationType, setGenerationType] = useState<GeneratedStudySet>('flashcards')
   const [selectedCard, setSelectedCard] = useState<Flashcard | null>(null)
   const uploadCardRef = useRef<HTMLDivElement>(null)
   const generateCardRef = useRef<HTMLDivElement>(null)
@@ -52,13 +62,20 @@ export default function ReviewerPage() {
   const isCourse = profile?.track === 'course'
   const [customSubjects, setCustomSubjects] = useState<UserSubject[]>([])
 
-  useEffect(() => { if (program && !isCourse) setSubject(program.subjects[0]) }, [program, isCourse])
+  useEffect(() => {
+    if (isCourse) setSubject(DEFAULT_COURSE_SUBJECT)
+    else if (program) setSubject(program.subjects[0])
+  }, [program, isCourse])
   useEffect(() => { if (profile) loadMaterials() }, [profile?.id])
 
   /* Scroll the requested reviewer function into view when arriving from the sidebar Upload section */
   useEffect(() => {
     const tab = searchParams.get('tab')
-    const target = tab === 'upload' ? uploadCardRef.current : tab === 'generate' ? generateCardRef.current : null
+    const target = tab === 'upload'
+      ? uploadCardRef.current
+      : tab === 'generate'
+        ? (isCourse ? uploadCardRef.current : generateCardRef.current)
+        : null
     if (target) {
       target.scrollIntoView({ behavior: 'smooth', block: 'start' })
     }
@@ -71,6 +88,19 @@ export default function ReviewerPage() {
     materials.forEach(m => names.add(m.subject))
     return [...names].sort((a, b) => a.localeCompare(b))
   }, [isCourse, customSubjects, materials, program])
+  const generationOptions = isCourse
+    ? [
+        { value: 'flashcards', label: 'Flashcards' },
+        { value: 'mcq', label: 'Multiple choice' },
+        { value: 'enumeration', label: 'Enumeration' },
+        { value: 'identification', label: 'Identification' },
+      ]
+    : [
+        { value: 'flashcards', label: 'Flashcards' },
+        { value: 'mcq', label: 'PhLE situational MCQs' },
+        { value: 'diagnosis', label: 'Clinical & concept diagnosis' },
+        { value: 'sequence', label: 'Priority & sequence ordering' },
+      ]
 
   async function loadMaterials() {
     if (!profile) return
@@ -85,7 +115,6 @@ export default function ReviewerPage() {
       const { data: subs } = await supabase.from('user_subjects').select('*').eq('user_id', profile.id).order('name')
       const subList = (subs as UserSubject[]) || []
       setCustomSubjects(subList)
-      if (subList.length && !subject) setSubject(subList[0].name)
     }
     setMaterialsLoading(false)
   }
@@ -115,7 +144,8 @@ export default function ReviewerPage() {
 
   async function saveMaterial() {
     if (!profile || !user || !program || !file) return
-    if (!title || !subject) { setErr('Title and subject are required.'); return }
+    const materialSubject = isCourse ? DEFAULT_COURSE_SUBJECT : subject
+    if (!title || !materialSubject) { setErr('Title and subject are required.'); return }
     setErr(null); setMsg(null)
     let storagePath = ''
     try {
@@ -134,26 +164,61 @@ export default function ReviewerPage() {
       }
 
       const { data, error } = await supabase.from('review_materials').insert({
-        user_id: user.id, title, board_program: program.key, subject,
+        user_id: user.id, title, board_program: program.key, subject: materialSubject,
         source_filename: file.name,
         file_uri: storagePath,
         mime_type: file.type,
         file_size: file.size,
         extracted_text: extractedText || null
-      })
+      }).select('*').single()
       if (error) throw error
-      if (isCourse && subject.trim()) {
+      const savedMaterial = data as ReviewMaterial
+      if (isCourse && materialSubject.trim()) {
         await supabase.from('user_subjects').upsert(
-          { user_id: user.id, name: subject.trim() },
+          { user_id: user.id, name: materialSubject },
           { onConflict: 'user_id,name', ignoreDuplicates: true }
         )
-        setCustomSubjects(prev => prev.some(s => s.name === subject.trim()) ? prev : [...prev, { id: '', user_id: user.id, name: subject.trim() } as UserSubject])
+        setCustomSubjects(prev => prev.some(s => s.name === materialSubject) ? prev : [...prev, { id: '', user_id: user.id, name: materialSubject } as UserSubject])
       }
       storagePath = ''
-      setMsg(extractedText ? 'Material saved and text extracted.' : extractError ? 'Material saved. Text extraction failed, so generation will read the stored file.' : aiConfigured() ? 'Material saved, but no text was extracted. Generation can use the stored file.' : 'Material saved. Configure AI to extract text and generate study items.')
-      if (extractError) setErr(extractError)
-      addToast({ type: 'success', title: 'Material saved', message: title })
       setTitle(''); setFile(null); setFileReady(false)
+
+      if (isCourse) {
+        if (!aiConfigured()) {
+          setMsg('Reviewer saved under General.')
+          setErr('Automatic generation did not run. Configure VITE_GEMINI_API_KEY, then upload the reviewer again.')
+          addToast({ type: 'error', title: 'AI is not configured', message: 'The reviewer was saved, but study sets were not generated.' })
+        } else {
+          const generated: string[] = []
+          const failures: string[] = []
+
+          for (const studySet of COURSE_STUDY_SETS) {
+            setBusy(`Generating ${studySet.label}...`)
+            try {
+              const count = await generateStudySet(studySet.type, savedMaterial)
+              generated.push(`${count} ${studySet.label}`)
+            } catch (generationError) {
+              const detail = generationError instanceof Error ? generationError.message : 'Unexpected generation error.'
+              failures.push(`${studySet.label}: ${detail}`)
+            }
+          }
+
+          if (failures.length) {
+            setMsg(`Reviewer saved. Generated ${generated.join(', ') || 'no study sets'}.`)
+            setErr(`Some study sets could not be generated: ${failures.join(' | ')}`)
+            addToast({ type: 'error', title: 'Some study sets were not generated', message: failures.join('; ') })
+          } else {
+            const extractionNote = extractError ? ' Text extraction failed, so generation used the saved file.' : ''
+            setMsg(`Reviewer saved. Automatically generated ${generated.join(', ')}.${extractionNote}`)
+            addToast({ type: 'success', title: 'Study sets ready', message: `${title}: flashcards, multiple choice, enumeration, and identification.` })
+          }
+        }
+      } else {
+        setMsg(extractedText ? 'Material saved and text extracted.' : extractError ? 'Material saved. Text extraction failed, so generation will read the stored file.' : aiConfigured() ? 'Material saved, but no text was extracted. Generation can use the stored file.' : 'Material saved. Configure AI to extract text and generate study items.')
+        if (extractError) setErr(extractError)
+        addToast({ type: 'success', title: 'Material saved', message: title })
+      }
+
       await loadMaterials()
     } catch (e: any) {
       if (storagePath) await removeReviewFile(storagePath)
@@ -161,43 +226,54 @@ export default function ReviewerPage() {
     } finally { setBusy(null) }
   }
 
+  async function generateStudySet(type: 'flashcards' | PracticeType, mat: ReviewMaterial): Promise<number> {
+    if (!profile || !user || !program) throw new Error('Your study profile is not ready.')
+    if (!mat || (!mat.file_uri && !mat.extracted_text)) throw new Error('This material has no uploaded file or extracted text.')
+    if (!aiConfigured()) throw new Error('AI is not configured. Set VITE_GEMINI_API_KEY in your environment.')
+
+    const source = sourceForMaterial(mat)
+    if (type === 'flashcards') {
+      const cards = await generateFlashcardsFromFile({
+        ...source,
+        subject: mat.subject,
+        program: program.key,
+        count: 10
+      })
+      if (cards.length) {
+        const rows = cards.map(c => ({ user_id: user.id, material_id: mat.id, board_program: program.key, subject: mat.subject, front: c.front, back: c.back }))
+        const { error } = await supabase.from('flashcards').insert(rows)
+        if (error) throw error
+      }
+      return cards.length
+    }
+
+    const items = await generatePracticeItemsFromFile({
+      ...source,
+      subject: mat.subject,
+      program: program.key,
+      type,
+      count: 5
+    })
+    if (items.length) {
+      const rows = items.map(it => ({ user_id: user.id, material_id: mat.id, board_program: program.key, subject: mat.subject, type, question: it.question, answer: it.answer, rationale: it.rationale }))
+      const { error } = await supabase.from('practice_items').insert(rows)
+      if (error) throw error
+    }
+    return items.length
+  }
+
   async function generate(type: 'flashcards' | PracticeType, mat: ReviewMaterial) {
     if (!profile || !user || !program) return
-    if (!mat || (!mat.file_uri && !mat.extracted_text)) { setErr('This material has no uploaded file or extracted text.'); return }
-    if (!aiConfigured()) { setErr('AI is not configured. Set VITE_GEMINI_API_KEY in your environment.'); return }
     setErr(null); setMsg(null); setBusy(`Generating ${type}...`)
     try {
-      const source = sourceForMaterial(mat)
+      const count = await generateStudySet(type, mat)
       if (type === 'flashcards') {
-        const cards = await generateFlashcardsFromFile({
-          ...source,
-          subject: mat.subject,
-          program: program.key,
-          count: 10
-        })
-        if (cards.length) {
-          const rows = cards.map(c => ({ user_id: user.id, material_id: mat.id, board_program: program.key, subject: mat.subject, front: c.front, back: c.back }))
-          const { error } = await supabase.from('flashcards').insert(rows)
-          if (error) throw error
-        }
-        addToast({ type: 'success', title: 'Flashcards generated', message: `${cards.length} flashcards for ${mat.subject}` })
-        setMsg(`Generated ${cards.length} flashcards for ${mat.subject}.`)
+        addToast({ type: 'success', title: 'Flashcards generated', message: `${count} flashcards for ${mat.subject}` })
+        setMsg(`Generated ${count} flashcards for ${mat.subject}.`)
         navigate(`/practice?mode=flashcards&subject=${encodeURIComponent(mat.subject)}`)
       } else {
-        const items = await generatePracticeItemsFromFile({
-          ...source,
-          subject: mat.subject,
-          program: program.key,
-          type,
-          count: 5
-        })
-        if (items.length) {
-          const rows = items.map(it => ({ user_id: user.id, material_id: mat.id, board_program: program.key, subject: mat.subject, type, question: it.question, answer: it.answer, rationale: it.rationale }))
-          const { error } = await supabase.from('practice_items').insert(rows)
-          if (error) throw error
-        }
-        addToast({ type: 'success', title: `${type.toUpperCase()} generated`, message: `${items.length} ${type} items for ${mat.subject}` })
-        setMsg(`Generated ${items.length} ${type} items for ${mat.subject}.`)
+        addToast({ type: 'success', title: `${type.toUpperCase()} generated`, message: `${count} ${type} items for ${mat.subject}` })
+        setMsg(`Generated ${count} ${type} items for ${mat.subject}.`)
       }
       await loadMaterials()
     } catch (e: any) { setErr(e.message) } finally { setBusy(null) }
@@ -217,6 +293,7 @@ export default function ReviewerPage() {
     })
     return list
   }, [materials, searchQuery, subjectFilter, sortOrder])
+  const selectedMaterialRecord = filteredMaterials.find(material => material.id === selectedMaterial)
 
   if (!profile || !program) return null
 
@@ -224,7 +301,9 @@ export default function ReviewerPage() {
     <div className="container workspace-page">
       <WorkspacePageHeader
         eyebrow={isCourse ? 'STUDY LIBRARY' : 'PHARMACY STUDY LIBRARY'} index="02" title={<>Your <em>{isCourse ? 'reviewers' : 'Pharmacy reviewers'}.</em></>}
-        description={isCourse ? 'Give your course notes a new life. Upload reviewers and name their subjects to create flashcards and practice drills.' : 'Give your BS Pharmacy notes a new life. Upload lecture decks, drug monographs, or review handouts to create PhLE flashcards and clinical drills.'}
+        description={isCourse
+          ? 'Upload your course notes once. Saving a reviewer automatically creates flashcards, multiple choice, enumeration, and identification practice.'
+          : 'Give your BS Pharmacy notes a new life. Upload lecture decks, drug monographs, or review handouts to create PhLE flashcards and clinical drills.'}
         action={!aiConfigured() && <Badge variant="warning" size="md"><Icon name="alert-triangle" size={12} /> AI not configured</Badge>}
       />
 
@@ -251,19 +330,27 @@ export default function ReviewerPage() {
         </Card>
       )}
 
-      {/* Upload section: add a reviewer and generate study items from it */}
+      {/* Upload section: course study sets generate automatically after the material is saved. */}
       <section className="upload-section" style={{ marginBottom: 24 }}>
         <div className="upload-section-header" style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
           <Icon name="upload" size={20} style={{ color: 'var(--primary)' }} />
           <div>
             <p style={{ margin: 0, fontSize: 10, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--muted-strong)' }}>Upload section</p>
-            <h3 style={{ margin: '2px 0 0', fontSize: 20, fontWeight: 700, color: 'var(--text)' }}>Add &amp; generate review materials</h3>
+            <h3 style={{ margin: '2px 0 0', fontSize: 20, fontWeight: 700, color: 'var(--text)' }}>
+              {isCourse ? 'Upload and auto-create study sets' : 'Add & generate review materials'}
+            </h3>
           </div>
         </div>
         <div className="grid grid-2">
           {/* Upload Reviewer */}
           <Card variant="elevated" ref={uploadCardRef}>
-          <CardHeader title="Upload Reviewer" icon="file-text" subtitle="PDF, DOCX, PPT/PPTX — processed by Gemini" />
+          <CardHeader
+            title="Upload Reviewer"
+            icon="file-text"
+            subtitle={isCourse
+              ? 'PDF, DOCX, PPT/PPTX — save once to automatically generate four study sets.'
+              : 'PDF, DOCX, PPT/PPTX — processed by Gemini'}
+          />
           <CardContent>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               <Input
@@ -276,21 +363,9 @@ export default function ReviewerPage() {
               />
 
               {isCourse ? (
-                <>
-                  <Input
-                    label="Subject"
-                    value={subject}
-                    onChange={e => setSubject(e.target.value)}
-                    placeholder="e.g. Medicinal Chemistry, Pharmacology, Pharmaceutics"
-                    leftIcon="book-open"
-                    fullWidth
-                    list="user-subjects-list"
-                    hint="Name the subject for this reviewer — it becomes one of your study subjects."
-                  />
-                  <datalist id="user-subjects-list">
-                    {customSubjects.map(s => <option key={s.id || s.name} value={s.name} />)}
-                  </datalist>
-                </>
+                <p style={{ margin: '-4px 0 0', fontSize: 12, color: 'var(--muted)' }}>
+                  Course reviewers are automatically grouped under <strong>{DEFAULT_COURSE_SUBJECT}</strong>.
+                </p>
               ) : (
                 <Select
                   label="PhLE Module / Subject"
@@ -332,11 +407,12 @@ export default function ReviewerPage() {
                 <Button variant="secondary" size="lg" leftIcon="upload" onClick={handleUpload} disabled={!file || !!busy} fullWidth style={{ maxWidth: 200 }}>
                   {fileReady ? 'File ready' : 'Check file'}
                 </Button>
-                <Button variant="primary" size="lg" leftIcon="save" onClick={saveMaterial} disabled={!!busy || !title || !file} fullWidth style={{ maxWidth: 200 }}>
-                  Save Material
+                <Button variant="primary" size="lg" leftIcon="save" onClick={saveMaterial} disabled={!!busy || !title || !file} fullWidth style={{ maxWidth: 240 }}>
+                  {isCourse && aiConfigured() ? 'Save & generate study sets' : 'Save Material'}
                 </Button>
               </div>
 
+              {!isCourse && (
               <div ref={generateCardRef} style={{ borderTop: '1px solid var(--border)', paddingTop: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
                 <div>
                   <span style={{ display: 'block', fontSize: 12, color: 'var(--muted)', marginBottom: 6, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>GENERATE FROM A SAVED MATERIAL</span>
@@ -347,39 +423,29 @@ export default function ReviewerPage() {
                     options={[{ value: '', label: 'Select material...' }, ...filteredMaterials.map(m => ({ value: m.id, label: `${m.title} — ${m.subject}` }))]}
                     leftIcon="book-open"
                     fullWidth
+                    hint={materials.length ? 'Choose a saved reviewer and a study format.' : 'Save a reviewer above before generating a study set.'}
                   />
                 </div>
-                <div style={{ display: 'grid', gap: 10 }}>
-                  <Button variant="primary" size="lg" leftIcon="book-open" onClick={() => { const m = materials.find(x => x.id === selectedMaterial); if (m) generate('flashcards', m) }} disabled={!!busy || !selectedMaterial} fullWidth>
-                    Generate Flashcards
-                  </Button>
-                  {isCourse ? (
-                    <>
-                      <Button variant="secondary" size="lg" leftIcon="file-text" onClick={() => { const m = materials.find(x => x.id === selectedMaterial); if (m) generate('mcq', m) }} disabled={!!busy || !selectedMaterial} fullWidth>
-                        Generate Multiple Choice
-                      </Button>
-                      <Button variant="secondary" size="lg" leftIcon="list-checks" onClick={() => { const m = materials.find(x => x.id === selectedMaterial); if (m) generate('enumeration', m) }} disabled={!!busy || !selectedMaterial} fullWidth>
-                        Generate Enumeration
-                      </Button>
-                      <Button variant="secondary" size="lg" leftIcon="search" onClick={() => { const m = materials.find(x => x.id === selectedMaterial); if (m) generate('identification', m) }} disabled={!!busy || !selectedMaterial} fullWidth>
-                        Generate Identification
-                      </Button>
-                    </>
-                  ) : (
-                    <>
-                      <Button variant="secondary" size="lg" leftIcon="file-text" onClick={() => { const m = materials.find(x => x.id === selectedMaterial); if (m) generate('mcq', m) }} disabled={!!busy || !selectedMaterial} fullWidth>
-                        Generate PhLE Situational MCQs
-                      </Button>
-                      <Button variant="secondary" size="lg" leftIcon="brain" onClick={() => { const m = materials.find(x => x.id === selectedMaterial); if (m) generate('diagnosis', m) }} disabled={!!busy || !selectedMaterial} fullWidth>
-                        Generate Clinical & Concept Diagnosis
-                      </Button>
-                      <Button variant="secondary" size="lg" leftIcon="chevron-up-down" onClick={() => { const m = materials.find(x => x.id === selectedMaterial); if (m) generate('sequence', m) }} disabled={!!busy || !selectedMaterial} fullWidth>
-                        Generate Priority & Sequence Ordering
-                      </Button>
-                    </>
-                  )}
-                </div>
+                <Select
+                  label="Study set type"
+                  value={generationType}
+                  onChange={e => setGenerationType(e.target.value as GeneratedStudySet)}
+                  options={generationOptions}
+                  leftIcon="book-open-text"
+                  fullWidth
+                />
+                <Button
+                  variant="primary"
+                  size="lg"
+                  leftIcon="sparkles"
+                  onClick={() => selectedMaterialRecord && generate(generationType, selectedMaterialRecord)}
+                  disabled={!!busy || !selectedMaterialRecord}
+                  fullWidth
+                >
+                  Generate study set
+                </Button>
               </div>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -392,7 +458,7 @@ export default function ReviewerPage() {
         <CardHeader
           title="Recent Flashcards"
           icon="book-open"
-          subtitle={`Your ${flashcards.length} most recently generated cards. Tap a card to flip it, or practice a subject.`}
+          subtitle={`Your ${flashcards.length} most recently generated cards. Open a card to view its prompt and answer, or practice the full set.`}
           action={flashcards.length > 0 ? (
             <Button variant="secondary" size="sm" leftIcon="book-open" onClick={() => navigate(`/practice?mode=flashcards`)}>Practice flashcards</Button>
           ) : null}
@@ -402,8 +468,10 @@ export default function ReviewerPage() {
             <EmptyState
               icon="book-open"
               title="No flashcards yet"
-              description="Generate flashcards from a saved material, then review them here."
-              action={filteredMaterials[0] ? { label: 'Generate your first cards', variant: 'primary', onClick: () => { setSelectedMaterial(filteredMaterials[0].id); document.getElementById('review-file-input')?.scrollIntoView({ behavior: 'smooth' }) } } : undefined}
+              description={isCourse
+                ? 'Save a course reviewer to automatically generate flashcards and practice sets.'
+                : 'Generate flashcards from a saved material, then review them here.'}
+              action={!isCourse && filteredMaterials[0] ? { label: 'Generate your first cards', variant: 'primary', onClick: () => { setSelectedMaterial(filteredMaterials[0].id); generateCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }) } } : undefined}
             />
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -425,7 +493,7 @@ export default function ReviewerPage() {
       </Card>
 
       {/* Saved Review Materials — generation happens per material row */}
-      <Card variant="outlined" ref={generateCardRef}>
+      <Card variant="outlined">
         <CardHeader
           title="Saved Review Materials"
           icon="file-text"

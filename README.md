@@ -11,7 +11,7 @@ A specialized study and assessment platform focused on **BS Pharmacy** and the *
 
 ## Core Features
 - **BS Pharmacy (PhLE) Study Setup**: Pre-configured around all 6 official Pharmacist Licensure Examination modules, TOS weights, prompts, and readiness analytics.
-- **Reviewer-to-Flashcards & Drills**: Upload Pharmacy review handouts/PDFs; AI extracts text and generates active-recall flashcards and situational drills tagged by PhLE module.
+- **Reviewer-to-Flashcards & Drills**: Upload Pharmacy review handouts/PDFs; AI extracts text and generates active-recall flashcards and situational drills tagged by PhLE module. In course mode, saving a reviewer automatically generates flashcards, multiple-choice, enumeration, and identification practice sets.
 - **PhLE-Style Assessment Modes**:
   - Situational MCQs with higher-order clinical and pharmaceutical science thinking and step-by-step rationales
   - Clinical & Concept Diagnosis (identify drug class, mechanism, disease, principle, pharmacy law, or formula from scenarios)
@@ -35,7 +35,7 @@ A specialized study and assessment platform focused on **BS Pharmacy** and the *
 3. **Provision Supabase**
    - Create a Supabase project.
    - Run the SQL in `supabase/schema.sql` in the SQL editor.
-   - Create a Storage bucket named `reviewers` (private) for PDF uploads.
+   - Create a private Storage bucket named `review-materials` for uploaded PDFs, DOCX, and presentation files.
 
 4. **Run locally**
    ```bash
