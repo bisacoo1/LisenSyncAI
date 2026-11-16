@@ -38,7 +38,7 @@ export default function ReviewerPage() {
   const [msg, setMsg] = useState<string | null>(null)
   const [err, setErr] = useState<string | null>(null)
   const [flashcards, setFlashcards] = useState<Flashcard[]>([])
-  const [selectedMaterial, setSelectedMaterial] = useState<string>('')
+  const [genTarget, setGenTarget] = useState<ReviewMaterial | null>(null)
   const [selectedCard, setSelectedCard] = useState<Flashcard | null>(null)
   const uploadCardRef = useRef<HTMLDivElement>(null)
   const generateCardRef = useRef<HTMLDivElement>(null)
@@ -76,7 +76,6 @@ export default function ReviewerPage() {
     const { data } = await supabase.from('review_materials').select('*').eq('user_id', profile.id).order('created_at', { ascending: false })
     const list = (data as ReviewMaterial[]) || []
     setMaterials(list)
-    if (list.length && !selectedMaterial) setSelectedMaterial(list[0].id)
     const { data: fc } = await supabase.from('flashcards').select('*').eq('user_id', profile.id).order('created_at', { ascending: false }).limit(30)
     setFlashcards((fc as Flashcard[]) || [])
     if (isCourse) {
@@ -137,7 +136,7 @@ export default function ReviewerPage() {
         mime_type: file.type,
         file_size: file.size,
         extracted_text: extractedText || null
-      }).select().single()
+      })
       if (error) throw error
       if (isCourse && subject.trim()) {
         await supabase.from('user_subjects').upsert(
@@ -152,17 +151,15 @@ export default function ReviewerPage() {
       addToast({ type: 'success', title: 'Material saved', message: title })
       setTitle(''); setFile(null); setFileReady(false)
       await loadMaterials()
-      if (data) setSelectedMaterial((data as ReviewMaterial).id)
     } catch (e: any) {
       if (storagePath) await removeReviewFile(storagePath)
       setErr(e.message)
     } finally { setBusy(null) }
   }
 
-  async function generate(type: 'flashcards' | PracticeType) {
+  async function generate(type: 'flashcards' | PracticeType, mat: ReviewMaterial) {
     if (!profile || !user || !program) return
-    const mat = materials.find(m => m.id === selectedMaterial)
-    if (!mat || (!mat.file_uri && !mat.extracted_text)) { setErr('Select a saved material with an uploaded file.'); return }
+    if (!mat || (!mat.file_uri && !mat.extracted_text)) { setErr('This material has no uploaded file or extracted text.'); return }
     if (!aiConfigured()) { setErr('AI is not configured. Set VITE_GEMINI_API_KEY in your environment.'); return }
     setErr(null); setMsg(null); setBusy(`Generating ${type}...`)
     try {
@@ -339,36 +336,6 @@ export default function ReviewerPage() {
           </CardContent>
         </Card>
 
-        {/* Generate Section */}
-        <Card variant="elevated" ref={generateCardRef}>
-          <CardHeader title="Generate from Saved Material" icon="brain" subtitle="Generates PhLE study items tagged to the material's BS Pharmacy module" />
-          <CardContent>
-            <Select
-              label="Material"
-              value={selectedMaterial}
-              onChange={e => setSelectedMaterial(e.target.value)}
-              options={[{ value: '', label: 'Select material...' }, ...filteredMaterials.map(m => ({ value: m.id, label: `${m.title} — ${m.subject}` }))]}
-              leftIcon="book-open"
-              fullWidth
-              style={{ marginBottom: 16 }}
-            />
-
-            <div style={{ display: 'grid', gap: 10 }}>
-              <Button variant="primary" size="lg" leftIcon="book-open" onClick={() => generate('flashcards')} disabled={!!busy || !selectedMaterial} fullWidth>
-                Generate Flashcards
-              </Button>
-              <Button variant="secondary" size="lg" leftIcon="file-text" onClick={() => generate('mcq')} disabled={!!busy || !selectedMaterial} fullWidth>
-                Generate PhLE Situational MCQs
-              </Button>
-              <Button variant="secondary" size="lg" leftIcon="brain" onClick={() => generate('diagnosis')} disabled={!!busy || !selectedMaterial} fullWidth>
-                Generate Clinical & Concept Diagnosis
-              </Button>
-              <Button variant="secondary" size="lg" leftIcon="chevron-up-down" onClick={() => generate('sequence')} disabled={!!busy || !selectedMaterial} fullWidth>
-                Generate Priority & Sequence Ordering
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
         </div>
       </section>
 
@@ -387,13 +354,13 @@ export default function ReviewerPage() {
             <EmptyState
               icon="book-open"
               title="No flashcards yet"
-              description="Generate flashcards from a saved material above, then review them here."
-              action={{ label: 'Generate your first cards', variant: 'primary', onClick: () => setSelectedMaterial(filteredMaterials[0]?.id || '') }}
+              description="Generate flashcards from a saved material, then review them here."
+              action={filteredMaterials[0] ? { label: 'Generate your first cards', variant: 'primary', onClick: () => setGenTarget(filteredMaterials[0]) } : undefined}
             />
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {flashcards.slice(0, 10).map(f => (
-                <button type="button" key={f.id} className="reviewer-flashcard" onClick={() => { setSelectedCard(f); setSelectedMaterial('') }}>
+                <button type="button" key={f.id} className="reviewer-flashcard" onClick={() => setSelectedCard(f)}>
                   <Badge variant="primary" size="sm">{f.subject}</Badge>
                   <span title={f.front}>{f.front}</span>
                   <Icon name="arrow-up-right" size={16} />
@@ -409,8 +376,8 @@ export default function ReviewerPage() {
         </CardContent>
       </Card>
 
-      {/* Saved Review Materials — moved up front so older materials are easy to find */}
-      <Card variant="outlined">
+      {/* Saved Review Materials — generation happens per material row */}
+      <Card variant="outlined" ref={generateCardRef}>
         <CardHeader
           title="Saved Review Materials"
           icon="file-text"
@@ -477,7 +444,7 @@ export default function ReviewerPage() {
                       <th style={{ width: 200 }}>Source</th>
                       <th style={{ width: 100 }}>Size</th>
                       <th style={{ width: 160 }}>Created</th>
-                      <th style={{ width: 170 }}>Action</th>
+                      <th style={{ width: 200 }}>Action</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -489,9 +456,14 @@ export default function ReviewerPage() {
                         <td className="muted" style={{ fontSize: 13 }}>{m.file_size ? `${(m.file_size / 1024 / 1024).toFixed(2)} MB` : '—'}</td>
                         <td className="muted" style={{ fontSize: 13 }}>{new Date(m.created_at).toLocaleString()}</td>
                         <td>
-                          <Button variant="outline" size="sm" onClick={() => navigate(`/side-by-side/${m.id}`)} fullWidth leftIcon="file-text">
-                            Open Reader
-                          </Button>
+                          <div style={{ display: 'flex', gap: 6 }}>
+                            <Button variant="outline" size="sm" onClick={() => navigate(`/side-by-side/${m.id}`)} leftIcon="file-text">
+                              Reader
+                            </Button>
+                            <Button variant="secondary" size="sm" onClick={() => setGenTarget(m)} leftIcon="brain" disabled={!!busy}>
+                              Generate
+                            </Button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -502,6 +474,29 @@ export default function ReviewerPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Generate Study Items Modal */}
+      <Modal open={!!genTarget} onClose={() => setGenTarget(null)} title={genTarget ? `Generate from “${genTarget.title}”` : 'Generate'} size="md">
+        {genTarget && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <p className="muted" style={{ margin: 0, fontSize: 13 }}>
+              Items are tagged to <Badge variant="primary" size="sm">{genTarget.subject}</Badge> and generated by AI from this material.
+            </p>
+            <Button variant="primary" size="lg" leftIcon="book-open" fullWidth disabled={!!busy} onClick={async () => { const m = genTarget; setGenTarget(null); await generate('flashcards', m) }}>
+              Generate Flashcards
+            </Button>
+            <Button variant="secondary" size="lg" leftIcon="file-text" fullWidth disabled={!!busy} onClick={async () => { const m = genTarget; setGenTarget(null); await generate('mcq', m) }}>
+              Generate PhLE Situational MCQs
+            </Button>
+            <Button variant="secondary" size="lg" leftIcon="brain" fullWidth disabled={!!busy} onClick={async () => { const m = genTarget; setGenTarget(null); await generate('diagnosis', m) }}>
+              Generate Clinical & Concept Diagnosis
+            </Button>
+            <Button variant="secondary" size="lg" leftIcon="chevron-up-down" fullWidth disabled={!!busy} onClick={async () => { const m = genTarget; setGenTarget(null); await generate('sequence', m) }}>
+              Generate Priority & Sequence Ordering
+            </Button>
+          </div>
+        )}
+      </Modal>
 
       {/* Flashcard Detail Modal */}
       {selectedCard && (
