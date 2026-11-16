@@ -133,10 +133,10 @@ export function Sidebar({
 
       <div className="sidebar-bottom">
         <div className="sidebar-note">
-          <Icon name="pill" size={17} />
+          <div className="sidebar-note-rx" aria-hidden="true">Rx</div>
           <span>
-            <strong>A little, every day.</strong>
-            <small>One step closer to RPh.</small>
+            <strong>Daily PhLE Dose</strong>
+            <small>Steady recall builds clinical mastery.</small>
           </span>
         </div>
         {user && (

@@ -6,7 +6,7 @@ import { Icon, type IconName } from '@/components/ui'
 import { PHARMACY_PROGRAM } from '@/lib/syllabus'
 import { PASSING_RATE } from '@/types'
 import { supabase, supabaseConfigured } from '@/lib/supabase'
-import studyDesk from '@/assets/study-desk.jpg'
+import pharmacyHero from '@/assets/pharmacy-hero.jpg'
 
 const steps: { number: string; icon: IconName; title: string; description: string; note: string }[] = [
   {
@@ -151,13 +151,16 @@ export default function LandingPage() {
           </div>
 
           <div className="landing-hero-visual">
-            <img src={studyDesk} alt="An open notebook and pencil on a sunlit Pharmacy study desk" />
+            <img
+              src={pharmacyHero}
+              alt="A clinical pharmacy study desk with porcelain mortar and pestle, laboratory flasks, amber bottle, navy reference books, and open notebook"
+            />
             <div className="hero-image-overlay" />
             <div className="hero-image-top">
               <span>
                 <Icon name="flask" size={15} /> BS PHARMACY · PhLE
               </span>
-              <span>06 MODULES / THE REVIEW</span>
+              <span>06 MODULES / CLINICAL REVIEW</span>
             </div>
             <div className="hero-stamp" aria-label="75 percent PhLE passing benchmark">
               <span>PhLE GOAL</span>
@@ -170,29 +173,29 @@ export default function LandingPage() {
             <div className="hero-note-card">
               <div className="hero-note-header">
                 <span>
-                  <Icon name="list-checks" size={17} /> THE PhLE STUDY FLOW
+                  <span className="rx-pill-tag" aria-hidden="true">Rx</span> PhLE STUDY PLAN
                 </span>
-                <span>01 — 03</span>
+                <span>06 MODULES</span>
               </div>
               <div className="hero-note-row">
-                <span>01</span>
-                <strong>Upload Pharmacy handouts</strong>
-                <Icon name="check" size={15} />
+                <span>M1</span>
+                <strong>Pharmaceutical Chemistry</strong>
+                <span className="hero-note-weight">20%</span>
               </div>
               <div className="hero-note-row">
-                <span>02</span>
-                <strong>Drill drugs &amp; clinical cases</strong>
-                <Icon name="check" size={15} />
+                <span>M3</span>
+                <strong>Practice of Pharmacy</strong>
+                <span className="hero-note-weight">17%</span>
               </div>
               <div className="hero-note-row">
-                <span>03</span>
-                <strong>Master all 6 PhLE modules</strong>
-                <Icon name="arrow-up-right" size={15} />
+                <span>M4</span>
+                <strong>Pharmacology &amp; PK</strong>
+                <span className="hero-note-weight">15%</span>
               </div>
             </div>
             <div className="hero-photo-caption">
-              <span>PHARMACY STUDY SESSIONS</span>
-              <span>THAT ADD UP TO RPh.</span>
+              <span>CLINICAL MASTERY</span>
+              <span>BUILT FOR FUTURE RPh.</span>
             </div>
           </div>
         </section>
@@ -327,6 +330,9 @@ export default function LandingPage() {
                     <small>{mod.moduleCode.toUpperCase()}</small>
                     <strong>{mod.name}</strong>
                     <span className="program-desc">{mod.description}</span>
+                    <span className="module-tos-bar" aria-hidden="true">
+                      <span style={{ width: `${Math.min(100, mod.weightPercent * 4.5)}%` }} />
+                    </span>
                   </span>
                   <span className="program-weight" aria-label={`${mod.weightPercent} percent exam weight`}>
                     {mod.weightPercent}%
