@@ -10,6 +10,8 @@ const LILO_MOTION_STORAGE_KEY = 'lilo-animations-enabled'
 interface LiloSpeechPanelProps {
   text: string
   reaction?: 'laughing'
+  answerCorrect?: boolean
+  answerText?: string
   readyPromptOpen: boolean
   announceReadyPrompt: boolean
   onReadyPromptAnnounced: () => void
@@ -26,6 +28,8 @@ const LILO_LINES = [
 export default function LiloSpeechPanel({
   text,
   reaction,
+  answerCorrect,
+  answerText,
   readyPromptOpen,
   announceReadyPrompt,
   onReadyPromptAnnounced,
@@ -143,12 +147,18 @@ export default function LiloSpeechPanel({
   }, [announceReadyPrompt, onReadyPromptAnnounced, speakMessage])
 
   useEffect(() => {
-    if (reaction !== 'laughing') return
+    if (answerCorrect === undefined) return
+    const correctAnswer = answerText?.trim()
+    const message = answerCorrect
+      ? correctAnswer ? `Correct! The answer is ${correctAnswer}.` : 'Correct!'
+      : correctAnswer
+        ? `Ha ha! Let's try again. The correct answer is ${correctAnswer}.`
+        : "Ha ha! Let's try again."
     const timeout = window.setTimeout(() => {
-      speakMessage("Ha ha! That's okay, let's try again.")
+      speakMessage(message)
     }, 0)
     return () => window.clearTimeout(timeout)
-  }, [reaction, speakMessage])
+  }, [answerCorrect, answerText, speakMessage])
 
   function speak() {
     const message = text.trim()

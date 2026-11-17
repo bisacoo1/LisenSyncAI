@@ -476,7 +476,29 @@ export default function PracticePage() {
     ].filter(Boolean).join(' ')
   }
 
+  function correctAnswerSpeechText(): string {
+    if (!current) return ''
+
+    if (mode === 'mcq') {
+      const question = current.question as McqQuestion
+      const answer = current.answer as McqAnswer
+      const option = question.options[answer.correctIndex]
+      return option ? `Option ${String.fromCharCode(65 + answer.correctIndex)}: ${option}` : ''
+    }
+
+    if (mode === 'sequence') {
+      return (current.answer as SequenceAnswer).order.join(', then ')
+    }
+
+    if (mode === 'enumeration') {
+      return ((current.answer as EnumerationAnswer).items || []).join(', ')
+    }
+
+    return (current.answer as DiagnosisAnswer).expected
+  }
+
   const speechText = studySpeechText()
+  const correctAnswerText = correctAnswerSpeechText()
 
   useEffect(() => {
     if (readyPromptScheduled.current || loading || !speechText.trim()) return
@@ -1112,6 +1134,8 @@ export default function PracticePage() {
           key={speechContextKey}
           text={speechText}
           reaction={feedback?.correct === false ? 'laughing' : undefined}
+          answerCorrect={feedback?.correct}
+          answerText={correctAnswerText}
           readyPromptOpen={readyPromptOpen}
           announceReadyPrompt={readyPromptOpen && !readyPromptAnnounced}
           onReadyPromptAnnounced={markReadyPromptAnnounced}
