@@ -3,7 +3,6 @@ import avatar512 from '@/assets/mascot/mascot-avatar-512.png'
 import avatar256 from '@/assets/mascot/mascot-avatar-256.png'
 import avatarRound from '@/assets/mascot/mascot-avatar-round-256.png'
 import speaking from '@/assets/mascot/mascot-speaking-1200.png'
-import idle from '@/assets/mascot/lilo-idle.webm'
 
 /**
  * Mascot: "Lilo" — the LisenSync AI pharmacist owl.
@@ -40,7 +39,11 @@ const SOURCES = {
   square: avatar512,
   squareHi: avatar256,
   speaking,
-  idle,
+  idle: {
+    webm: 'https://assets.masko.ai/751533/lilo-b467/idle-519ed8d1.webm',
+    mov: 'https://assets.masko.ai/751533/lilo-b467/idle-7ba4dc84.mov',
+    mp4: 'https://assets.masko.ai/751533/lilo-b467/idle-f6d261f3.mp4',
+  },
   laughing: {
     webm: 'https://assets.masko.ai/fbb854/lilo-6325/idle-9bff2d51.webm',
     mov: 'https://assets.masko.ai/fbb854/lilo-6325/idle-150942d5.mov',
@@ -75,6 +78,7 @@ export function TtsMascot({
     resolved === 'speaking' ? size * 1.25 : size
   const shouldAnimate = motionEnabled ?? !prefersReducedMotion
   const isLaughing = reaction === 'laughing' && !isSpeaking
+  const animationSources = isLaughing ? SOURCES.laughing : SOURCES.idle
 
   return (
     <span
@@ -104,15 +108,9 @@ export function TtsMascot({
           width={width}
           height={width}
         >
-          {isLaughing ? (
-            <>
-              <source src={SOURCES.laughing.webm} type="video/webm" />
-              <source src={SOURCES.laughing.mov} type="video/quicktime" />
-              <source src={SOURCES.laughing.mp4} type="video/mp4" />
-            </>
-          ) : (
-            <source src={SOURCES.idle} type="video/webm" />
-          )}
+          <source src={animationSources.webm} type="video/webm" />
+          <source src={animationSources.mov} type="video/quicktime" />
+          <source src={animationSources.mp4} type="video/mp4" />
         </video>
       ) : (
         <img
