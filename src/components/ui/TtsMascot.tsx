@@ -26,6 +26,7 @@ type Props = {
   variant?: TtsMascotVariant
   /** Visually indicates TTS is currently playing (adds a cyan pulse ring). */
   speaking?: boolean
+  reaction?: 'laughing'
   /** Accessible label; omit for purely decorative placements. */
   label?: string
   className?: string
@@ -38,12 +39,18 @@ const SOURCES = {
   squareHi: avatar256,
   speaking,
   idle,
+  laughing: {
+    webm: 'https://assets.masko.ai/fbb854/lilo-6325/idle-9bff2d51.webm',
+    mov: 'https://assets.masko.ai/fbb854/lilo-6325/idle-150942d5.mov',
+    mp4: 'https://assets.masko.ai/fbb854/lilo-6325/idle-5c118410.mp4',
+  },
 }
 
 export function TtsMascot({
   size = 96,
   variant = 'auto',
   speaking: isSpeaking = false,
+  reaction,
   label,
   className,
   style,
@@ -76,6 +83,7 @@ export function TtsMascot({
 
   const width =
     resolved === 'speaking' ? size * 1.25 : size
+  const isLaughing = reaction === 'laughing' && !isSpeaking
 
   return (
     <span
@@ -83,6 +91,7 @@ export function TtsMascot({
         'tts-mascot',
         `tts-mascot--${resolved}`,
         isSpeaking ? 'is-speaking' : '',
+        isLaughing ? 'is-laughing' : '',
         className ?? '',
       ]
         .filter(Boolean)
@@ -91,7 +100,7 @@ export function TtsMascot({
     >
       {resolved === 'idle' ? (
         <video
-          src={SOURCES.idle}
+          key={isLaughing ? 'laughing' : 'idle'}
           autoPlay={!prefersReducedMotion}
           loop
           muted
@@ -102,7 +111,17 @@ export function TtsMascot({
           role={label ? 'img' : undefined}
           width={width}
           height={width}
-        />
+        >
+          {isLaughing ? (
+            <>
+              <source src={SOURCES.laughing.webm} type="video/webm" />
+              <source src={SOURCES.laughing.mov} type="video/quicktime" />
+              <source src={SOURCES.laughing.mp4} type="video/mp4" />
+            </>
+          ) : (
+            <source src={SOURCES.idle} type="video/webm" />
+          )}
+        </video>
       ) : (
         <img
           src={src}

@@ -885,7 +885,11 @@ export default function PracticePage() {
       {levelUp != null && <LevelUpCelebration level={levelUp} onClose={() => setLevelUp(null)} />}
       </div>
       <aside className="practice-companion" aria-label="Study with Lilo">
-        <LiloSpeechPanel key={speechContextKey} text={studySpeechText()} />
+        <LiloSpeechPanel
+          key={speechContextKey}
+          text={studySpeechText()}
+          reaction={feedback?.correct === false ? 'laughing' : undefined}
+        />
       </aside>
       </div>
       {modeTabs.filter(tab => tab.value !== mode).map(tab => (

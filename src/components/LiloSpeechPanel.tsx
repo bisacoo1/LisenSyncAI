@@ -6,6 +6,7 @@ import { useToast } from '@/components/ui/Toast'
 
 interface LiloSpeechPanelProps {
   text: string
+  reaction?: 'laughing'
 }
 
 const LILO_LINES = [
@@ -15,7 +16,7 @@ const LILO_LINES = [
   "Take your time. Kaya mo 'yan.",
 ]
 
-export default function LiloSpeechPanel({ text }: LiloSpeechPanelProps) {
+export default function LiloSpeechPanel({ text, reaction }: LiloSpeechPanelProps) {
   const { addToast } = useToast()
   const [isSpeaking, setIsSpeaking] = useState(false)
   const [spokenText, setSpokenText] = useState('')
@@ -101,7 +102,7 @@ export default function LiloSpeechPanel({ text }: LiloSpeechPanelProps) {
 
   return (
     <div className="lilo-speech-widget">
-      <TtsMascot size={240} variant="idle" speaking={isSpeaking} />
+      <TtsMascot size={240} variant="idle" speaking={isSpeaking} reaction={reaction} />
       <Button
         className="lilo-speech-launcher"
         variant="outline"
