@@ -7,7 +7,7 @@ import { generateStudyHint } from '@/lib/ai'
 import { checkDiagnosis, checkEnumeration, checkSequence, computeProfileStatsUpdate } from '@/lib/analytics'
 import { isCardDue, scheduleReview, type ReviewQuality } from '@/lib/srs'
 import type { Flashcard, McqAnswer, McqQuestion, PracticeItem, PracticeType, SequenceAnswer, SequenceQuestion, DiagnosisAnswer, DiagnosisQuestion, EnumerationAnswer, Profile } from '@/types'
-import { Card, CardHeader, CardContent, Button, Badge, Icon, EmptyState, Tabs, useToast, type TabItem } from '@/components/ui'
+import { AnimatedNumber, Card, CardHeader, CardContent, Button, Badge, Icon, EmptyState, Tabs, useToast, type TabItem } from '@/components/ui'
 import LevelUpCelebration from '@/components/LevelUpCelebration'
 import AiHelper from '@/components/AiHelper'
 import LiloSpeechPanel from '@/components/LiloSpeechPanel'
@@ -427,7 +427,7 @@ export default function PracticePage() {
         <section className="practice-session-progress" aria-label={`${selectedModeLabel} session progress`}>
           <div className="practice-session-progress-copy">
             <span>{selectedModeLabel}</span>
-            <span>{sessionLabel} {idx + 1} of {sessionLength}</span>
+            <span>{sessionLabel} <AnimatedNumber value={idx + 1} duration={420} /> of {sessionLength}</span>
           </div>
           <div
             className="practice-progress-track"
@@ -497,7 +497,7 @@ export default function PracticePage() {
 
       {/* Flashcards Mode */}
       {!loading && !empty && !done && mode === 'flashcards' && currentCard && (
-        <Card variant="elevated" className="practice-question-card">
+        <Card key={`${mode}-${idx}`} variant="elevated" className="practice-question-card">
           <CardContent className="practice-question-content">
             <div className="practice-question-meta">
               <Badge variant="primary" size="sm">{currentCard.subject}</Badge>
@@ -544,7 +544,7 @@ export default function PracticePage() {
 
       {/* MCQ Mode */}
       {!loading && !empty && !done && current && mode === 'mcq' && (
-        <Card variant="elevated" className="practice-question-card">
+        <Card key={`${mode}-${idx}`} variant="elevated" className="practice-question-card">
           <CardContent className="practice-question-content">
             <div className="practice-question-meta">
               <Badge variant="primary" size="md">{current.subject} · Multiple choice</Badge>
@@ -610,7 +610,7 @@ export default function PracticePage() {
 
       {/* Diagnosis Mode */}
       {!loading && !empty && !done && current && mode === 'diagnosis' && (
-        <Card variant="elevated" className="practice-question-card">
+        <Card key={`${mode}-${idx}`} variant="elevated" className="practice-question-card">
           <CardContent className="practice-question-content">
             <div className="practice-question-meta">
               <Badge variant="primary" size="md">{current.subject} · Clinical &amp; Concept Diagnosis</Badge>
@@ -670,7 +670,7 @@ export default function PracticePage() {
 
       {/* Sequence Mode */}
       {!loading && !empty && !done && current && mode === 'sequence' && (
-        <Card variant="elevated" className="practice-question-card">
+        <Card key={`${mode}-${idx}`} variant="elevated" className="practice-question-card">
           <CardContent className="practice-question-content">
             <div className="practice-question-meta">
               <Badge variant="primary" size="md">{current.subject} · Priority &amp; Sequence Ordering</Badge>
@@ -733,7 +733,7 @@ export default function PracticePage() {
 
       {/* Identification Mode (course track) */}
       {!loading && !empty && !done && current && mode === 'identification' && (
-        <Card variant="elevated" className="practice-question-card">
+        <Card key={`${mode}-${idx}`} variant="elevated" className="practice-question-card">
           <CardContent className="practice-question-content">
             <div className="practice-question-meta">
               <Badge variant="primary" size="md">{current.subject} · Identification</Badge>
@@ -799,7 +799,7 @@ export default function PracticePage() {
 
       {/* Enumeration Mode (course track) */}
       {!loading && !empty && !done && current && mode === 'enumeration' && (
-        <Card variant="elevated" className="practice-question-card">
+        <Card key={`${mode}-${idx}`} variant="elevated" className="practice-question-card">
           <CardContent className="practice-question-content">
             <div className="practice-question-meta">
               <Badge variant="primary" size="md">{current.subject} · Enumeration</Badge>

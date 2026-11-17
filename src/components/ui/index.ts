@@ -13,6 +13,8 @@ export { Modal, ConfirmDialog, type ModalProps, type ConfirmDialogProps } from '
 export { SegControl, type SegControlProps, type SegControlOption } from './SegControl'
 export { Table, TableHeader, TableBody, TableRow, TableCell, TableHead, type TableProps } from './Table'
 export { Tooltip, type TooltipProps } from './Tooltip'
+export { AnimatedNumber, type AnimatedNumberProps } from './AnimatedNumber'
+export { Reveal, type RevealProps } from './Reveal'
 
 export { TtsMascot, TtsListenButtonContent, MASCOT_NAME, type TtsMascotVariant } from './TtsMascot'
 export { TtsMascotCard } from './TtsMascotCard'

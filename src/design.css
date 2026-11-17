@@ -337,7 +337,7 @@ input::placeholder, textarea::placeholder { color: var(--muted); opacity: 1; }
 .countdown-content { flex: 1; padding: 24px 0 14px; }
 .countdown-overline { color: #55668f; }
 .countdown-content h2 { margin: 8px 0; color: #12233d; font-family: var(--font-display); font-size: 30px; font-weight: 400; letter-spacing: -.03em; line-height: 1.1; }
-.countdown-content h2 span { font-size: 23px; color: #43567a; }
+.countdown-content h2 > span:not(.animated-number) { font-size: 23px; color: #43567a; }
 .countdown-content p { margin: 0; color: #4e6280; font-size: 12px; line-height: 1.6; }
 .countdown-form label { display: block; margin-bottom: 8px; color: #4c5e85; font-size: 9px; font-weight: 700; letter-spacing: .1em; }
 .countdown-form > div { display: flex; gap: 7px; }
@@ -463,7 +463,7 @@ input::placeholder, textarea::placeholder { color: var(--muted); opacity: 1; }
 .practice-reload-button { min-height: 44px; white-space: nowrap; }
 .practice-session-progress { max-width: 900px; margin: 0 auto 14px; padding: 0 2px; }
 .practice-session-progress-copy { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 9px; color: var(--muted); font-size: 12px; font-weight: 600; }
-.practice-session-progress-copy span:first-child { color: var(--text); font-size: 13px; font-weight: 700; }
+.practice-session-progress-copy > span:first-child { color: var(--text); font-size: 13px; font-weight: 700; }
 .practice-progress-track { height: 7px; overflow: hidden; border-radius: 999px; background: var(--panel-3); }
 .practice-progress-track > span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--primary), var(--accent)); transition: width 180ms ease; }
 
@@ -598,7 +598,7 @@ input::placeholder, textarea::placeholder { color: var(--muted); opacity: 1; }
 .landing-activity-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
 .landing-activity-stat { min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 8px; padding: 16px; border-left: 1px solid #cfddf0; color: #1d56a8; }
 .landing-activity-stat strong { color: #10233e; font-family: var(--font-display); font-size: 28px; font-weight: 400; line-height: 1; }
-.landing-activity-stat span { color: #526785; font-size: 11px; line-height: 1.4; }
+.landing-activity-stat > span { color: #526785; font-size: 11px; line-height: 1.4; }
 
 /* BS Pharmacy (PhLE) syllabus showcase, banners, and module cells */
 @media (min-width: 681px) {
@@ -607,7 +607,7 @@ input::placeholder, textarea::placeholder { color: var(--muted); opacity: 1; }
 .syllabus-spec-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; max-width: 410px; margin: 28px 0 32px; padding: 18px 0; border-top: 1px solid rgba(191, 219, 254, .22); border-bottom: 1px solid rgba(191, 219, 254, .22); }
 .syllabus-spec-item { display: flex; flex-direction: column; gap: 4px; }
 .syllabus-spec-item strong { color: #f8fbff; font-family: var(--font-display); font-size: 28px; font-weight: 400; line-height: 1; }
-.syllabus-spec-item span { color: #b5cbe8; font-size: 10px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; }
+.syllabus-spec-item > span { color: #b5cbe8; font-size: 10px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; }
 .program-row--module { gap: 16px; padding: 16px 0; align-items: flex-start; }
 .program-row--module .program-number { padding-top: 12px; font-variant-numeric: tabular-nums; }
 .program-row--module .program-icon { flex-shrink: 0; color: #93c5fd; border-color: rgba(147, 197, 253, .3); background: rgba(147, 197, 253, .08); }
@@ -1040,12 +1040,12 @@ textarea:focus-visible, [tabindex]:focus-visible {
   border-color: #35618a;
 }
 :root.dark .countdown-top, :root.dark .countdown-overline, :root.dark .countdown-content h2,
-:root.dark .countdown-content h2 span, :root.dark .countdown-content p, :root.dark .countdown-form label,
+:root.dark .countdown-content h2 > span:not(.animated-number), :root.dark .countdown-content p, :root.dark .countdown-form label,
 :root.dark .panel-title h3, :root.dark .toolkit-card h3, :root.dark .focus-panel h3,
 :root.dark .focus-panel p, :root.dark .focus-panel li {
   color: var(--text);
 }
-:root.dark .countdown-content h2 span { color: var(--text-dim); }
+:root.dark .countdown-content h2 > span:not(.animated-number) { color: var(--text-dim); }
 :root.dark .countdown-icon, :root.dark .focus-icon { background: var(--accent-bg); color: var(--accent); }
 :root.dark .countdown-form input { border-color: var(--border-strong); background: var(--panel); color: var(--text); }
 :root.dark .section-link, :root.dark .study-plan-step-action, :root.dark .toolkit-action,
@@ -1068,7 +1068,7 @@ textarea:focus-visible, [tabindex]:focus-visible {
 :root.dark .landing-header { border-color: var(--border); background: rgba(18, 29, 30, .96); }
 :root.dark .landing-nav-links a, :root.dark .landing-sign-in,
 :root.dark .landing-hero-copy > p, :root.dark .section-intro > p,
-:root.dark .landing-activity-intro p, :root.dark .landing-activity-stat span {
+:root.dark .landing-activity-intro p, :root.dark .landing-activity-stat > span {
   color: var(--text-dim);
 }
 :root.dark .landing-hero h1, :root.dark .section-intro h2,
@@ -1088,7 +1088,7 @@ textarea:focus-visible, [tabindex]:focus-visible {
   :root:not(.light) .landing-header { border-color: var(--border); background: rgba(18, 29, 30, .96); }
   :root:not(.light) .landing-nav-links a, :root:not(.light) .landing-sign-in,
   :root:not(.light) .landing-hero-copy > p, :root:not(.light) .section-intro > p,
-  :root:not(.light) .landing-activity-intro p, :root:not(.light) .landing-activity-stat span {
+  :root:not(.light) .landing-activity-intro p, :root:not(.light) .landing-activity-stat > span {
     color: var(--text-dim);
   }
   :root:not(.light) .landing-hero h1, :root:not(.light) .section-intro h2,
@@ -1280,4 +1280,411 @@ textarea:focus-visible, [tabindex]:focus-visible {
   .course-overview-panel { padding: 18px; }
   .course-overview-metrics { grid-template-columns: minmax(0, 1fr); }
   .course-overview-metric:last-child { grid-column: auto; }
+}
+
+/* ==========================================================================
+   Motion system — purposeful, short, compositor-friendly animation.
+   Tokens: fast feedback (140ms), base state changes (240ms), expressive
+   entrances (420–900ms). Everything is disabled by the reduced-motion rule
+   above, and JS-driven counters check the same media query.
+   ========================================================================== */
+:root {
+  --motion-fast: 140ms;
+  --motion-base: 240ms;
+  --motion-slow: 420ms;
+  --motion-ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --motion-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Animated counters keep tabular figures so the layout never jitters. */
+.animated-number {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+  display: inline-block;
+  white-space: nowrap;
+}
+/* Descendant text rules elsewhere must not shrink/recolor animated digits. */
+.animated-number,
+.animated-number > span {
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  font-style: inherit;
+  line-height: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  color: inherit;
+}
+
+/* Scroll reveal (progressive enhancement — JS toggles .is-visible). */
+.reveal {
+  opacity: 0;
+  transform: translate3d(0, var(--reveal-distance, 16px), 0);
+  transition:
+    opacity 520ms var(--motion-ease) var(--reveal-delay, 0ms),
+    transform 640ms var(--motion-ease) var(--reveal-delay, 0ms);
+}
+.reveal.is-visible {
+  opacity: 1;
+  transform: translate3d(0, 0, 0);
+}
+
+@keyframes rise-in {
+  from { opacity: 0; transform: translate3d(0, 12px, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+@keyframes pop-in {
+  0% { opacity: 0; transform: scale(0.9); }
+  65% { opacity: 1; transform: scale(1.025); }
+  100% { opacity: 1; transform: scale(1); }
+}
+@keyframes grow-x {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+@keyframes shimmer {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+@keyframes stripe {
+  from { background-position: 0 0; }
+  to { background-position: 20px 0; }
+}
+@keyframes dash {
+  0% { stroke-dashoffset: 90; }
+  50% { stroke-dashoffset: 20; }
+  100% { stroke-dashoffset: 90; }
+}
+@keyframes progress-sheen {
+  0% { transform: translateX(-100%); }
+  60%, 100% { transform: translateX(100%); }
+}
+@keyframes soft-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.72; transform: scale(1.04); }
+}
+@keyframes flame-sway {
+  0%, 100% { transform: rotate(-4deg) scale(1); }
+  50% { transform: rotate(4deg) scale(1.06); }
+}
+@keyframes attention-ring {
+  0% { box-shadow: 0 0 0 0 rgba(29, 86, 168, 0.28); }
+  70% { box-shadow: 0 0 0 10px rgba(29, 86, 168, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(29, 86, 168, 0); }
+}
+@keyframes orbit-drift {
+  from { background-position: 0 0; }
+  to { background-position: 44px 44px; }
+}
+@keyframes urgent-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+
+/* --- Dashboard: readiness + momentum --- */
+@property --readiness-fill {
+  syntax: '<percentage>';
+  inherits: false;
+  initial-value: 0%;
+}
+
+.readiness-orbit {
+  --readiness-fill: 0%;
+  background: conic-gradient(#7dd3fc var(--readiness-fill), rgba(191, 219, 254, 0.16) 0);
+  animation: readiness-sweep 1100ms var(--motion-ease) 120ms both;
+  box-shadow: 0 0 0 1px rgba(147, 197, 253, 0.22), 0 12px 30px rgba(4, 12, 26, 0.28);
+}
+@keyframes readiness-sweep {
+  from { --readiness-fill: 0%; }
+}
+
+.readiness-panel::before {
+  animation: orbit-drift 26s linear infinite;
+}
+.readiness-score {
+  animation: pop-in 620ms var(--motion-spring) 140ms both;
+}
+.readiness-progress > span {
+  transform-origin: left center;
+  animation: grow-x 1s var(--motion-ease) 240ms both;
+}
+.readiness-progress > i {
+  opacity: 0;
+  animation: fadeIn 300ms ease 1.15s forwards;
+}
+
+.course-overview-metric > strong {
+  animation: rise-in 560ms var(--motion-ease) both;
+}
+.course-overview-metric:nth-child(2) > strong { animation-delay: 90ms; }
+.course-overview-metric:nth-child(3) > strong { animation-delay: 180ms; }
+.course-overview-metric--link:hover {
+  transform: translateY(-2px);
+}
+.course-overview-metric {
+  transition: transform var(--motion-base) var(--motion-ease),
+    border-color var(--motion-base) var(--motion-ease),
+    box-shadow var(--motion-base) var(--motion-ease);
+}
+
+.momentum-card {
+  transition: transform var(--motion-base) var(--motion-ease),
+    border-color var(--motion-base) var(--motion-ease),
+    box-shadow var(--motion-base) var(--motion-ease);
+}
+.momentum-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+.momentum-card--link:active,
+.course-overview-metric--link:active,
+.study-plan-step:active,
+.method-card:active {
+  transform: translateY(0) scale(0.995);
+}
+.momentum-icon {
+  transition: transform var(--motion-base) var(--motion-spring), background-color var(--motion-base) ease;
+}
+.momentum-card:hover .momentum-icon {
+  transform: scale(1.07) rotate(-3deg);
+}
+.momentum-icon.amber svg {
+  animation: flame-sway 3.4s ease-in-out infinite;
+  transform-origin: 50% 85%;
+}
+.momentum-card--attention .momentum-icon {
+  animation: attention-ring 2.8s var(--motion-ease) 1.2s infinite;
+}
+.momentum-card--attention .momentum-icon.sky svg {
+  animation: soft-pulse 2.6s ease-in-out infinite;
+}
+
+/* --- Cards, list rows and press feedback --- */
+.method-card:hover { transform: translateY(-3px); }
+.toolkit-card:active { transform: translateY(0) scale(0.995); }
+.progress-insight {
+  transition: border-color var(--motion-base) var(--motion-ease),
+    transform var(--motion-base) var(--motion-ease),
+    box-shadow var(--motion-base) var(--motion-ease);
+}
+.progress-insight:hover {
+  transform: translateY(-1px);
+  border-color: var(--primary-border);
+  box-shadow: var(--shadow-sm);
+}
+.reviewer-folder-card:hover,
+.reviewer-mode-card:hover {
+  transform: translateY(-2px);
+}
+.reviewer-folder-card:active,
+.reviewer-mode-card:active {
+  transform: translateY(0) scale(0.995);
+}
+.program-row {
+  transition: background-color var(--motion-base) var(--motion-ease), padding-left var(--motion-base) var(--motion-ease);
+}
+.program-row:hover {
+  background: rgba(29, 86, 168, 0.04);
+}
+.module-tos-bar > span {
+  transform-origin: left center;
+  animation: grow-x 900ms var(--motion-ease) 200ms both;
+}
+
+/* --- Buttons and links --- */
+.ui-button:not(:disabled):active {
+  transform: translateY(1px) scale(0.99);
+}
+.ui-button svg {
+  transition: transform var(--motion-fast) var(--motion-ease);
+}
+.landing-primary-button:hover svg,
+.workspace-primary-link:hover svg,
+.ui-button:hover:not(:disabled) svg {
+  transform: translateX(2px);
+}
+.landing-text-link svg {
+  transition: transform var(--motion-base) var(--motion-ease);
+}
+.landing-text-link:hover svg {
+  transform: translateY(3px);
+}
+.section-link svg,
+.readiness-bottom a svg {
+  transition: transform var(--motion-fast) var(--motion-ease);
+}
+.section-link:hover svg,
+.readiness-bottom a:hover svg {
+  transform: translate(2px, -2px);
+}
+
+/* --- Landing page --- */
+.hero-stamp {
+  animation: pop-in 760ms var(--motion-spring) 260ms both;
+}
+.hero-note-card {
+  animation: rise-in 620ms var(--motion-ease) 420ms both;
+}
+.landing-activity-stat svg {
+  animation: soft-pulse 3.6s ease-in-out infinite;
+}
+
+/* --- Progress bars --- */
+.ui-progress-fill {
+  will-change: width;
+}
+.ui-progress-fill--live::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, transparent 15%, rgba(255, 255, 255, 0.42) 50%, transparent 85%);
+  animation: progress-sheen 2.4s var(--motion-ease) infinite;
+  pointer-events: none;
+}
+
+/* --- Practice + mock exam --- */
+.practice-progress-track > span {
+  transition: width 420ms var(--motion-ease);
+}
+.practice-question-card {
+  animation: rise-in 340ms var(--motion-ease) both;
+}
+.practice-answer-option {
+  transition: border-color var(--motion-base) var(--motion-ease),
+    background-color var(--motion-base) var(--motion-ease),
+    box-shadow var(--motion-base) var(--motion-ease),
+    transform var(--motion-fast) var(--motion-ease);
+}
+.practice-answer-option:hover {
+  transform: translateY(-1px);
+}
+.practice-answer-option:active {
+  transform: scale(0.995);
+}
+.practice-flashcard {
+  animation: pop-in 420ms var(--motion-ease) both;
+}
+.timer.is-urgent {
+  animation: urgent-pulse 1.6s ease-in-out infinite;
+}
+.question-nav button {
+  transition: transform var(--motion-fast) var(--motion-ease), box-shadow var(--motion-fast) var(--motion-ease);
+}
+.question-nav button:active {
+  transform: scale(0.94);
+}
+
+/* --- Celebration --- */
+.confetti-piece {
+  animation-name: confetti-fall;
+}
+.level-up-number {
+  animation: pop-in 620ms var(--motion-spring) both;
+}
+
+/* --- Landing hero + route entrance --- */
+.landing-hero-copy > * {
+  animation: rise-in 620ms var(--motion-ease) both;
+}
+.landing-hero-copy > *:nth-child(1) { animation-delay: 40ms; }
+.landing-hero-copy > *:nth-child(2) { animation-delay: 110ms; }
+.landing-hero-copy > *:nth-child(3) { animation-delay: 180ms; }
+.landing-hero-copy > *:nth-child(4) { animation-delay: 250ms; }
+.landing-hero-copy > *:nth-child(5) { animation-delay: 320ms; }
+.landing-hero-visual {
+  animation: pop-in 760ms var(--motion-ease) 120ms both;
+}
+.landing-route-inner > * {
+  animation: rise-in 520ms var(--motion-ease) both;
+}
+.landing-route-inner > *:nth-child(1) { animation-delay: 40ms; }
+.landing-route-inner > *:nth-child(2) { animation-delay: 100ms; }
+.landing-route-inner > *:nth-child(3) { animation-delay: 160ms; }
+.landing-route-inner > *:nth-child(4) { animation-delay: 220ms; }
+.landing-route-inner > *:nth-child(5) { animation-delay: 280ms; }
+.landing-cta .cta-star {
+  animation: soft-pulse 4s ease-in-out infinite;
+}
+.landing-activity-stat svg { color: var(--primary); }
+
+/* --- Practice feedback --- */
+.practice-feedback {
+  animation: rise-in 280ms var(--motion-ease) both;
+}
+.practice-sequence-item {
+  transition: border-color var(--motion-base) var(--motion-ease),
+    background-color var(--motion-base) var(--motion-ease),
+    box-shadow var(--motion-base) var(--motion-ease);
+}
+.practice-sequence-item:hover {
+  border-color: var(--primary-border);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Staggered children: pair with <Reveal> so the cascade starts on scroll.
+   `backwards` fill only applies the hidden first frame during the delay, then
+   hands control back to normal styles so hover transitions stay instant. */
+.motion-stagger.is-visible > * {
+  animation: rise-in 560ms var(--motion-ease) backwards;
+}
+.motion-stagger.is-visible > *:nth-child(1) { animation-delay: 40ms; }
+.motion-stagger.is-visible > *:nth-child(2) { animation-delay: 110ms; }
+.motion-stagger.is-visible > *:nth-child(3) { animation-delay: 180ms; }
+.motion-stagger.is-visible > *:nth-child(4) { animation-delay: 250ms; }
+.motion-stagger.is-visible > *:nth-child(5) { animation-delay: 320ms; }
+.motion-stagger.is-visible > *:nth-child(6) { animation-delay: 390ms; }
+.motion-stagger.is-visible > *:nth-child(7) { animation-delay: 460ms; }
+.motion-stagger.is-visible > *:nth-child(8) { animation-delay: 530ms; }
+
+/* --- Reviewer lists: light cascade as items arrive --- */
+.reviewer-mode-grid > *,
+.reviewer-folder-grid > *,
+.reviewer-set-list > *,
+.reviewer-flashcard-list > * {
+  animation: rise-in 520ms var(--motion-ease) backwards;
+}
+.reviewer-mode-grid > *:nth-child(2),
+.reviewer-folder-grid > *:nth-child(2),
+.reviewer-set-list > *:nth-child(2) { animation-delay: 60ms; }
+.reviewer-mode-grid > *:nth-child(3),
+.reviewer-folder-grid > *:nth-child(3),
+.reviewer-set-list > *:nth-child(3) { animation-delay: 120ms; }
+.reviewer-mode-grid > *:nth-child(4),
+.reviewer-folder-grid > *:nth-child(4),
+.reviewer-set-list > *:nth-child(4) { animation-delay: 180ms; }
+.reviewer-mode-grid > *:nth-child(n+5),
+.reviewer-folder-grid > *:nth-child(n+5),
+.reviewer-set-list > *:nth-child(n+5) { animation-delay: 220ms; }
+.reviewer-flashcard {
+  transition: transform var(--motion-fast) var(--motion-ease),
+    border-color var(--motion-fast) var(--motion-ease),
+    background-color var(--motion-fast) var(--motion-ease);
+}
+.reviewer-flashcard:hover {
+  transform: translateX(2px);
+}
+.reviewer-flashcard:active {
+  transform: translateX(2px) scale(0.995);
+}
+
+/* --- Reduced motion: show final states, never hide content --- */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-delay: 0ms !important; }
+  .reveal { opacity: 1 !important; transform: none !important; transition: none !important; }
+  .motion-stagger > * { opacity: 1 !important; transform: none !important; transition: none !important; }
+  .animated-number { transition: none !important; }
+  .readiness-panel::before,
+  .momentum-icon.amber svg,
+  .momentum-card--attention .momentum-icon,
+  .momentum-card--attention .momentum-icon.sky svg,
+  .landing-activity-stat svg,
+  .ui-progress-fill--live::after,
+  .timer.is-urgent {
+    animation: none !important;
+  }
+  .readiness-progress > span,
+  .module-tos-bar > span {
+    animation: none !important;
+    transform: none !important;
+  }
 }

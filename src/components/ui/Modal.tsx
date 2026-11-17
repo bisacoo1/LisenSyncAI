@@ -131,7 +131,7 @@ export const Modal: React.FC<ModalProps> = ({
           border: '1px solid var(--border)',
           borderRadius: 16,
           boxShadow: '0 24px 48px rgba(0, 0, 0, 0.4), 0 8px 16px rgba(0, 0, 0, 0.2)',
-          animation: 'slideUp 200ms ease',
+          animation: 'pop-in 260ms cubic-bezier(0.34, 1.56, 0.64, 1)',
           display: 'flex',
           flexDirection: 'column',
           ...sizeStyles[size],

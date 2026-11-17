@@ -7,7 +7,7 @@ import { supabase } from '@/lib/supabase'
 import { PASSING_RATE, type Attempt, type DiagnosisAnswer, type DiagnosisQuestion, type McqAnswer, type McqQuestion, type MockExam, type MockExamItem, type PracticeItem, type Profile, type SequenceAnswer, type SequenceQuestion } from '@/types'
 import { checkDiagnosis, checkSequence, computeBulkStatsUpdate } from '@/lib/analytics'
 import LevelUpCelebration from '@/components/LevelUpCelebration'
-import { Card, CardHeader, CardContent, Button, Badge, ProgressBar, Icon, EmptyState, Skeleton, Modal, useToast } from '@/components/ui'
+import { AnimatedNumber, Card, CardHeader, CardContent, Button, Badge, ProgressBar, Icon, EmptyState, Skeleton, Modal, useToast } from '@/components/ui'
 
 function formatTime(sec: number) {
   const h = Math.floor(sec / 3600).toString().padStart(2, '0')
@@ -338,7 +338,7 @@ export default function MockExamPage() {
           </div>
           <Badge variant={passed ? 'success' : 'danger'} size="lg">
             <Icon name={passed ? 'check-circle' : 'x-circle'} size={14} />
-            {score}% — {passed ? 'PASSED' : 'BELOW PASSING RULE'}
+            <AnimatedNumber value={score} suffix="%" duration={1100} /> — {passed ? 'PASSED' : 'BELOW PASSING RULE'}
           </Badge>
         </div>
 
@@ -347,11 +347,15 @@ export default function MockExamPage() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 24, flexWrap: 'wrap' }}>
               <div>
                 <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 4 }}>FINAL SCORE</div>
-                <div style={{ fontSize: 48, fontWeight: 700, color: passed ? 'var(--success)' : 'var(--danger)' }}>{score}%</div>
+                <div style={{ fontSize: 48, fontWeight: 700, color: passed ? 'var(--success)' : 'var(--danger)' }}>
+                  <AnimatedNumber value={score} suffix="%" duration={1300} />
+                </div>
               </div>
               <div>
                 <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 4 }}>CORRECT / TOTAL</div>
-                <div style={{ fontSize: 24, fontWeight: 700 }}>{items.filter(i => i.is_correct).length} / {items.length}</div>
+                <div style={{ fontSize: 24, fontWeight: 700 }}>
+                  <AnimatedNumber value={items.filter(i => i.is_correct).length} duration={1100} delay={120} /> / {items.length}
+                </div>
               </div>
               <div>
                 <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 4 }}>SUBMITTED</div>
@@ -455,7 +459,10 @@ export default function MockExamPage() {
         </div>
         <Card variant="elevated" style={{ padding: '12px 20px', minWidth: 180 }}>
           <div style={{ color: 'var(--muted)', fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 2 }}>Time Remaining</div>
-          <div className="timer" style={{ fontSize: 28, fontWeight: 700, color: remaining != null && remaining < 300 ? 'var(--danger)' : 'var(--primary)' }}>
+          <div
+            className={`timer${remaining != null && remaining < 300 ? ' is-urgent' : ''}`}
+            style={{ fontSize: 28, fontWeight: 700, color: remaining != null && remaining < 300 ? 'var(--danger)' : 'var(--primary)' }}
+          >
             {remaining != null ? formatTime(remaining) : '--:--:--'}
           </div>
           <ProgressBar value={progress} max={100} size="sm" ariaLabel="Exam time elapsed" variant={remaining != null && remaining < 300 ? 'danger' : 'primary'} style={{ marginTop: 8, width: 160 }} />

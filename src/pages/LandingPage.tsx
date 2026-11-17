@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { Brand } from '@/components/Brand'
-import { Icon, type IconName } from '@/components/ui'
+import { AnimatedNumber, Icon, Reveal, type IconName } from '@/components/ui'
 import { PHARMACY_PROGRAM } from '@/lib/syllabus'
 import { PASSING_RATE } from '@/types'
 import { supabase, supabaseConfigured } from '@/lib/supabase'
@@ -35,10 +35,10 @@ const steps: { number: string; icon: IconName; title: string; description: strin
   }
 ]
 
-const examSpecs = [
-  { value: '06', label: 'PhLE modules' },
-  { value: `${PHARMACY_PROGRAM.mockDurationMinutes}m`, label: 'Mock simulation' },
-  { value: `${PASSING_RATE}%`, label: 'PRC pass mark' }
+const examSpecs: { value: number; suffix?: string; pad?: boolean; label: string }[] = [
+  { value: PHARMACY_PROGRAM.subjectDetails.length, pad: true, label: 'PhLE modules' },
+  { value: PHARMACY_PROGRAM.mockDurationMinutes, suffix: 'm', label: 'Mock simulation' },
+  { value: PASSING_RATE, suffix: '%', label: 'PRC pass mark' }
 ]
 
 export default function LandingPage() {
@@ -165,7 +165,7 @@ export default function LandingPage() {
             <div className="hero-stamp" aria-label="75 percent PhLE passing benchmark">
               <span>PhLE GOAL</span>
               <strong>
-                {PASSING_RATE}
+                <AnimatedNumber value={PASSING_RATE} duration={1400} delay={420} startOnView />
                 <small>%</small>
               </strong>
               <span>PASSING BENCHMARK</span>
@@ -200,7 +200,7 @@ export default function LandingPage() {
           </div>
         </section>
 
-        <section className="landing-route" aria-label="Your Pharmacy study journey">
+        <Reveal as="section" className="landing-route" aria-label="Your Pharmacy study journey">
           <div className="landing-wrap landing-route-inner">
             <div className="route-intro">
               <Icon name="pill" size={18} />
@@ -223,9 +223,9 @@ export default function LandingPage() {
               <Icon name="arrow-up-right" size={18} />
             </span>
           </div>
-        </section>
+        </Reveal>
 
-        <section id="how-it-works" className="landing-method landing-wrap">
+        <Reveal as="section" id="how-it-works" className="landing-method landing-wrap">
           <div className="section-intro">
             <div>
               <span className="section-kicker">
@@ -242,7 +242,7 @@ export default function LandingPage() {
               reviewers into a calm, consistent daily rhythm.
             </p>
           </div>
-          <div className="method-grid" id="study-tools">
+          <Reveal className="method-grid motion-stagger" id="study-tools">
             {steps.map((step) => (
               <article className="method-card" key={step.number}>
                 <div className="method-card-top">
@@ -261,11 +261,11 @@ export default function LandingPage() {
                 </div>
               </article>
             ))}
-          </div>
-        </section>
+          </Reveal>
+        </Reveal>
 
         {stats && (
-          <section className="landing-activity" aria-labelledby="landing-activity-title">
+          <Reveal as="section" className="landing-activity" aria-labelledby="landing-activity-title">
             <div className="landing-wrap landing-activity-inner">
               <div className="landing-activity-intro">
                 <span className="section-kicker">THE PHARMACY STUDY SPACE / 02</span>
@@ -274,20 +274,20 @@ export default function LandingPage() {
                 </h2>
                 <p>Live activity visible to this connection.</p>
               </div>
-              <div className="landing-activity-grid">
+              <Reveal className="landing-activity-grid motion-stagger">
                 {stats.map((stat) => (
                   <div className="landing-activity-stat" key={stat.label}>
                     <Icon name={stat.icon} size={18} />
-                    <strong>{stat.value.toLocaleString()}</strong>
+                    <strong><AnimatedNumber value={stat.value} startOnView duration={1200} delay={80} /></strong>
                     <span>{stat.label}</span>
                   </div>
                 ))}
-              </div>
+              </Reveal>
             </div>
-          </section>
+          </Reveal>
         )}
 
-        <section id="syllabus" className="landing-programs">
+        <Reveal as="section" id="syllabus" className="landing-programs">
           <div className="landing-wrap programs-layout">
             <div className="programs-copy">
               <span className="section-kicker">
@@ -306,7 +306,16 @@ export default function LandingPage() {
               <div className="syllabus-spec-row" aria-label="Pharmacist Licensure Examination overview">
                 {examSpecs.map((spec) => (
                   <div className="syllabus-spec-item" key={spec.label}>
-                    <strong>{spec.value}</strong>
+                    <strong>
+                      <AnimatedNumber
+                        value={spec.value}
+                        suffix={spec.suffix}
+                        startOnView
+                        duration={1100}
+                        delay={120}
+                        format={spec.pad ? (n) => String(Math.round(n)).padStart(2, '0') : undefined}
+                      />
+                    </strong>
                     <span>{spec.label}</span>
                   </div>
                 ))}
@@ -315,7 +324,7 @@ export default function LandingPage() {
                 Start your Pharmacy review <Icon name="arrow-right" size={18} />
               </Link>
             </div>
-            <div className="program-list">
+            <Reveal className="program-list motion-stagger">
               <div className="program-list-heading">
                 <span>BS PHARMACY · PRC PhLE MODULES</span>
                 <span>0{PHARMACY_PROGRAM.subjectDetails.length} MODULES · 100% TOS</span>
@@ -335,15 +344,15 @@ export default function LandingPage() {
                     </span>
                   </span>
                   <span className="program-weight" aria-label={`${mod.weightPercent} percent exam weight`}>
-                    {mod.weightPercent}%
+                    <AnimatedNumber value={mod.weightPercent} suffix="%" startOnView duration={1000} delay={120} />
                   </span>
                 </div>
               ))}
-            </div>
+            </Reveal>
           </div>
-        </section>
+        </Reveal>
 
-        <section className="landing-cta landing-wrap">
+        <Reveal as="section" className="landing-cta landing-wrap">
           <div className="cta-star">
             <Icon name="pill" size={23} />
           </div>
@@ -355,7 +364,7 @@ export default function LandingPage() {
           <Link to="/register" className="landing-primary-button">
             Create your account <Icon name="arrow-right" size={19} />
           </Link>
-        </section>
+        </Reveal>
       </main>
 
       <footer className="landing-footer">
