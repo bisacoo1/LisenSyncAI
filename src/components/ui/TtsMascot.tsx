@@ -10,8 +10,8 @@ import speaking from '@/assets/mascot/mascot-speaking-1200.png'
  *
  * Visual rules
  * - Small sizes (<= 64px): use the round avatar, no glow, no ring.
- * - Idle companion: use the looping WebM, paused when reduced motion is requested.
- * - Speaking companion: use the same WebM with a subtle gesture while TTS is active.
+ * - Idle companion: use the looping idle animation, paused when reduced motion is requested.
+ * - Speaking companion: use the dedicated talking animation while TTS is active.
  * - Speaking: use the full-body `state="speaking"` art for hero/empty states.
  * - Always decorative (`alt=""`) unless it is the only label on a control.
  */
@@ -43,6 +43,12 @@ const SOURCES = {
     webm: 'https://assets.masko.ai/751533/lilo-b467/idle-519ed8d1.webm',
     mov: 'https://assets.masko.ai/751533/lilo-b467/idle-7ba4dc84.mov',
     mp4: 'https://assets.masko.ai/751533/lilo-b467/idle-f6d261f3.mp4',
+  },
+  talking: {
+    webm: 'https://assets.masko.ai/751533/lilo-b467/idle-afb81960.webm',
+    mov: 'https://assets.masko.ai/751533/lilo-b467/idle-2ed8b6ea.mov',
+    av1: 'https://assets.masko.ai/751533/lilo-b467/idle-66bff9e7.mp4',
+    mp4: 'https://assets.masko.ai/751533/lilo-b467/idle-ebebd287.mp4',
   },
   laughing: {
     webm: 'https://assets.masko.ai/fbb854/lilo-6325/idle-9bff2d51.webm',
@@ -78,7 +84,8 @@ export function TtsMascot({
     resolved === 'speaking' ? size * 1.25 : size
   const shouldAnimate = motionEnabled ?? !prefersReducedMotion
   const isLaughing = reaction === 'laughing' && !isSpeaking
-  const animationSources = isLaughing ? SOURCES.laughing : SOURCES.idle
+  const animationName = isLaughing ? 'laughing' : isSpeaking ? 'talking' : 'idle'
+  const animationSources = SOURCES[animationName]
 
   return (
     <span
@@ -96,7 +103,7 @@ export function TtsMascot({
     >
       {resolved === 'idle' ? (
         <video
-          key={`${isLaughing ? 'laughing' : 'idle'}-${shouldAnimate}`}
+          key={`${animationName}-${shouldAnimate}`}
           autoPlay={shouldAnimate}
           loop
           muted
@@ -110,6 +117,7 @@ export function TtsMascot({
         >
           <source src={animationSources.webm} type="video/webm" />
           <source src={animationSources.mov} type="video/quicktime" />
+          {'av1' in animationSources && <source src={animationSources.av1} type="video/mp4" />}
           <source src={animationSources.mp4} type="video/mp4" />
         </video>
       ) : (

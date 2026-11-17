@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { TtsMascot } from '@/components/ui/TtsMascot'
 import Button from '@/components/ui/Button'
 import Icon from '@/components/ui/Icon'
@@ -10,6 +10,10 @@ const LILO_MOTION_STORAGE_KEY = 'lilo-animations-enabled'
 interface LiloSpeechPanelProps {
   text: string
   reaction?: 'laughing'
+  readyPromptOpen: boolean
+  announceReadyPrompt: boolean
+  onReadyPromptAnnounced: () => void
+  onReadyPromptResponse: () => void
 }
 
 const LILO_LINES = [
@@ -19,7 +23,14 @@ const LILO_LINES = [
   "Take your time. Kaya mo 'yan.",
 ]
 
-export default function LiloSpeechPanel({ text, reaction }: LiloSpeechPanelProps) {
+export default function LiloSpeechPanel({
+  text,
+  reaction,
+  readyPromptOpen,
+  announceReadyPrompt,
+  onReadyPromptAnnounced,
+  onReadyPromptResponse,
+}: LiloSpeechPanelProps) {
   const { addToast } = useToast()
   const prefersReducedMotion = useReducedMotion()
   const [motionOverride, setMotionOverride] = useState<boolean | null>(() => {
@@ -34,6 +45,7 @@ export default function LiloSpeechPanel({ text, reaction }: LiloSpeechPanelProps
   const nextLine = useRef(0)
   const speechVersion = useRef(0)
   const voices = useRef<SpeechSynthesisVoice[]>([])
+  const readyPromptSpoken = useRef(false)
   const motionEnabled = motionOverride ?? !prefersReducedMotion
 
   useEffect(() => {
@@ -73,9 +85,9 @@ export default function LiloSpeechPanel({ text, reaction }: LiloSpeechPanelProps
     setMotionOverride(enabled)
   }
 
-  function speak() {
-    const message = text.trim()
-    if (!message) return
+  const speakMessage = useCallback((message: string) => {
+    const cleanMessage = message.trim()
+    if (!cleanMessage) return
     if (!('speechSynthesis' in window) || typeof SpeechSynthesisUtterance === 'undefined') {
       addToast({
         type: 'error',
@@ -85,11 +97,8 @@ export default function LiloSpeechPanel({ text, reaction }: LiloSpeechPanelProps
       return
     }
 
-    const line = LILO_LINES[nextLine.current % LILO_LINES.length]
-    nextLine.current += 1
-    const fullText = `${line} ${message}`
     const version = ++speechVersion.current
-    const utterance = new SpeechSynthesisUtterance(fullText)
+    const utterance = new SpeechSynthesisUtterance(cleanMessage)
     const voice = voices.current.find(candidate => /\bmicrosoft mark\b/i.test(candidate.name))
       ?? voices.current.find(candidate => /^(en-ph|fil-ph|tl-ph)\b/i.test(candidate.lang))
       ?? voices.current.find(candidate => /\b(filipino|tagalog)\b/i.test(candidate.name))
@@ -121,14 +130,50 @@ export default function LiloSpeechPanel({ text, reaction }: LiloSpeechPanelProps
     }
 
     if (window.speechSynthesis.speaking) window.speechSynthesis.cancel()
-    setSpokenText(fullText)
+    setSpokenText(cleanMessage)
     setIsSpeaking(true)
     window.speechSynthesis.speak(utterance)
+  }, [addToast])
+
+  useEffect(() => {
+    if (!announceReadyPrompt || readyPromptSpoken.current) return
+    readyPromptSpoken.current = true
+    onReadyPromptAnnounced()
+    speakMessage('Are you ready?')
+  }, [announceReadyPrompt, onReadyPromptAnnounced, speakMessage])
+
+  function speak() {
+    const message = text.trim()
+    if (!message) return
+    const line = LILO_LINES[nextLine.current % LILO_LINES.length]
+    nextLine.current += 1
+    speakMessage(`${line} ${message}`)
+  }
+
+  function respondToReady(ready: boolean) {
+    onReadyPromptResponse()
+    if (ready) speakMessage(text)
+    else stopSpeaking()
   }
 
   return (
     <div className="lilo-speech-widget">
-      <TtsMascot size={240} variant="idle" speaking={isSpeaking} reaction={reaction} motionEnabled={motionEnabled} />
+      <div className="lilo-speech-stage">
+        <TtsMascot size={240} variant="idle" speaking={isSpeaking} reaction={reaction} motionEnabled={motionEnabled} />
+        {readyPromptOpen && (
+          <section className="lilo-ready-prompt" role="group" aria-labelledby="lilo-ready-prompt-title">
+            <p id="lilo-ready-prompt-title">Are you ready?</p>
+            <div className="lilo-ready-prompt__actions">
+              <Button variant="primary" size="sm" onClick={() => respondToReady(true)} disabled={!text.trim()}>
+                Yes
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => respondToReady(false)}>
+                No
+              </Button>
+            </div>
+          </section>
+        )}
+      </div>
       <div className="lilo-speech-actions">
         <Button
           className="lilo-speech-launcher"
@@ -153,7 +198,7 @@ export default function LiloSpeechPanel({ text, reaction }: LiloSpeechPanelProps
         </Button>
       </div>
 
-      {isSpeaking && (
+      {isSpeaking && !readyPromptOpen && (
         <section className="lilo-speech-bubble" role="status" aria-live="polite">
           <div className="lilo-speech-bubble__heading">
             <Icon name="volume-2" size={16} />

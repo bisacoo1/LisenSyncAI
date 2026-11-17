@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { getProgram } from '@/lib/syllabus'
@@ -28,14 +28,19 @@ export default function PracticePage() {
   const [diagInput, setDiagInput] = useState('')
   const [seqOrder, setSeqOrder] = useState<string[]>([])
   const [feedback, setFeedback] = useState<{ correct: boolean; text: string } | null>(null)
+  const [readyPromptOpen, setReadyPromptOpen] = useState(false)
+  const [readyPromptAnnounced, setReadyPromptAnnounced] = useState(false)
   const [loading, setLoading] = useState(false)
   const loadRequest = useRef(0)
   const hintRequest = useRef(0)
+  const readyPromptScheduled = useRef(false)
   const [hints, setHints] = useState<string[]>([])
   const [hintLoading, setHintLoading] = useState(false)
   const [levelUp, setLevelUp] = useState<number | null>(null)
   const { addToast } = useToast()
   const isCourse = profile?.track === 'course'
+  const markReadyPromptAnnounced = useCallback(() => setReadyPromptAnnounced(true), [])
+  const closeReadyPrompt = useCallback(() => setReadyPromptOpen(false), [])
 
   useEffect(() => {
     const qpMode = searchParams.get('mode')
@@ -359,6 +364,17 @@ export default function PracticePage() {
       feedback ? `The expected answer is ${answer.expected}. ${current.rationale || feedback.text}` : '',
     ].filter(Boolean).join(' ')
   }
+
+  const speechText = studySpeechText()
+
+  useEffect(() => {
+    if (readyPromptScheduled.current || loading || !speechText.trim()) return
+    const timer = window.setTimeout(() => {
+      readyPromptScheduled.current = true
+      setReadyPromptOpen(true)
+    }, 1000)
+    return () => window.clearTimeout(timer)
+  }, [loading, speechText])
 
   function moveSeq(i: number, dir: -1 | 1) {
     const j = i + dir
@@ -887,8 +903,12 @@ export default function PracticePage() {
       <aside className="practice-companion" aria-label="Study with Lilo">
         <LiloSpeechPanel
           key={speechContextKey}
-          text={studySpeechText()}
+          text={speechText}
           reaction={feedback?.correct === false ? 'laughing' : undefined}
+          readyPromptOpen={readyPromptOpen}
+          announceReadyPrompt={readyPromptOpen && !readyPromptAnnounced}
+          onReadyPromptAnnounced={markReadyPromptAnnounced}
+          onReadyPromptResponse={closeReadyPrompt}
         />
       </aside>
       </div>
