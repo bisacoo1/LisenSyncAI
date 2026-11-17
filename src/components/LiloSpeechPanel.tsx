@@ -12,6 +12,7 @@ interface LiloSpeechPanelProps {
   reaction?: 'laughing'
   answerCorrect?: boolean
   answerText?: string
+  answerExplanation?: string
   readyPromptOpen: boolean
   announceReadyPrompt: boolean
   onReadyPromptAnnounced: () => void
@@ -30,6 +31,7 @@ export default function LiloSpeechPanel({
   reaction,
   answerCorrect,
   answerText,
+  answerExplanation,
   readyPromptOpen,
   announceReadyPrompt,
   onReadyPromptAnnounced,
@@ -149,16 +151,16 @@ export default function LiloSpeechPanel({
   useEffect(() => {
     if (answerCorrect === undefined) return
     const correctAnswer = answerText?.trim()
-    const message = answerCorrect
+    const explanation = answerExplanation?.trim()
+    const answerMessage = answerCorrect
       ? correctAnswer ? `Correct! The answer is ${correctAnswer}.` : 'Correct!'
-      : correctAnswer
-        ? `Ha ha! Let's try again. The correct answer is ${correctAnswer}.`
-        : "Ha ha! Let's try again."
+      : correctAnswer ? `Ha ha! Let's try again. The correct answer is ${correctAnswer}.` : "Ha ha! Let's try again."
+    const message = `${answerMessage} ${explanation ? `Here's why: ${explanation}` : 'No explanation was provided for this question.'}`
     const timeout = window.setTimeout(() => {
       speakMessage(message)
     }, 0)
     return () => window.clearTimeout(timeout)
-  }, [answerCorrect, answerText, speakMessage])
+  }, [answerCorrect, answerExplanation, answerText, speakMessage])
 
   function speak() {
     const message = text.trim()

@@ -1136,6 +1136,7 @@ export default function PracticePage() {
           reaction={feedback?.correct === false ? 'laughing' : undefined}
           answerCorrect={feedback?.correct}
           answerText={correctAnswerText}
+          answerExplanation={feedback ? current?.rationale || '' : undefined}
           readyPromptOpen={readyPromptOpen}
           announceReadyPrompt={readyPromptOpen && !readyPromptAnnounced}
           onReadyPromptAnnounced={markReadyPromptAnnounced}
