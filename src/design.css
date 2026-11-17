@@ -457,10 +457,28 @@ input::placeholder, textarea::placeholder { color: var(--muted); opacity: 1; }
 .practice-controls-card { margin-bottom: 18px; overflow: hidden; border-radius: 18px; }
 .practice-controls-content { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 18px; padding: 20px 22px; }
 .practice-controls-grid { display: grid; grid-template-columns: minmax(0, 1fr); align-items: end; gap: 22px; min-width: 0; }
+.practice-controls-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 12px; min-width: 0; }
 .practice-mode-control { min-width: 0; }
 .practice-mode-tabs { gap: 6px !important; padding-bottom: 2px !important; mask-image: none !important; -webkit-mask-image: none !important; }
 .practice-mode-tabs [role="tab"] { min-height: 44px; padding: 10px 14px !important; border-radius: 11px !important; }
 .practice-reload-button { min-height: 44px; white-space: nowrap; }
+.practice-review-queue { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; color: var(--muted-strong); font-size: 12px; text-align: right; }
+.practice-review-queue-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+.practice-review-queue-actions .ui-button { min-height: 44px; }
+.practice-review-notice { display: flex; align-items: center; justify-content: space-between; gap: 16px; max-width: 900px; margin: 0 auto 14px; padding: 14px 16px; border: 1px solid var(--primary-border); border-radius: 14px; background: var(--primary-bg); color: var(--text); }
+.practice-review-notice p { margin: 4px 0 0; color: var(--muted-strong); font-size: 13px; line-height: 1.5; }
+.practice-review-notice .ui-button { min-height: 44px; flex: 0 0 auto; }
+.practice-session-complete { padding: 32px; text-align: center; }
+.practice-session-complete h3 { margin: 0 0 8px; color: var(--text); }
+.practice-session-complete > p { margin: 0; color: var(--muted-strong); line-height: 1.5; }
+.practice-session-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; max-width: 680px; margin: 20px auto; }
+.practice-session-summary--cards { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.practice-session-summary > div { display: flex; min-width: 0; flex-direction: column; gap: 4px; padding: 14px 10px; border: 1px solid var(--border); border-radius: 12px; background: var(--panel); }
+.practice-session-summary strong { color: var(--text); font-size: 22px; line-height: 1.2; }
+.practice-session-summary span { color: var(--muted-strong); font-size: 12px; line-height: 1.4; }
+.practice-session-review-status { margin-top: 12px !important; color: var(--primary) !important; font-weight: 600; }
+.practice-session-complete > div:last-child { flex-wrap: wrap; }
+.practice-session-complete > div:last-child .ui-button { min-height: 44px; }
 .practice-session-progress { max-width: 900px; margin: 0 auto 14px; padding: 0 2px; }
 .practice-session-progress-copy { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 9px; color: var(--muted); font-size: 12px; font-weight: 600; }
 .practice-session-progress-copy > span:first-child { color: var(--text); font-size: 13px; font-weight: 700; }
@@ -521,6 +539,9 @@ input::placeholder, textarea::placeholder { color: var(--muted); opacity: 1; }
 .lilo-speech-bubble::before { position: absolute; top: -6px; right: 26px; width: 10px; height: 10px; content: ''; background: var(--panel); border-top: 1px solid var(--primary-border); border-left: 1px solid var(--primary-border); transform: rotate(45deg); }
 .lilo-speech-bubble__heading { display: flex; align-items: center; gap: 7px; margin-bottom: 8px; color: var(--primary); font-size: 12px; font-weight: 700; }
 .lilo-speech-bubble p { color: var(--text-dim); font-size: 13px; line-height: 1.6; overflow-wrap: anywhere; }
+.lilo-speech-transcript { width: 100%; padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--panel); color: var(--text); }
+.lilo-speech-transcript .lilo-speech-bubble__heading { margin-bottom: 5px; }
+.lilo-speech-transcript p { margin: 0; color: var(--text-dim); font-size: 13px; line-height: 1.55; overflow-wrap: anywhere; }
 @keyframes lilo-speech-enter { from { opacity: 0; transform: translateY(-6px) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
 @media (prefers-reduced-motion: reduce) {
   .lilo-speech-bubble, .lilo-ready-prompt { animation: none; }
@@ -573,6 +594,12 @@ input::placeholder, textarea::placeholder { color: var(--muted); opacity: 1; }
 .practice-feedback[data-correct="true"] { border-color: var(--success-border); background: var(--success-bg); }
 .practice-feedback-icon { flex: 0 0 auto; margin-top: 2px; color: var(--danger); }
 .practice-feedback[data-correct="true"] .practice-feedback-icon { color: var(--success); }
+@keyframes practice-correct-pop {
+  0% { opacity: 0.6; transform: scale(0.82); }
+  65% { opacity: 1; transform: scale(1.12); }
+  100% { opacity: 1; transform: scale(1); }
+}
+.practice-feedback[data-correct="true"] .practice-feedback-icon { animation: practice-correct-pop 320ms var(--motion-ease) both; }
 .practice-feedback-copy { min-width: 0; flex: 1; }
 .practice-feedback-title { color: var(--danger); font-size: 15px; font-weight: 700; }
 .practice-feedback[data-correct="true"] .practice-feedback-title { color: var(--success); }
@@ -790,9 +817,17 @@ input::placeholder, textarea::placeholder { color: var(--muted); opacity: 1; }
   .reviewer-upload-actions .ui-button { max-width: none !important; flex: 1 1 100%; }
   .practice-controls-content { grid-template-columns: 1fr; gap: 16px; padding: 17px; }
   .practice-controls-grid { grid-template-columns: 1fr; gap: 16px; }
+  .practice-controls-actions { align-items: stretch; }
   .practice-mode-tabs { overflow-x: auto !important; }
   .practice-mode-tabs [role="tab"] { padding: 9px 12px !important; font-size: 12px !important; }
   .practice-reload-button { width: 100%; }
+  .practice-review-queue { align-items: stretch; text-align: left; }
+  .practice-review-queue-actions { justify-content: stretch; }
+  .practice-review-queue-actions .ui-button { flex: 1; }
+  .practice-review-notice { align-items: stretch; flex-direction: column; }
+  .practice-session-complete { padding: 24px 18px; }
+  .practice-session-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .practice-session-complete > div:last-child .ui-button { flex: 1 1 160px; }
   .practice-session-progress { margin-bottom: 12px; }
   .practice-question-card { border-radius: 16px; }
   .practice-question-content { padding: 20px !important; }

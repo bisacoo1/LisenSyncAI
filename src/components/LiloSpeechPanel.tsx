@@ -206,11 +206,11 @@ export default function LiloSpeechPanel({
         </Button>
       </div>
 
-      {isSpeaking && !readyPromptOpen && (
-        <section className="lilo-speech-bubble" role="status" aria-live="polite">
+      {spokenText && (
+        <section className="lilo-speech-transcript" role="status" aria-live="polite" aria-atomic="true">
           <div className="lilo-speech-bubble__heading">
-            <Icon name="volume-2" size={16} />
-            <span>Lilo is speaking</span>
+            <Icon name="volume-2" size={16} aria-hidden="true" />
+            <span>{isSpeaking ? 'Lilo is speaking' : 'Lilo said'}</span>
           </div>
           <p>{spokenText}</p>
         </section>

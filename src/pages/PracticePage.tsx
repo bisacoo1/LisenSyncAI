@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase'
 import { generateStudyHint } from '@/lib/ai'
 import { checkDiagnosis, checkEnumeration, checkSequence, computeProfileStatsUpdate } from '@/lib/analytics'
 import { isCardDue, scheduleReview, type ReviewQuality } from '@/lib/srs'
+import { buildPracticeReviewQueue, updatePracticeReviewQueue, type PracticeReviewAttempt, type PracticeReviewQueueItem } from '@/lib/practiceReview'
 import type { Flashcard, McqAnswer, McqQuestion, PracticeItem, PracticeType, SequenceAnswer, SequenceQuestion, DiagnosisAnswer, DiagnosisQuestion, EnumerationAnswer, Profile } from '@/types'
 import { AnimatedNumber, Card, CardHeader, CardContent, Button, Badge, Icon, EmptyState, Tabs, useToast, type TabItem } from '@/components/ui'
 import LevelUpCelebration from '@/components/LevelUpCelebration'
@@ -30,10 +31,17 @@ export default function PracticePage() {
   const [feedback, setFeedback] = useState<{ correct: boolean; text: string } | null>(null)
   const [readyPromptOpen, setReadyPromptOpen] = useState(false)
   const [readyPromptAnnounced, setReadyPromptAnnounced] = useState(false)
+  const [reviewFilter, setReviewFilter] = useState<'all' | 'due' | null>(null)
+  const [reviewQueue, setReviewQueue] = useState<PracticeReviewQueueItem[]>([])
+  const [reviewQueueUnavailable, setReviewQueueUnavailable] = useState(false)
+  const [sessionResults, setSessionResults] = useState<Record<string, boolean>>({})
+  const [sessionCardRatings, setSessionCardRatings] = useState<Record<string, ReviewQuality>>({})
   const [loading, setLoading] = useState(false)
   const loadRequest = useRef(0)
   const hintRequest = useRef(0)
   const readyPromptScheduled = useRef(false)
+  const practicePanelRef = useRef<HTMLDivElement>(null)
+  const focusPanelAfterAdvance = useRef(false)
   const [hints, setHints] = useState<string[]>([])
   const [hintLoading, setHintLoading] = useState(false)
   const [levelUp, setLevelUp] = useState<number | null>(null)
@@ -52,6 +60,8 @@ export default function PracticePage() {
     }
     setSubject(qpSubject || '')
     setMaterialId(searchParams.get('material') || '')
+    const review = searchParams.get('review')
+    setReviewFilter(qpMode === 'flashcards' ? null : review === 'all' || review === 'due' ? review : null)
   }, [searchParams])
 
   useEffect(() => {
@@ -59,12 +69,14 @@ export default function PracticePage() {
     load()
     return () => { loadRequest.current += 1 }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [profile?.id, subject, mode, materialId])
+  }, [profile?.id, subject, mode, materialId, reviewFilter])
 
   async function load() {
     if (!profile) return
     const request = ++loadRequest.current
     setLoading(true); setIdx(0); setReveal(false); setFeedback(null); setSelected(null); setDiagInput('')
+    setReviewQueue([]); setSessionResults({}); setSessionCardRatings({})
+    setReviewQueueUnavailable(false)
     if (mode === 'flashcards') {
       let query = supabase.from('flashcards').select('*').eq('user_id', profile.id).eq('subject', subject)
       if (materialId) query = query.eq('material_id', materialId)
@@ -73,11 +85,85 @@ export default function PracticePage() {
       setFlashcards((data as Flashcard[]) || [])
       setItems([])
     } else {
+      const { data: attempts, error: attemptsError } = await supabase
+        .from('attempts')
+        .select('practice_item_id,is_correct,created_at')
+        .eq('user_id', profile.id)
+        .eq('subject', subject)
+        .eq('type', mode)
+        .not('practice_item_id', 'is', null)
+        .order('created_at', { ascending: false })
+        .limit(1000)
+      if (request !== loadRequest.current) return
+
+      if (attemptsError && reviewFilter) {
+        addToast({ type: 'error', title: 'Could not load review history', message: attemptsError.message })
+        setReviewQueueUnavailable(true)
+        setItems([])
+        setFlashcards([])
+        setLoading(false)
+        return
+      }
+      if (attemptsError) {
+        addToast({ type: 'error', title: 'Could not load review history', message: attemptsError.message })
+      }
+
+      let queue = buildPracticeReviewQueue((attempts || []) as PracticeReviewAttempt[])
+      if (materialId && queue.length > 0) {
+        const { data: materialItems, error: materialItemsError } = await supabase
+          .from('practice_items')
+          .select('id')
+          .eq('user_id', profile.id)
+          .eq('subject', subject)
+          .eq('type', mode)
+          .eq('material_id', materialId)
+          .in('id', queue.map(item => item.practice_item_id))
+        if (request !== loadRequest.current) return
+        if (materialItemsError) {
+          addToast({ type: 'error', title: 'Could not filter review history', message: materialItemsError.message })
+          if (reviewFilter) {
+            setReviewQueueUnavailable(true)
+            setItems([])
+            setFlashcards([])
+            setLoading(false)
+            return
+          }
+          queue = []
+        } else {
+          const materialIds = new Set((materialItems || []).map(item => item.id))
+          queue = queue.filter(item => materialIds.has(item.practice_item_id))
+        }
+      }
+
+      setReviewQueue(queue)
+      const reviewItems = reviewFilter === 'due'
+        ? queue.filter(item => Date.parse(item.next_review_at) <= Date.now())
+        : reviewFilter === 'all' ? queue : null
+      if (reviewItems && reviewItems.length === 0) {
+        setItems([])
+        setFlashcards([])
+        setLoading(false)
+        return
+      }
+
       let query = supabase.from('practice_items').select('*').eq('user_id', profile.id).eq('subject', subject).eq('type', mode)
       if (materialId) query = query.eq('material_id', materialId)
-      const { data } = await query.limit(50)
+      if (reviewItems) query = query.in('id', reviewItems.map(item => item.practice_item_id))
+      const { data, error } = await query.limit(reviewItems ? 1000 : 50)
       if (request !== loadRequest.current) return
+      if (error) {
+        addToast({ type: 'error', title: 'Could not load practice questions', message: error.message })
+        if (reviewFilter) setReviewQueueUnavailable(true)
+        setItems([])
+        setFlashcards([])
+        setLoading(false)
+        return
+      }
       const list = (data as PracticeItem[]) || []
+      if (reviewItems) {
+        const order = new Map(reviewItems.map((item, index) => [item.practice_item_id, index]))
+        list.sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0))
+      }
       setItems(list)
       setFlashcards([])
       if (mode === 'sequence' && list[0]) {
@@ -95,6 +181,12 @@ export default function PracticePage() {
       setFeedback(null)
     }
   }, [idx, mode, items])
+
+  useEffect(() => {
+    if (!focusPanelAfterAdvance.current) return
+    focusPanelAfterAdvance.current = false
+    practicePanelRef.current?.focus()
+  }, [idx])
 
   // The selected mode can change before its new items finish loading. Never
   // render an item from the previous mode as if it had the new question shape.
@@ -120,9 +212,25 @@ export default function PracticePage() {
     setMode(nextMode)
     const params = new URLSearchParams(searchParams)
     params.set('mode', nextMode)
+    params.delete('review')
     if (subject) params.set('subject', subject)
     if (materialId) params.set('material', materialId)
     setSearchParams(params, { replace: true })
+  }
+
+  function openReviewQueue(filter: 'all' | 'due') {
+    const params = new URLSearchParams(searchParams)
+    params.set('mode', mode)
+    params.set('review', filter)
+    if (subject) params.set('subject', subject)
+    if (materialId) params.set('material', materialId)
+    setSearchParams(params)
+  }
+
+  function exitReviewQueue() {
+    const params = new URLSearchParams(searchParams)
+    params.delete('review')
+    setSearchParams(params)
   }
 
   async function bumpProfileStats(isCorrect: boolean) {
@@ -144,9 +252,10 @@ export default function PracticePage() {
   }
 
   async function recordAttempt(correct: boolean, response: unknown) {
+    const it = items[idx]
+    if (it) setSessionResults(previous => ({ ...previous, [it.id]: correct }))
     if (!user || !profile || !program) return
     try {
-      const it = items[idx]
       const { error: attemptError } = await supabase.from('attempts').insert({
         user_id: user.id,
         practice_item_id: it?.id || null,
@@ -161,6 +270,7 @@ export default function PracticePage() {
       addToast({ type: 'error', title: 'Could not save progress', message: e.message })
       return
     }
+    if (it) setReviewQueue(previous => updatePracticeReviewQueue(previous, it.id, correct))
     await bumpProfileStats(correct)
   }
 
@@ -173,6 +283,7 @@ export default function PracticePage() {
       return
     }
     setFlashcards(prev => prev.map(c => (c.id === currentCard.id ? { ...c, ...sched } : c)))
+    setSessionCardRatings(previous => ({ ...previous, [currentCard.id]: quality }))
     await bumpProfileStats(quality !== 'again')
     next()
   }
@@ -385,6 +496,7 @@ export default function PracticePage() {
   }
 
   function next() {
+    focusPanelAfterAdvance.current = true
     setIdx(i => i + 1)
     setReveal(false); setSelected(null); setDiagInput(''); setFeedback(null)
   }
@@ -408,6 +520,19 @@ export default function PracticePage() {
   const sessionLength = mode === 'flashcards' ? flashcards.length : items.length
   const sessionProgress = sessionLength ? Math.round(((idx + 1) / sessionLength) * 100) : 0
   const sessionLabel = mode === 'flashcards' ? 'Card' : 'Question'
+  const dueReviewCount = reviewQueue.filter(item => Date.parse(item.next_review_at) <= Date.now()).length
+  const questionResults = Object.values(sessionResults)
+  const answeredQuestionCount = questionResults.length
+  const correctQuestionCount = questionResults.filter(correct => correct).length
+  const incorrectQuestionCount = answeredQuestionCount - correctQuestionCount
+  const ratedCardCount = Object.keys(sessionCardRatings).length
+  const againCardCount = Object.values(sessionCardRatings).filter(quality => quality === 'again').length
+  const unansweredCount = mode === 'flashcards'
+    ? Math.max(flashcards.length - ratedCardCount, 0)
+    : Math.max(items.length - answeredQuestionCount, 0)
+  const sessionAccuracy = answeredQuestionCount
+    ? Math.round((correctQuestionCount / answeredQuestionCount) * 100)
+    : 0
   const selectedModeLabel = modeTabs.find(tab => tab.value === mode)?.label || 'Practice'
   const speechContextKey = `${mode}:${subject}:${materialId}:${idx}:${current?.id ?? currentCard?.id ?? ''}:${reveal}:${Boolean(feedback)}`
   return (
@@ -431,13 +556,42 @@ export default function PracticePage() {
               <span className="practice-scroll-hint">Scroll for more modes <Icon name="arrow-right" size={13} /></span>
             </div>
           </div>
-          {subject && (
-            <Button className="practice-reload-button" variant="secondary" leftIcon="refresh-cw" onClick={load} disabled={loading}>
-              {loading ? 'Loading…' : 'Reload Items'}
-            </Button>
-          )}
+          <div className="practice-controls-actions">
+            {subject && (
+              <Button className="practice-reload-button" variant="secondary" leftIcon="refresh-cw" onClick={load} disabled={loading}>
+                {loading ? 'Loading…' : 'Reload Items'}
+              </Button>
+            )}
+            {subject && !loading && mode !== 'flashcards' && !reviewFilter && reviewQueue.length > 0 && (
+              <div className="practice-review-queue">
+                <span role="status" aria-live="polite">
+                  {dueReviewCount > 0
+                    ? `${dueReviewCount} missed ${dueReviewCount === 1 ? 'question is' : 'questions are'} due`
+                    : `${reviewQueue.length} ${reviewQueue.length === 1 ? 'question is' : 'questions are'} scheduled for later`}
+                </span>
+                <div className="practice-review-queue-actions">
+                  <Button variant="secondary" onClick={() => openReviewQueue('due')} disabled={dueReviewCount === 0}>
+                    Review due
+                  </Button>
+                  <Button variant="outline" onClick={() => openReviewQueue('all')}>
+                    Review now
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
         </CardContent>
       </Card>
+
+      {reviewFilter && (
+        <section className="practice-review-notice" aria-live="polite">
+          <div>
+            <strong>{reviewFilter === 'due' ? 'Reviewing questions due now' : 'Reviewing all missed questions'}</strong>
+            <p>Questions leave your review queue after you answer them correctly.</p>
+          </div>
+          <Button variant="outline" onClick={exitReviewQueue}>Return to practice</Button>
+        </section>
+      )}
 
       {!loading && !empty && !done && (
         <section className="practice-session-progress" aria-label={`${selectedModeLabel} session progress`}>
@@ -458,7 +612,7 @@ export default function PracticePage() {
         </section>
       )}
 
-      <div className="practice-session-panel" role="tabpanel" id={`panel-${mode}`} aria-labelledby={`tab-${mode}`} tabIndex={0}>
+      <div ref={practicePanelRef} className="practice-session-panel" role="tabpanel" id={`panel-${mode}`} aria-labelledby={`tab-${mode}`} tabIndex={0}>
       <div className="practice-session-content">
       {loading && (
         <Card variant="outlined">
@@ -489,9 +643,25 @@ export default function PracticePage() {
           <CardContent>
             <EmptyState
               icon={mode === 'flashcards' ? 'book-open' : 'file-text'}
-              title="No items found"
-              description={`No ${mode === 'flashcards' ? 'flashcards' : `${mode.toUpperCase()} questions`} are available for ${subject} yet. Choose another available set or upload a reviewer to generate more.`}
-              action={{ label: 'Browse reviewers', onClick: () => navigate('/reviewers'), variant: 'primary' }}
+              title={reviewFilter
+                ? reviewQueueUnavailable
+                  ? 'Review queue unavailable'
+                  : reviewQueue.length ? 'No questions are due yet' : 'No missed questions to review'
+                : 'No items found'}
+              description={reviewFilter
+                ? reviewQueueUnavailable
+                  ? 'The missed-question queue could not be loaded. Try again.'
+                  : reviewQueue.length
+                    ? `${reviewQueue.length} missed ${reviewQueue.length === 1 ? 'question is' : 'questions are'} scheduled for a later review. You can review them now if you prefer.`
+                    : 'You have no unanswered missed questions in this review queue.'
+                : `No ${mode === 'flashcards' ? 'flashcards' : `${mode.toUpperCase()} questions`} are available for ${subject} yet. Choose another available set or upload a reviewer to generate more.`}
+              action={reviewFilter
+                ? reviewQueueUnavailable
+                  ? { label: 'Try again', onClick: load, variant: 'secondary' }
+                  : reviewQueue.length > 0
+                    ? { label: 'Review all missed now', onClick: () => openReviewQueue('all'), variant: 'primary' }
+                    : { label: 'Return to practice', onClick: exitReviewQueue, variant: 'secondary' }
+                : { label: 'Browse reviewers', onClick: () => navigate('/reviewers'), variant: 'primary' }}
             />
           </CardContent>
         </Card>
@@ -499,12 +669,49 @@ export default function PracticePage() {
 
       {!loading && !empty && done && (
         <Card variant="outlined" style={{ borderColor: 'var(--success-border)', background: 'var(--success-bg)' }}>
-          <CardContent style={{ padding: 32, textAlign: 'center' }}>
+          <CardContent className="practice-session-complete">
             <Icon name="check-circle" size={48} style={{ color: 'var(--success)', marginBottom: 12 }} />
-            <h3 style={{ margin: '0 0 8px' }}>Session Complete</h3>
-            <p style={{ margin: 0, color: 'var(--muted)' }}>Reload to practice again or browse your reviewer folders for another set.</p>
+            <h3>{reviewFilter ? 'Review Session Complete' : 'Session Complete'}</h3>
+            {mode === 'flashcards' ? (
+              <>
+                <p>{ratedCardCount} of {sessionLength} cards rated · {againCardCount} marked “Again” · {unansweredCount} skipped</p>
+                <div className="practice-session-summary practice-session-summary--cards" role="group" aria-label="Flashcard session summary">
+                  <div><strong>{ratedCardCount}</strong><span>Cards rated</span></div>
+                  <div><strong>{againCardCount}</strong><span>Need another review</span></div>
+                  <div><strong>{unansweredCount}</strong><span>Skipped</span></div>
+                </div>
+              </>
+            ) : (
+              <>
+                <p>{answeredQuestionCount} of {sessionLength} questions answered · {incorrectQuestionCount} missed · {unansweredCount} unanswered</p>
+                <div className="practice-session-summary" role="group" aria-label="Practice session summary">
+                  <div><strong>{correctQuestionCount}</strong><span>Correct</span></div>
+                  <div><strong>{incorrectQuestionCount}</strong><span>Missed</span></div>
+                  <div><strong>{unansweredCount}</strong><span>Unanswered</span></div>
+                  <div><strong>{sessionAccuracy}%</strong><span>Accuracy</span></div>
+                </div>
+              </>
+            )}
+            {mode !== 'flashcards' && reviewQueue.length > 0 && (
+              <p className="practice-session-review-status">
+                {reviewQueue.length} missed {reviewQueue.length === 1 ? 'question remains' : 'questions remain'} in your review queue
+                {dueReviewCount > 0 ? `; ${dueReviewCount} due now.` : '.'}
+              </p>
+            )}
             <div style={{ marginTop: 16, display: 'flex', gap: 8, justifyContent: 'center' }}>
               <Button variant="primary" leftIcon="rotate-ccw" onClick={load}>Practice Again</Button>
+              {mode !== 'flashcards' && reviewQueue.length > 0 && (
+                <>
+                  <Button variant="secondary" onClick={() => openReviewQueue('all')}>
+                    Review missed now ({reviewQueue.length})
+                  </Button>
+                  {dueReviewCount > 0 && (
+                    <Button variant="outline" onClick={() => openReviewQueue('due')}>
+                      Review due ({dueReviewCount})
+                    </Button>
+                  )}
+                </>
+              )}
               <Button variant="secondary" onClick={() => navigate('/reviewers')}>Browse another set</Button>
             </div>
           </CardContent>
@@ -605,7 +812,7 @@ export default function PracticePage() {
             </div>
 
             {feedback && (
-              <div className="practice-feedback" data-correct={feedback.correct}>
+              <div className="practice-feedback" data-correct={feedback.correct} role="status" aria-live="polite" aria-atomic="true">
                 <div className="practice-feedback-icon">
                   <Icon name={feedback.correct ? 'check-circle' : 'x-circle'} size={22} />
                 </div>
@@ -665,7 +872,7 @@ export default function PracticePage() {
             </div>
 
             {feedback && (
-              <div className="practice-feedback" data-correct={feedback.correct} id="practice-feedback">
+              <div className="practice-feedback" data-correct={feedback.correct} id="practice-feedback" role="status" aria-live="polite" aria-atomic="true">
                 <div className="practice-feedback-icon">
                   <Icon name={feedback.correct ? 'check-circle' : 'x-circle'} size={22} />
                 </div>
@@ -723,7 +930,7 @@ export default function PracticePage() {
             </div>
 
             {feedback && (
-              <div className="practice-feedback" data-correct={feedback.correct}>
+              <div className="practice-feedback" data-correct={feedback.correct} role="status" aria-live="polite" aria-atomic="true">
                 <div className="practice-feedback-icon">
                   <Icon name={feedback.correct ? 'check-circle' : 'x-circle'} size={22} />
                 </div>
@@ -794,7 +1001,7 @@ export default function PracticePage() {
             </div>
 
             {feedback && (
-              <div className="practice-feedback" data-correct={feedback.correct} id="practice-feedback">
+              <div className="practice-feedback" data-correct={feedback.correct} id="practice-feedback" role="status" aria-live="polite" aria-atomic="true">
                 <div className="practice-feedback-icon">
                   <Icon name={feedback.correct ? 'check-circle' : 'x-circle'} size={22} />
                 </div>
@@ -853,7 +1060,7 @@ export default function PracticePage() {
             </div>
 
             {feedback && (
-              <div className="practice-feedback" data-correct={feedback.correct} id="practice-feedback">
+              <div className="practice-feedback" data-correct={feedback.correct} id="practice-feedback" role="status" aria-live="polite" aria-atomic="true">
                 <div className="practice-feedback-icon">
                   <Icon name={feedback.correct ? 'check-circle' : 'x-circle'} size={22} />
                 </div>
