@@ -12,7 +12,7 @@ import idle from '@/assets/mascot/lilo-idle.webm'
  * Visual rules
  * - Small sizes (<= 64px): use the round avatar, no glow, no ring.
  * - Idle companion: use the looping WebM, paused when reduced motion is requested.
- * - Speaking companion: use the pointing pose while TTS is active.
+ * - Speaking companion: use the same WebM with a subtle gesture while TTS is active.
  * - Speaking: use the full-body `state="speaking"` art for hero/empty states.
  * - Always decorative (`alt=""`) unless it is the only label on a control.
  */
@@ -89,7 +89,7 @@ export function TtsMascot({
         .join(' ')}
       style={{ width, ...style }}
     >
-      {resolved === 'idle' && !isSpeaking ? (
+      {resolved === 'idle' ? (
         <video
           src={SOURCES.idle}
           autoPlay={!prefersReducedMotion}
@@ -105,7 +105,7 @@ export function TtsMascot({
         />
       ) : (
         <img
-          src={resolved === 'idle' ? SOURCES.speaking : src}
+          src={src}
           alt={label ?? ''}
           aria-hidden={label ? undefined : true}
           width={width}
