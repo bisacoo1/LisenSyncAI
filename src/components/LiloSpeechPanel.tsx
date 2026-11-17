@@ -142,6 +142,14 @@ export default function LiloSpeechPanel({
     speakMessage('Are you ready?')
   }, [announceReadyPrompt, onReadyPromptAnnounced, speakMessage])
 
+  useEffect(() => {
+    if (reaction !== 'laughing') return
+    const timeout = window.setTimeout(() => {
+      speakMessage("Ha ha! That's okay, let's try again.")
+    }, 0)
+    return () => window.clearTimeout(timeout)
+  }, [reaction, speakMessage])
+
   function speak() {
     const message = text.trim()
     if (!message) return
