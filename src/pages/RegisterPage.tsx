@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase, supabaseConfigured } from '@/lib/supabase'
 import { DEFAULT_PROGRAM, PHARMACY_PROGRAM } from '@/lib/syllabus'
 import { upsertProfile } from '@/context/AuthContext'
@@ -8,11 +8,15 @@ import { Button, Input, Icon, useToast } from '@/components/ui'
 
 export default function RegisterPage() {
   const nav = useNavigate()
+  const [searchParams] = useSearchParams()
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
-  const [track, setTrack] = useState<StudyTrack>('board')
+  // Respect the study mode the visitor picked on the landing page (?track=course).
+  const [track, setTrack] = useState<StudyTrack>(
+    searchParams.get('track') === 'course' ? 'course' : 'board'
+  )
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const { addToast } = useToast()
@@ -56,7 +60,10 @@ export default function RegisterPage() {
           <br />
           for <em>your RPh.</em>
         </h1>
-        <p>Create your Pharmacy study account and organize your review across all 6 PRC board modules.</p>
+        <p>
+          Create your Pharmacy study account — review all 6 PRC board modules, or organize your own BS Pharmacy
+          course subjects.
+        </p>
       </div>
       {error && (
         <div className="auth-error" role="alert">
@@ -65,15 +72,22 @@ export default function RegisterPage() {
         </div>
       )}
       <form onSubmit={onSubmit} className="auth-form">
-        <div className="pharmacy-program-banner" aria-label="Selected board exam track">
+        <div
+          className="pharmacy-program-banner"
+          aria-label={track === 'course' ? 'Selected course mode' : 'Selected board exam track'}
+        >
           <span className="pharmacy-program-banner-icon">
-            <Icon name="pill" size={18} />
+            <Icon name={track === 'course' ? 'book-open' : 'pill'} size={18} />
           </span>
           <div className="pharmacy-program-banner-copy">
-            <span className="pharmacy-program-banner-kicker">INCLUDED BOARD TRACK</span>
-            <strong>{PHARMACY_PROGRAM.name}</strong>
+            <span className="pharmacy-program-banner-kicker">
+              {track === 'course' ? 'COURSE MODE' : 'INCLUDED BOARD TRACK'}
+            </span>
+            <strong>{track === 'course' ? 'BS Pharmacy coursework — your own subjects' : PHARMACY_PROGRAM.name}</strong>
             <span>
-              {PHARMACY_PROGRAM.subjects.length} official PRC PhLE modules · {PASSING_RATE}% passing benchmark
+              {track === 'course'
+                ? 'Upload a reviewer and get flashcards, MCQ, identification, and enumeration sets'
+                : `${PHARMACY_PROGRAM.subjects.length} official PRC PhLE modules · ${PASSING_RATE}% passing benchmark`}
             </span>
           </div>
         </div>
