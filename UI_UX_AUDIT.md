@@ -1,5 +1,7 @@
 # UI/UX Audit Report - LisenSync AI
 
+> **Motion pass (2026-11-17):** Added a shared motion system — `<AnimatedNumber>` count-up stats, `<Reveal>` scroll entrances with staggered children, animated progress rings/bars, card hover/press feedback, a readiness ring sweep, urgent-timer pulse, and modal/toast polish. All motion honors `prefers-reduced-motion`; counters expose the final value to screen readers and use tabular figures to avoid layout shift. Tokens live at the end of `src/design.css` (`--motion-fast/base/slow`, `--motion-ease/spring`).
+
 > **Status update (2026-11-13):** Most critical items below are now resolved — ProgressBar uses correct CSS vars, Modal has a focus trap, Toasts have `role="alert"`/`aria-live`, sidebar has collapsed-state tooltips, skip link exists, toasts sit top-right (no auth-button conflict), practice tabs are scrollable, tables use `.table-wrapper`, and form controls have label associations. Remaining nice-to-haves: inline-style → utility-class migration, skeleton loaders in Reviewer tables, drag-to-reorder, command palette.
 
 ## Executive Summary

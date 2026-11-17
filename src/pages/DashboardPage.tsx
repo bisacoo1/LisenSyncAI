@@ -1,11 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type CSSProperties } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { getProgram, getSubjectDetail } from '@/lib/syllabus'
 import { supabase } from '@/lib/supabase'
 import { computeSubjectStats, overallPercent, readinessLabel } from '@/lib/analytics'
 import { PASSING_RATE, type Attempt, type UserSubject } from '@/types'
-import { Badge, Button, Icon, ProgressBar, Skeleton, useToast, type IconName } from '@/components/ui'
+import { AnimatedNumber, Badge, Button, Icon, ProgressBar, Reveal, Skeleton, useToast, type IconName } from '@/components/ui'
 
 const tools: { number: string; icon: IconName; title: string; description: string; action: string; to: string }[] = [
   {
@@ -274,7 +274,7 @@ export default function DashboardPage() {
       </header>
 
       {isCourse ? (
-        <section className="course-overview-panel" aria-labelledby="course-overview-title">
+        <Reveal as="section" className="course-overview-panel" aria-labelledby="course-overview-title">
           <div className="course-overview-copy">
             <span className="course-overview-kicker">
               <Icon name="book-open" size={16} aria-hidden="true" /> COURSEWORK / BS PHARMACY
@@ -295,23 +295,23 @@ export default function DashboardPage() {
           <div className="course-overview-metrics">
             <div className="course-overview-metric">
               <span>MY SUBJECTS</span>
-              <strong>{loading ? '—' : userSubjects.length}</strong>
+              <strong>{loading ? '—' : <AnimatedNumber value={userSubjects.length} duration={900} />}</strong>
               <small>{loading ? 'Loading your subjects…' : userSubjects.length === 1 ? 'course subject' : 'course subjects'}</small>
             </div>
             <div className="course-overview-metric">
               <span>PRACTICE ACCURACY</span>
-              <strong>{loading || !attempts.length ? '—' : `${overall}%`}</strong>
+              <strong>{loading || !attempts.length ? '—' : <AnimatedNumber value={overall} suffix="%" duration={1100} />}</strong>
               <small>{loading ? 'Loading your progress…' : attempts.length ? `${attempts.length} answered items` : 'Start a session to build your baseline'}</small>
             </div>
             <Link to={dueFlashcardPath} className="course-overview-metric course-overview-metric--link">
               <span>REVIEWS DUE</span>
-              <strong>{loading ? '—' : dueCards}</strong>
+              <strong>{loading ? '—' : <AnimatedNumber value={dueCards} duration={1100} delay={120} />}</strong>
               <small>{loading ? 'Checking your cards…' : dueCards ? 'A quick review keeps topics fresh' : 'You’re all caught up'}</small>
             </Link>
           </div>
-        </section>
+        </Reveal>
       ) : (
-      <div className="dashboard-feature-grid">
+      <Reveal className="dashboard-feature-grid motion-stagger">
         <section className="readiness-panel" aria-labelledby="readiness-title">
           <div className="readiness-topline">
             <span>
@@ -324,7 +324,9 @@ export default function DashboardPage() {
               <div className="readiness-label" id="readiness-title">
                 OVERALL PRACTICE SCORE
               </div>
-              <div className="readiness-score">{loading || attempts.length === 0 ? '—' : `${overall}%`}</div>
+              <div className="readiness-score">
+                {loading || attempts.length === 0 ? '—' : <AnimatedNumber value={overall} suffix="%" duration={1200} />}
+              </div>
               <p>
                 {loading
                   ? 'Gathering your progress…'
@@ -337,9 +339,7 @@ export default function DashboardPage() {
             </div>
             <div
               className="readiness-orbit"
-              style={{
-                background: `conic-gradient(#7dd3fc ${Math.min(overall, 100)}%, rgba(191, 219, 254, .16) 0)`
-              }}
+              style={{ ['--readiness-fill' as string]: `${Math.min(overall, 100)}%` } as CSSProperties}
               aria-label={
                 loading
                   ? 'Loading practice score'
@@ -356,7 +356,9 @@ export default function DashboardPage() {
             </div>
           </div>
           <div className="readiness-progress-label">
-            <span>{attempts.length ? `${overall}% overall` : 'Your starting point'}</span>
+            <span>
+              {attempts.length ? <AnimatedNumber value={overall} suffix="% overall" duration={1200} /> : 'Your starting point'}
+            </span>
             <span>PRC PhLE BENCHMARK {PASSING_RATE}%</span>
           </div>
           <div
@@ -373,10 +375,10 @@ export default function DashboardPage() {
           </div>
           <div className="readiness-bottom">
             <span>
-              <strong>{loading ? '—' : attempts.length}</strong> attempts tracked
+              <strong>{loading ? '—' : <AnimatedNumber value={attempts.length} duration={1100} />}</strong> attempts tracked
             </span>
             <span>
-              <strong>{subjectNames.length}</strong> PhLE modules
+              <strong><AnimatedNumber value={subjectNames.length} duration={1100} delay={120} /></strong> {isCourse ? 'course subjects' : 'PhLE modules'}
             </span>
             <Link to="/analytics">
               View analytics <Icon name="arrow-up-right" size={15} />
@@ -401,7 +403,8 @@ export default function DashboardPage() {
                 'A new date awaits.'
               ) : (
                 <>
-                  {daysLeft} <span>{daysLeft === 1 ? 'day' : 'days'} to go.</span>
+                  <AnimatedNumber value={daysLeft} duration={1200} delay={150} />{' '}
+                  <span>{daysLeft === 1 ? 'day' : 'days'} to go.</span>
                 </>
               )}
             </h2>
@@ -430,7 +433,7 @@ export default function DashboardPage() {
             </div>
           </div>
         </section>
-      </div>
+      </Reveal>
       )}
 
       <section className="dashboard-section" aria-labelledby="momentum-title">
@@ -443,7 +446,7 @@ export default function DashboardPage() {
             A LITTLE EVERY DAY ADDS UP <Icon name="arrow-up-right" size={15} />
           </span>
         </div>
-        <div className="momentum-grid">
+        <Reveal className="momentum-grid motion-stagger">
           <div className="momentum-card">
             <div className="momentum-card-top">
               <span className="momentum-icon cobalt">
@@ -452,8 +455,8 @@ export default function DashboardPage() {
               <span>01</span>
             </div>
             <span className="momentum-label">STUDY LEVEL</span>
-            <strong>{profile.level || 1}</strong>
-            <small>{profile.xp || 0} XP earned so far</small>
+            <strong><AnimatedNumber value={profile.level || 1} duration={800} /></strong>
+            <small><AnimatedNumber value={profile.xp || 0} duration={1100} delay={120} /> XP earned so far</small>
           </div>
           <div className="momentum-card">
             <div className="momentum-card-top">
@@ -464,9 +467,9 @@ export default function DashboardPage() {
             </div>
             <span className="momentum-label">CURRENT STREAK</span>
             <strong>
-              {profile.current_streak || 0} <em>days</em>
+              <AnimatedNumber value={profile.current_streak || 0} duration={900} delay={60} /> <em>days</em>
             </strong>
-            <small>Personal best: {profile.longest_streak || 0} days</small>
+            <small>Personal best: <AnimatedNumber value={profile.longest_streak || 0} duration={1000} delay={120} /> days</small>
           </div>
           <div className="momentum-card">
             <div className="momentum-card-top">
@@ -477,8 +480,8 @@ export default function DashboardPage() {
             </div>
             <span className="momentum-label">DAILY GOAL</span>
             <strong>
-              {dailyCompleted}
-              <em> / {dailyGoal}</em>
+              <AnimatedNumber value={dailyCompleted} duration={900} delay={120} />
+              <em> / <AnimatedNumber value={dailyGoal} duration={900} delay={180} /></em>
             </strong>
             <ProgressBar
               value={dailyCompleted}
@@ -493,7 +496,10 @@ export default function DashboardPage() {
                 : `${Math.max(0, dailyGoal - dailyCompleted)} items to go today`}
             </small>
           </div>
-          <Link to={dueFlashcardPath} className="momentum-card momentum-card--link">
+          <Link
+            to={dueFlashcardPath}
+            className={`momentum-card momentum-card--link${!loading && dueCards > 0 ? ' momentum-card--attention' : ''}`}
+          >
             <div className="momentum-card-top">
               <span className="momentum-icon sky">
                 <Icon name="book-open" size={19} />
@@ -501,15 +507,15 @@ export default function DashboardPage() {
               <Icon name="arrow-up-right" size={16} />
             </div>
             <span className="momentum-label">FLASHCARDS DUE</span>
-            <strong>{loading ? '—' : dueCards}</strong>
+            <strong>{loading ? '—' : <AnimatedNumber value={dueCards} duration={1100} delay={120} />}</strong>
             <small>
               {loading ? 'Checking your cards…' : dueCards > 0 ? 'Ready for another look' : 'You’re all caught up'}
             </small>
           </Link>
-        </div>
+        </Reveal>
       </section>
 
-      <section className="dashboard-section study-plan-section" aria-labelledby="study-plan-title">
+      <Reveal as="section" className="dashboard-section study-plan-section" aria-labelledby="study-plan-title">
         <div className="dashboard-section-heading">
           <div>
             <span className="section-kicker">{isCourse ? 'YOUR NEXT COURSE STEPS' : 'YOUR NEXT BEST STEPS'}</span>
@@ -526,7 +532,7 @@ export default function DashboardPage() {
             <Skeleton variant="text" width={190} />
           </div>
         ) : (
-          <ol className="study-plan-list">
+          <Reveal as="ol" className="study-plan-list motion-stagger">
             {studyPlanSteps.map((step, index) => (
               <li key={`${step.title}-${index}`}>
                 <Link to={step.to} className="study-plan-step">
@@ -540,11 +546,11 @@ export default function DashboardPage() {
                 </Link>
               </li>
             ))}
-          </ol>
+          </Reveal>
         )}
-      </section>
+      </Reveal>
 
-      <section className="dashboard-section" aria-labelledby="toolkit-title">
+      <Reveal as="section" className="dashboard-section" aria-labelledby="toolkit-title">
         <div className="dashboard-section-heading">
           <div>
             <span className="section-kicker">{isCourse ? 'TOOLS FOR YOUR CLASSES' : 'PICK UP WHERE YOU LEFT OFF'}</span>
@@ -574,9 +580,9 @@ export default function DashboardPage() {
             </Link>
           ))}
         </div>
-      </section>
+      </Reveal>
 
-      <section className="dashboard-section" aria-labelledby="subjects-title">
+      <Reveal as="section" className="dashboard-section" aria-labelledby="subjects-title">
         <div className="dashboard-section-heading">
           <div>
             <span className="section-kicker">{isCourse ? 'YOUR COURSE SUBJECTS' : 'THE SIX PhLE MODULES'}</span>
@@ -646,7 +652,7 @@ export default function DashboardPage() {
                           </td>
                           {!isCourse && <td>{detail ? `${detail.weightPercent}%` : '—'}</td>}
                           <td>{s.total}</td>
-                          <td>{s.total === 0 ? '—' : `${s.percent}%`}</td>
+                          <td>{s.total === 0 ? '—' : <AnimatedNumber value={s.percent} suffix="%" duration={800} delay={120} />}</td>
                           <td>
                             {s.total === 0 ? (
                               <Badge size="sm">No data yet</Badge>
@@ -725,7 +731,7 @@ export default function DashboardPage() {
                 {attentionSubjects.slice(0, 3).map((s) => (
                   <li key={s.subject}>
                     <span>{s.subject}</span>
-                    <strong>{s.percent}%</strong>
+                    <strong><AnimatedNumber value={s.percent} suffix="%" duration={800} delay={120} /></strong>
                   </li>
                 ))}
               </ul>
@@ -738,7 +744,7 @@ export default function DashboardPage() {
             </Link>
           </div>
         </div>
-      </section>
+      </Reveal>
       <div className="dashboard-endnote">
         <span>{isCourse ? 'YOUR COURSEWORK, ONE DAY AT A TIME.' : 'YOUR JOURNEY TO RPh, ONE DAY AT A TIME.'}</span>
         <span>{isCourse ? 'LISENSYNC AI / COURSE MODE' : 'LISENSYNC AI / BS PHARMACY'}</span>

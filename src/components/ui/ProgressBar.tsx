@@ -1,4 +1,5 @@
 import React from 'react'
+import { useAnimatedValue } from '@/hooks/useAnimatedValue'
 
 export interface ProgressBarProps {
   value: number
@@ -28,6 +29,10 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
   style,
 }) => {
   const percentage = Math.max(0, Math.min(100, (value / max) * 100))
+  const { value: displayPercentage, ref } = useAnimatedValue<HTMLDivElement>(percentage, {
+    duration: 900,
+    startOnView: true,
+  })
 
   const sizeStyles: Record<string, React.CSSProperties> = {
     sm: { height: 4, borderRadius: 999, fontSize: 10 },
@@ -53,36 +58,48 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
   }
 
   const fillStyle: React.CSSProperties = {
-    width: `${percentage}%`,
+    width: `${displayPercentage}%`,
     height: '100%',
     background: variantColors[variant],
     borderRadius: 999,
-    transition: 'width 300ms ease-out',
     position: 'relative',
     overflow: 'hidden',
   }
 
   const stripeStyle: React.CSSProperties = {
     position: 'absolute',
-    top: 0,
-    left: 0,
-    bottom: 0,
-    right: 0,
-    backgroundImage: 'linear-gradient(45deg, rgba(255,255,255,0.15) 25%, transparent 25%, transparent 50%, rgba(255,255,255,0.15) 50%, rgba(255,255,255,0.15) 75%, transparent 75%, transparent)',
+    inset: 0,
+    backgroundImage:
+      'linear-gradient(45deg, rgba(255,255,255,0.15) 25%, transparent 25%, transparent 50%, rgba(255,255,255,0.15) 50%, rgba(255,255,255,0.15) 75%, transparent 75%, transparent)',
     backgroundSize: '20px 20px',
     animation: animated ? 'stripe 1s linear infinite' : 'none',
   }
 
   return (
-    <div className={className} style={{ width: '100%', ...style }}>
+    <div ref={ref} className={className} style={{ width: '100%', ...style }}>
       {(showLabel || label) && (
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, fontSize: sizeStyles[size].fontSize, fontWeight: 600 }}>
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            marginBottom: 6,
+            fontSize: sizeStyles[size].fontSize,
+            fontWeight: 600,
+          }}
+        >
           <span>{label || `${Math.round(percentage)}%`}</span>
           <span style={{ color: 'var(--muted)' }}>{Math.round(percentage)}%</span>
         </div>
       )}
-      <div style={trackStyle} role="progressbar" aria-label={ariaLabel || label || 'Progress'} aria-valuenow={Math.round(percentage)} aria-valuemin={0} aria-valuemax={100}>
-        <div style={fillStyle}>
+      <div
+        style={trackStyle}
+        role="progressbar"
+        aria-label={ariaLabel || label || 'Progress'}
+        aria-valuenow={Math.round(percentage)}
+        aria-valuemin={0}
+        aria-valuemax={100}
+      >
+        <div className={`ui-progress-fill${animated ? ' ui-progress-fill--live' : ''}`} style={fillStyle}>
           {striped && <div style={stripeStyle} />}
         </div>
       </div>
@@ -97,6 +114,7 @@ export interface CircularProgressProps {
   strokeWidth?: number
   variant?: 'default' | 'success' | 'warning' | 'danger'
   showLabel?: boolean
+  ariaLabel?: string
   className?: string
   style?: React.CSSProperties
 }
@@ -108,13 +126,18 @@ export const CircularProgress: React.FC<CircularProgressProps> = ({
   strokeWidth = 4,
   variant = 'default',
   showLabel = true,
+  ariaLabel,
   className = '',
   style,
 }) => {
   const percentage = Math.max(0, Math.min(100, (value / max) * 100))
+  const { value: displayPercentage, ref } = useAnimatedValue<HTMLDivElement>(percentage, {
+    duration: 1000,
+    startOnView: true,
+  })
   const radius = (size - strokeWidth) / 2
   const circumference = 2 * Math.PI * radius
-  const offset = circumference - (percentage / 100) * circumference
+  const offset = circumference - (displayPercentage / 100) * circumference
 
   const variantColors: Record<string, string> = {
     default: 'var(--primary)',
@@ -124,8 +147,17 @@ export const CircularProgress: React.FC<CircularProgressProps> = ({
   }
 
   return (
-    <div className={className} style={{ width: size, height: size, position: 'relative', ...style }}>
-      <svg width={size} height={size} style={{ transform: 'rotate(-90deg)' }}>
+    <div
+      ref={ref}
+      className={`ui-circular-progress ${className}`.trim()}
+      style={{ width: size, height: size, position: 'relative', ...style }}
+      role="progressbar"
+      aria-label={ariaLabel || 'Progress'}
+      aria-valuenow={Math.round(percentage)}
+      aria-valuemin={0}
+      aria-valuemax={100}
+    >
+      <svg width={size} height={size} style={{ transform: 'rotate(-90deg)', display: 'block' }} aria-hidden="true">
         <circle
           cx={size / 2}
           cy={size / 2}
@@ -144,27 +176,28 @@ export const CircularProgress: React.FC<CircularProgressProps> = ({
           strokeLinecap="round"
           strokeDasharray={circumference}
           strokeDashoffset={offset}
-          style={{ transition: 'stroke-dashoffset 500ms ease-out' }}
         />
       </svg>
       {showLabel && (
-        <div
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: size * 0.22,
-            fontWeight: 700,
-            color: 'var(--text)',
-          }}
-        >
-          {Math.round(percentage)}%
-        </div>
+        <>
+          <div
+            aria-hidden="true"
+            style={{
+              position: 'absolute',
+              inset: 0,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: size * 0.22,
+              fontWeight: 700,
+              fontVariantNumeric: 'tabular-nums',
+              color: 'var(--text)',
+            }}
+          >
+            {Math.round(displayPercentage)}%
+          </div>
+          <span className="sr-only">{Math.round(percentage)}%</span>
+        </>
       )}
     </div>
   )

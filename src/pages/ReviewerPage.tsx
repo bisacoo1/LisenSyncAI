@@ -502,7 +502,7 @@ export default function ReviewerPage() {
               action={!isCourse && filteredMaterials[0] ? { label: 'Generate your first cards', variant: 'primary', onClick: () => { setSelectedMaterial(filteredMaterials[0].id); generateCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }) } } : undefined}
             />
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div className="reviewer-flashcard-list" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {flashcards.slice(0, 10).map(f => (
                 <button type="button" key={f.id} className="reviewer-flashcard" onClick={() => setSelectedCard(f)}>
                   <Badge variant="primary" size="sm">{f.subject}</Badge>

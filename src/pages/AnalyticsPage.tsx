@@ -6,7 +6,7 @@ import { getProgram, getSubjectDetail } from '@/lib/syllabus'
 import { supabase } from '@/lib/supabase'
 import { computeSubjectStats, overallPercent, readinessLabel } from '@/lib/analytics'
 import { PASSING_RATE, type Attempt, type MockExam, type PracticeItem, type UserSubject } from '@/types'
-import { Card, CardHeader, CardContent, Badge, Icon, ProgressBar, CircularProgress, EmptyState, Skeleton } from '@/components/ui'
+import { AnimatedNumber, Card, CardHeader, CardContent, Badge, Icon, ProgressBar, Reveal, EmptyState, Skeleton } from '@/components/ui'
 
 export default function AnalyticsPage() {
   const { profile, user } = useAuth()
@@ -116,7 +116,7 @@ export default function AnalyticsPage() {
       />
 
       {/* Stats Overview */}
-      <div className="grid grid-3" style={{ marginBottom: 24 }}>
+      <Reveal className="grid grid-3 motion-stagger" style={{ marginBottom: 24 }}>
         <Card variant="elevated">
           <CardContent style={{ display: 'flex', alignItems: 'flex-start', gap: 16 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 56, height: 56, borderRadius: 14, background: 'var(--primary-bg)', color: 'var(--primary)', flexShrink: 0 }}>
@@ -124,7 +124,7 @@ export default function AnalyticsPage() {
             </div>
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 4, fontWeight: 500 }}>{isCourse ? 'PRACTICE ACCURACY' : 'OVERALL SCORE'}</div>
-              <div style={{ fontSize: 36, fontWeight: 700, letterSpacing: '-0.02em', color: loading || attempts.length === 0 ? 'var(--muted)' : isCourse ? 'var(--primary)' : overall >= PASSING_RATE ? 'var(--success)' : overall >= 60 ? 'var(--warning)' : 'var(--danger)' }}>{loading || attempts.length === 0 ? '—' : `${overall}%`}</div>
+              <div style={{ fontSize: 36, fontWeight: 700, letterSpacing: '-0.02em', color: loading || attempts.length === 0 ? 'var(--muted)' : isCourse ? 'var(--primary)' : overall >= PASSING_RATE ? 'var(--success)' : overall >= 60 ? 'var(--warning)' : 'var(--danger)' }}>{loading || attempts.length === 0 ? '—' : <AnimatedNumber value={overall} suffix="%" duration={1200} />}</div>
               <p className="muted" style={{ marginTop: 4, fontSize: 13 }}>Across {attempts.length} recorded attempts</p>
             </div>
           </CardContent>
@@ -137,7 +137,7 @@ export default function AnalyticsPage() {
             </div>
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 4, fontWeight: 500 }}>{isCourse ? 'COURSE SUBJECTS' : 'PhLE TARGET BENCHMARK'}</div>
-              <div style={{ fontSize: 36, fontWeight: 700, letterSpacing: '-0.02em', color: isCourse ? 'var(--primary)' : 'var(--success)' }}>{isCourse ? loading ? '—' : userSubjects.length : `${PASSING_RATE}%`}</div>
+              <div style={{ fontSize: 36, fontWeight: 700, letterSpacing: '-0.02em', color: isCourse ? 'var(--primary)' : 'var(--success)' }}>{isCourse ? loading ? '—' : <AnimatedNumber value={userSubjects.length} duration={1000} delay={80} /> : <AnimatedNumber value={PASSING_RATE} suffix="%" duration={1200} delay={80} />}</div>
               <p className="muted" style={{ marginTop: 4, fontSize: 13 }}>{isCourse ? 'Subjects in your study space' : 'PRC Pharmacist Licensure passing mark'}</p>
             </div>
           </CardContent>
@@ -150,20 +150,20 @@ export default function AnalyticsPage() {
             </div>
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 4, fontWeight: 500 }}>{isCourse ? 'SUBJECTS TO REVISIT' : 'WEAK MODULES'}</div>
-              <div style={{ fontSize: 36, fontWeight: 700, letterSpacing: '-0.02em', color: attempts.length === 0 ? 'var(--muted)' : weakSubjects.length > 0 ? isCourse ? 'var(--warning)' : 'var(--danger)' : 'var(--success)' }}>{loading || attempts.length === 0 ? '—' : weakSubjects.length}</div>
+              <div style={{ fontSize: 36, fontWeight: 700, letterSpacing: '-0.02em', color: attempts.length === 0 ? 'var(--muted)' : weakSubjects.length > 0 ? isCourse ? 'var(--warning)' : 'var(--danger)' : 'var(--success)' }}>{loading || attempts.length === 0 ? '—' : <AnimatedNumber value={weakSubjects.length} duration={1000} delay={160} />}</div>
               <p className="muted" style={{ marginTop: 4, fontSize: 13 }}>{loading ? 'Loading focus areas' : attempts.length === 0 ? 'Start practicing to see your focus areas' : isCourse ? weakSubjects.length > 0 ? 'Below your overall practice average' : 'No attempted subjects below your average' : weakSubjects.length > 0 ? 'PhLE modules below 75%' : 'No attempted modules below 75%'}</p>
             </div>
           </CardContent>
         </Card>
-      </div>
+      </Reveal>
 
       <Card variant="outlined" style={{ marginBottom: 24 }}>
         <CardHeader title={isCourse ? 'Study insights' : 'Progress insights'} icon="activity" subtitle={isCourse ? 'A closer look at recent practice, subject strengths, and where to focus next.' : 'A closer look at your recent practice, module strengths, and PhLE mock exams'} />
         <CardContent>
-          <div className="progress-insights-grid">
+          <Reveal className="progress-insights-grid motion-stagger">
             <article className="progress-insight">
               <span className="progress-insight-label"><Icon name="trending-up" size={15} aria-hidden="true" /> LAST 7 DAYS</span>
-              <strong>{recentPractice.recentAccuracy == null ? '—' : `${recentPractice.recentAccuracy}%`}</strong>
+              <strong>{recentPractice.recentAccuracy == null ? '—' : <AnimatedNumber value={recentPractice.recentAccuracy} suffix="%" duration={1000} />}</strong>
               <p>
                 {recentPractice.recentAccuracy == null
                   ? 'Practice this week to start a fresh progress comparison.'
@@ -174,12 +174,12 @@ export default function AnalyticsPage() {
             </article>
             <article className="progress-insight">
               <span className="progress-insight-label"><Icon name="star" size={15} aria-hidden="true" /> STRONGEST {isCourse ? 'SUBJECT' : 'MODULE'}</span>
-              <strong>{strongestSubject ? `${strongestSubject.percent}%` : '—'}</strong>
+              <strong>{strongestSubject ? <AnimatedNumber value={strongestSubject.percent} suffix="%" duration={1000} delay={90} /> : '—'}</strong>
               <p>{strongestSubject ? `${strongestSubject.subject} · ${strongestSubject.total} attempts` : 'Complete practice to see your strongest area.'}</p>
             </article>
             <article className="progress-insight">
               <span className="progress-insight-label"><Icon name="target" size={15} aria-hidden="true" /> {isCourse ? 'FOCUS AREA' : 'MODULE TO REVISIT'}</span>
-              <strong>{lowestSubject ? `${lowestSubject.percent}%` : '—'}</strong>
+              <strong>{lowestSubject ? <AnimatedNumber value={lowestSubject.percent} suffix="%" duration={1000} delay={180} /> : '—'}</strong>
               <p>
                 {lowestSubject
                   ? `${lowestSubject.subject} · ${lowestSubject.total} attempts${isCourse ? lowestSubject.percent < overall ? ', below your overall practice average' : ', at or above your overall practice average' : lowestSubject.weak ? `, below the ${PASSING_RATE}% target` : ', currently on track'}`
@@ -189,7 +189,7 @@ export default function AnalyticsPage() {
             {!isCourse && (
               <article className="progress-insight">
                 <span className="progress-insight-label"><Icon name="timer" size={15} aria-hidden="true" /> LATEST MOCK EXAM</span>
-                <strong>{latestMockScore == null ? '—' : `${latestMockScore}%`}</strong>
+                <strong>{latestMockScore == null ? '—' : <AnimatedNumber value={latestMockScore} suffix="%" duration={1000} delay={240} />}</strong>
                 <p>
                   {latestMockScore != null
                     ? `${latestMockPassed ? 'Passed' : 'Below target'}${previousMockScore == null ? '' : ` · ${latestMockScore - previousMockScore >= 0 ? '+' : ''}${latestMockScore - previousMockScore} points vs. prior exam`}`
@@ -197,7 +197,7 @@ export default function AnalyticsPage() {
                 </p>
               </article>
             )}
-          </div>
+          </Reveal>
         </CardContent>
       </Card>
 
@@ -257,12 +257,12 @@ export default function AnalyticsPage() {
                           </div>
                         </td>
                         {!isCourse && <td style={{ fontVariantNumeric: 'tabular-nums', color: 'var(--muted)' }}>{detail ? `${detail.weightPercent}%` : '—'}</td>}
-                        <td style={{ fontVariantNumeric: 'tabular-nums' }}>{s.correct}</td>
-                        <td style={{ fontVariantNumeric: 'tabular-nums', color: 'var(--muted)' }}>{s.total}</td>
+                        <td style={{ fontVariantNumeric: 'tabular-nums' }}><AnimatedNumber value={s.correct} duration={700} delay={100} /></td>
+                        <td style={{ fontVariantNumeric: 'tabular-nums', color: 'var(--muted)' }}><AnimatedNumber value={s.total} duration={700} delay={140} /></td>
                         <td>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                             {s.total > 0 ? <ProgressBar value={s.percent} max={100} size="sm" ariaLabel={`${s.subject} practice score`} variant={scoreVariant} style={{ flex: 1, minWidth: 150 }} /> : <div aria-hidden="true" style={{ flex: 1, minWidth: 150, height: 4, borderRadius: 999, background: 'var(--panel-2)' }} />}
-                            <span style={{ fontSize: 12, fontWeight: 600, fontVariantNumeric: 'tabular-nums', minWidth: 45, color: scoreColor }}>{s.total === 0 ? '—' : `${s.percent}%`}</span>
+                            <span style={{ fontSize: 12, fontWeight: 600, fontVariantNumeric: 'tabular-nums', minWidth: 45, color: scoreColor }}>{s.total === 0 ? '—' : <AnimatedNumber value={s.percent} suffix="%" duration={800} delay={120} />}</span>
                           </div>
                         </td>
                         <td>

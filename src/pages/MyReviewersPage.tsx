@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { supabase } from '@/lib/supabase'
 import type { PracticeType, ReviewMaterial } from '@/types'
-import { Badge, Button, Card, CardContent, EmptyState, Icon, Skeleton, type IconName } from '@/components/ui'
+import { AnimatedNumber, Badge, Button, Card, CardContent, EmptyState, Icon, Skeleton, type IconName } from '@/components/ui'
 import { WorkspacePageHeader } from '@/components/WorkspacePageHeader'
 
 type ReviewerStudyMode = 'flashcards' | 'mcq' | 'diagnosis' | 'sequence' | 'enumeration' | 'identification'
@@ -186,7 +186,13 @@ export default function MyReviewersPage() {
                     <span className="reviewer-mode-icon"><Icon name={mode.icon} size={21} /></span>
                     <span className="reviewer-mode-title">{mode.title}</span>
                     <span className="reviewer-mode-description">{mode.description}</span>
-                    <span className="reviewer-mode-count">{countLabel}</span>
+                    <span className="reviewer-mode-count">
+                      {count ? (
+                        <>
+                          <AnimatedNumber value={count} duration={700} delay={80} /> {isFlashcards ? 'cards' : 'questions'} ready
+                        </>
+                      ) : countLabel}
+                    </span>
                   </button>
                 )
               })}
@@ -242,7 +248,7 @@ export default function MyReviewersPage() {
                     </span>
                     <span className="reviewer-set-count">
                       <Badge variant={modeCount ? 'primary' : 'default'} size="sm">
-                        {modeCount ? `${modeCount} modes ready` : 'No study sets'}
+                        {modeCount ? <><AnimatedNumber value={modeCount} duration={700} delay={60} /> modes ready</> : 'No study sets'}
                       </Badge>
                     </span>
                     <Icon name="chevron-right" size={18} />

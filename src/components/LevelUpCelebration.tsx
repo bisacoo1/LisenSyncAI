@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from 'react'
-import { Button, Icon } from './ui'
+import { AnimatedNumber, Button, Icon } from './ui'
 
 const COLORS = ['#22c55e', '#3b82f6', '#eab308', '#ef4444', '#a855f7', '#f97316', '#06b6d4', '#ec4899']
 const SHAPES = ['square', 'circle', 'triangle'] as const
@@ -103,8 +103,8 @@ export default function LevelUpCelebration({ level, onClose }: { level: number; 
         <div style={{ fontSize: 13, fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--warning)', marginBottom: 8 }}>
           Level Up!
         </div>
-        <div style={{ fontSize: 40, fontWeight: 800, letterSpacing: '-0.02em', marginBottom: 8 }}>
-          Level {level}
+        <div className="level-up-number" style={{ fontSize: 40, fontWeight: 800, letterSpacing: '-0.02em', marginBottom: 8 }}>
+          Level <AnimatedNumber value={level} duration={1100} delay={180} />
         </div>
         <p style={{ margin: '0 0 20px', color: 'var(--muted)', fontSize: 14 }}>
           Keep practicing to reach the next level.
