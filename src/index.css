@@ -1312,7 +1312,7 @@ footer {
 
 .tts-mascot--idle { aspect-ratio: 1; background: transparent; }
 .tts-mascot--idle video { display: block; width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
-.tts-mascot--idle.is-speaking video {
+.tts-mascot--idle.is-speaking.is-motion-enabled video {
   animation: lilo-pointing-gesture 900ms ease-in-out infinite;
   transform-origin: center bottom;
 }
@@ -1326,7 +1326,7 @@ footer {
 }
 
 /* Cyan "on-air" halo used while text-to-speech is playing */
-.tts-mascot.is-speaking::after {
+.tts-mascot.is-speaking.is-motion-enabled::after {
   content: '';
   position: absolute;
   inset: -6%;
@@ -1370,9 +1370,4 @@ footer {
 .tts-mascot-card__text {
   font-size: var(--text-sm);
   color: var(--text-muted);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .tts-mascot.is-speaking::after { animation: none; }
-  .tts-mascot--idle.is-speaking video { animation: none; }
 }

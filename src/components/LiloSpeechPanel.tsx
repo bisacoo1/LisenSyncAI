@@ -3,6 +3,9 @@ import { TtsMascot } from '@/components/ui/TtsMascot'
 import Button from '@/components/ui/Button'
 import Icon from '@/components/ui/Icon'
 import { useToast } from '@/components/ui/Toast'
+import useReducedMotion from '@/hooks/useReducedMotion'
+
+const LILO_MOTION_STORAGE_KEY = 'lilo-animations-enabled'
 
 interface LiloSpeechPanelProps {
   text: string
@@ -18,11 +21,20 @@ const LILO_LINES = [
 
 export default function LiloSpeechPanel({ text, reaction }: LiloSpeechPanelProps) {
   const { addToast } = useToast()
+  const prefersReducedMotion = useReducedMotion()
+  const [motionOverride, setMotionOverride] = useState<boolean | null>(() => {
+    if (typeof window === 'undefined') return null
+    const stored = window.localStorage.getItem(LILO_MOTION_STORAGE_KEY)
+    if (stored === 'true') return true
+    if (stored === 'false') return false
+    return null
+  })
   const [isSpeaking, setIsSpeaking] = useState(false)
   const [spokenText, setSpokenText] = useState('')
   const nextLine = useRef(0)
   const speechVersion = useRef(0)
   const voices = useRef<SpeechSynthesisVoice[]>([])
+  const motionEnabled = motionOverride ?? !prefersReducedMotion
 
   useEffect(() => {
     if (typeof window === 'undefined' || !('speechSynthesis' in window)) return
@@ -45,6 +57,20 @@ export default function LiloSpeechPanel({ text, reaction }: LiloSpeechPanelProps
     speechVersion.current += 1
     if ('speechSynthesis' in window) window.speechSynthesis.cancel()
     setIsSpeaking(false)
+  }
+
+  function toggleMotion() {
+    const enabled = !motionEnabled
+    try {
+      window.localStorage.setItem(LILO_MOTION_STORAGE_KEY, String(enabled))
+    } catch {
+      addToast({
+        type: 'error',
+        title: 'Could not save Lilo’s animation setting',
+        message: 'Your browser blocked local storage; this change will last only for this visit.',
+      })
+    }
+    setMotionOverride(enabled)
   }
 
   function speak() {
@@ -102,18 +128,30 @@ export default function LiloSpeechPanel({ text, reaction }: LiloSpeechPanelProps
 
   return (
     <div className="lilo-speech-widget">
-      <TtsMascot size={240} variant="idle" speaking={isSpeaking} reaction={reaction} />
-      <Button
-        className="lilo-speech-launcher"
-        variant="outline"
-        size="sm"
-        leftIcon={isSpeaking ? 'x' : 'volume-2'}
-        aria-pressed={isSpeaking}
-        onClick={isSpeaking ? stopSpeaking : speak}
-        disabled={!text.trim()}
-      >
-        {isSpeaking ? 'Stop speaking' : 'Listen with Lilo'}
-      </Button>
+      <TtsMascot size={240} variant="idle" speaking={isSpeaking} reaction={reaction} motionEnabled={motionEnabled} />
+      <div className="lilo-speech-actions">
+        <Button
+          className="lilo-speech-launcher"
+          variant="outline"
+          size="sm"
+          leftIcon={isSpeaking ? 'x' : 'volume-2'}
+          aria-pressed={isSpeaking}
+          onClick={isSpeaking ? stopSpeaking : speak}
+          disabled={!text.trim()}
+        >
+          {isSpeaking ? 'Stop speaking' : 'Listen with Lilo'}
+        </Button>
+        <Button
+          className="lilo-motion-toggle"
+          variant="ghost"
+          size="sm"
+          aria-label="Lilo animations"
+          aria-pressed={motionEnabled}
+          onClick={toggleMotion}
+        >
+          Animations: {motionEnabled ? 'On' : 'Off'}
+        </Button>
+      </div>
 
       {isSpeaking && (
         <section className="lilo-speech-bubble" role="status" aria-live="polite">

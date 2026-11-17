@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import useReducedMotion from '@/hooks/useReducedMotion'
 import avatar512 from '@/assets/mascot/mascot-avatar-512.png'
 import avatar256 from '@/assets/mascot/mascot-avatar-256.png'
 import avatarRound from '@/assets/mascot/mascot-avatar-round-256.png'
@@ -27,6 +27,8 @@ type Props = {
   /** Visually indicates TTS is currently playing (adds a cyan pulse ring). */
   speaking?: boolean
   reaction?: 'laughing'
+  /** Explicitly overrides the system reduced-motion preference when provided. */
+  motionEnabled?: boolean
   /** Accessible label; omit for purely decorative placements. */
   label?: string
   className?: string
@@ -51,24 +53,12 @@ export function TtsMascot({
   variant = 'auto',
   speaking: isSpeaking = false,
   reaction,
+  motionEnabled,
   label,
   className,
   style,
 }: Props) {
-  const [prefersReducedMotion, setPrefersReducedMotion] = useState(() =>
-    typeof window !== 'undefined' &&
-    typeof window.matchMedia === 'function' &&
-    window.matchMedia('(prefers-reduced-motion: reduce)').matches
-  )
-
-  useEffect(() => {
-    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return
-    const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)')
-    const updatePreference = () => setPrefersReducedMotion(mediaQuery.matches)
-    mediaQuery.addEventListener('change', updatePreference)
-    return () => mediaQuery.removeEventListener('change', updatePreference)
-  }, [])
-
+  const prefersReducedMotion = useReducedMotion()
   const resolved: TtsMascotVariant =
     variant === 'auto' ? (size <= 160 ? 'round' : 'speaking') : variant
 
@@ -83,6 +73,7 @@ export function TtsMascot({
 
   const width =
     resolved === 'speaking' ? size * 1.25 : size
+  const shouldAnimate = motionEnabled ?? !prefersReducedMotion
   const isLaughing = reaction === 'laughing' && !isSpeaking
 
   return (
@@ -92,6 +83,7 @@ export function TtsMascot({
         `tts-mascot--${resolved}`,
         isSpeaking ? 'is-speaking' : '',
         isLaughing ? 'is-laughing' : '',
+        shouldAnimate ? 'is-motion-enabled' : '',
         className ?? '',
       ]
         .filter(Boolean)
@@ -100,8 +92,8 @@ export function TtsMascot({
     >
       {resolved === 'idle' ? (
         <video
-          key={isLaughing ? 'laughing' : 'idle'}
-          autoPlay={!prefersReducedMotion}
+          key={`${isLaughing ? 'laughing' : 'idle'}-${shouldAnimate}`}
+          autoPlay={shouldAnimate}
           loop
           muted
           playsInline

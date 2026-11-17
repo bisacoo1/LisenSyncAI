@@ -509,7 +509,8 @@ input::placeholder, textarea::placeholder { color: var(--muted); opacity: 1; }
 .practice-companion { position: sticky; top: 24px; display: flex; flex-direction: column; align-items: center; gap: 12px; min-width: 0; }
 .practice-companion .tts-mascot { margin: 0 auto; }
 .lilo-speech-widget { position: relative; display: flex; flex-direction: column; align-items: center; gap: 12px; width: 100%; }
-.lilo-speech-launcher { min-height: 44px; }
+.lilo-speech-actions { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 8px; width: 100%; }
+.lilo-speech-launcher, .lilo-motion-toggle { min-height: 44px; }
 .lilo-speech-bubble { position: absolute; z-index: var(--z-dropdown); top: calc(100% + 12px); right: 0; width: min(300px, calc(100vw - 32px)); max-height: min(320px, 50dvh); overflow-y: auto; padding: 14px 16px; color: var(--text); background: var(--panel); border: 1px solid var(--primary-border); border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); animation: lilo-speech-enter 180ms ease-out both; transform-origin: top right; }
 .lilo-speech-bubble::before { position: absolute; top: -6px; right: 26px; width: 10px; height: 10px; content: ''; background: var(--panel); border-top: 1px solid var(--primary-border); border-left: 1px solid var(--primary-border); transform: rotate(45deg); }
 .lilo-speech-bubble__heading { display: flex; align-items: center; gap: 7px; margin-bottom: 8px; color: var(--primary); font-size: 12px; font-weight: 700; }
@@ -1144,6 +1145,8 @@ textarea:focus-visible, [tabindex]:focus-visible {
 }
 .practice-companion .tts-mascot {
   width: min(200px, 100%) !important;
+}
+.practice-companion .tts-mascot.is-motion-enabled {
   animation: practice-lilo-float 3.6s ease-in-out infinite;
 }
 @keyframes practice-lilo-float {
