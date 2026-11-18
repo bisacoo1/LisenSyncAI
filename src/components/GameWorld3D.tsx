@@ -28,7 +28,7 @@ type Props = {
 }
 
 const LANE_POSITIONS = [-2.5, 0, 2.5]
-const WORLD_COLORS = [0x2dd4bf, 0x38bdf8, 0x84cc16]
+const WORLD_SKIES = [0x8bcff2, 0x94d8f3, 0xa2dcef]
 
 function addMesh(
   parent: THREE.Object3D,
@@ -97,45 +97,52 @@ function createCollectible(kind: GameWorldCollectible['kind']) {
   return group
 }
 
-function createSideShelf() {
+function createTree(leafColor: number) {
   const group = new THREE.Group()
-  const frame = new THREE.MeshStandardMaterial({ color: 0x526d70, metalness: 0.35, roughness: 0.48 })
-  const backing = new THREE.MeshStandardMaterial({ color: 0xd5e2d9, roughness: 0.78 })
-  const shelf = new THREE.MeshStandardMaterial({ color: 0xe6eee7, roughness: 0.42 })
-  const light = new THREE.MeshStandardMaterial({
-    color: 0x99f6e4,
-    emissive: 0x2dd4bf,
-    emissiveIntensity: 0.7,
-    roughness: 0.35,
-  })
-  const products = [
-    new THREE.MeshStandardMaterial({ color: 0xf6f4e9, roughness: 0.5 }),
-    new THREE.MeshStandardMaterial({ color: 0xf0b95c, roughness: 0.45 }),
-    new THREE.MeshStandardMaterial({ color: 0x6ab8a3, roughness: 0.5 }),
-    new THREE.MeshStandardMaterial({ color: 0xd98b79, roughness: 0.55 }),
-    new THREE.MeshStandardMaterial({ color: 0x76a8c0, roughness: 0.5 }),
-  ]
+  const bark = new THREE.MeshStandardMaterial({ color: 0x76513a, roughness: 0.92 })
+  const leaves = new THREE.MeshStandardMaterial({ color: leafColor, roughness: 0.88 })
+  addMesh(group, new THREE.CylinderGeometry(0.15, 0.24, 2.3, 8), bark, [0, 1.15, 0])
+  addMesh(group, new THREE.SphereGeometry(0.9, 12, 10), leaves, [0, 2.7, 0]).scale.set(1.1, 1.25, 1)
+  addMesh(group, new THREE.SphereGeometry(0.72, 12, 10), leaves, [-0.55, 2.35, 0.08])
+  addMesh(group, new THREE.SphereGeometry(0.72, 12, 10), leaves, [0.55, 2.35, -0.08])
+  return group
+}
 
-  addMesh(group, new THREE.BoxGeometry(1.85, 3.45, 0.16), backing, [0, 1.83, -0.32])
-  for (const x of [-0.82, 0.82]) {
-    addMesh(group, new THREE.BoxGeometry(0.1, 3.35, 0.65), frame, [x, 1.8, 0.06])
-  }
-  for (let row = 0; row < 4; row++) {
-    const shelfY = 0.36 + row * 0.78
-    addMesh(group, new THREE.BoxGeometry(1.72, 0.1, 0.72), shelf, [0, shelfY, 0.05])
-    if (row === 3) {
-      addMesh(group, new THREE.BoxGeometry(1.7, 0.07, 0.08), light, [0, shelfY + 0.08, 0.42])
-      continue
+function createBuilding(color: number) {
+  const group = new THREE.Group()
+  const facade = new THREE.MeshStandardMaterial({ color, roughness: 0.86 })
+  const glass = new THREE.MeshStandardMaterial({
+    color: 0x91cce0,
+    emissive: 0x356a78,
+    emissiveIntensity: 0.16,
+    metalness: 0.12,
+    roughness: 0.25,
+  })
+  const trim = new THREE.MeshStandardMaterial({ color: 0xf0e3c9, roughness: 0.72 })
+  addMesh(group, new THREE.BoxGeometry(5.8, 7.6, 8), facade, [0, 3.8, 0])
+  addMesh(group, new THREE.BoxGeometry(6.1, 0.3, 8.3), trim, [0, 7.75, 0])
+  for (const x of [-1.55, 1.55]) {
+    for (const y of [1.65, 3.65, 5.65]) {
+      addMesh(group, new THREE.BoxGeometry(1.05, 1.24, 0.07), glass, [x, y, 4.04])
     }
-    for (let product = 0; product < 4; product++) {
-      const height = 0.34 + (product % 2) * 0.12
-      const x = -0.54 + product * 0.36
-      addMesh(
-        group,
-        new THREE.BoxGeometry(0.22, height, 0.2),
-        products[(row + product) % products.length],
-        [x, shelfY + height / 2 + 0.05, 0.22],
-      )
+  }
+  addMesh(group, new THREE.BoxGeometry(1.15, 1.9, 0.08), trim, [0, 0.95, 4.05])
+  return group
+}
+
+function createParkedCar(color: number) {
+  const group = new THREE.Group()
+  const body = new THREE.MeshStandardMaterial({ color, metalness: 0.18, roughness: 0.34 })
+  const glass = new THREE.MeshStandardMaterial({ color: 0x9bd4e4, metalness: 0.2, roughness: 0.2 })
+  const tire = new THREE.MeshStandardMaterial({ color: 0x202c32, roughness: 0.86 })
+  addMesh(group, new THREE.BoxGeometry(2.15, 0.68, 3.8), body, [0, 0.64, 0])
+  addMesh(group, new THREE.BoxGeometry(1.72, 0.72, 2.05), body, [0, 1.22, -0.12])
+  addMesh(group, new THREE.BoxGeometry(1.42, 0.42, 0.08), glass, [0, 1.63, 0.93])
+  addMesh(group, new THREE.BoxGeometry(1.35, 0.38, 0.08), glass, [0, 1.62, -1.16])
+  for (const x of [-0.9, 0.9]) {
+    for (const z of [-1.18, 1.18]) {
+      const wheel = addMesh(group, new THREE.CylinderGeometry(0.32, 0.32, 0.18, 12), tire, [x, 0.34, z])
+      wheel.rotation.x = Math.PI / 2
     }
   }
   return group
@@ -235,62 +242,39 @@ export default function GameWorld3D({
     host.appendChild(renderer.domElement)
 
     const scene = new THREE.Scene()
-    const backgroundColor = new THREE.Color(0x102b3b)
+    const backgroundColor = new THREE.Color(WORLD_SKIES[0])
     scene.background = backgroundColor
-    scene.fog = new THREE.Fog(0x102b3b, 28, 110)
+    scene.fog = new THREE.Fog(WORLD_SKIES[0], 58, 145)
     const camera = new THREE.PerspectiveCamera(58, host.clientWidth / host.clientHeight, 0.1, 150)
     camera.position.set(0, 4.25, 8.5)
     camera.lookAt(0, 1.3, -13)
 
-    scene.add(new THREE.HemisphereLight(0xbdeeff, 0x25383c, 2))
-    const keyLight = new THREE.DirectionalLight(0xfff3dc, 2.2)
-    keyLight.position.set(-5, 10, 6)
+    scene.add(new THREE.HemisphereLight(0xc9edff, 0x587958, 2.5))
+    const keyLight = new THREE.DirectionalLight(0xfff4d8, 3.2)
+    keyLight.position.set(-8, 16, 5)
     scene.add(keyLight)
-    const neonLight = new THREE.PointLight(WORLD_COLORS[0], 24, 36)
-    neonLight.position.set(0, 4.3, -12)
-    scene.add(neonLight)
 
-    const floorMaterial = new THREE.MeshStandardMaterial({ color: 0x243b4a, roughness: 0.8, metalness: 0.12 })
-    const trackMaterial = new THREE.MeshStandardMaterial({ color: 0x334c59, roughness: 0.7, metalness: 0.18 })
-    const railMaterial = new THREE.MeshStandardMaterial({ color: 0xb4c9c7, roughness: 0.25, metalness: 0.78 })
-    const accentMaterial = new THREE.MeshStandardMaterial({
-      color: WORLD_COLORS[0],
-      emissive: WORLD_COLORS[0],
-      emissiveIntensity: 0.45,
-    })
-    const sideWallMaterial = new THREE.MeshStandardMaterial({
-      color: 0x506a70,
-      emissive: 0x122b31,
-      emissiveIntensity: 0.18,
-      roughness: 0.82,
-    })
-    const ground = addMesh(scene, new THREE.PlaneGeometry(15, 150), floorMaterial, [0, -0.13, -56])
+    const grassMaterial = new THREE.MeshStandardMaterial({ color: 0x6da96a, roughness: 1 })
+    const roadMaterial = new THREE.MeshStandardMaterial({ color: 0x465057, roughness: 0.94 })
+    const sidewalkMaterial = new THREE.MeshStandardMaterial({ color: 0xb9c6bd, roughness: 0.9 })
+    const curbMaterial = new THREE.MeshStandardMaterial({ color: 0xe7e2cf, roughness: 0.8 })
+    const lineMaterial = new THREE.MeshStandardMaterial({ color: 0xffe6a3, roughness: 0.72 })
+    const ground = addMesh(scene, new THREE.PlaneGeometry(70, 150), grassMaterial, [0, -0.22, -53])
     ground.rotation.x = -Math.PI / 2
+    const road = addMesh(scene, new THREE.PlaneGeometry(10.4, 145), roadMaterial, [0, -0.08, -53])
+    road.rotation.x = -Math.PI / 2
     for (const side of [-1, 1]) {
-      addMesh(scene, new THREE.BoxGeometry(0.24, 5.6, 145), sideWallMaterial, [side * 6.55, 2.8, -53])
-      addMesh(scene, new THREE.BoxGeometry(0.07, 4.9, 145), accentMaterial, [side * 6.38, 2.55, -53])
+      const sidewalk = addMesh(scene, new THREE.PlaneGeometry(2.6, 145), sidewalkMaterial, [side * 6.5, -0.06, -53])
+      sidewalk.rotation.x = -Math.PI / 2
+      addMesh(scene, new THREE.BoxGeometry(0.18, 0.16, 145), curbMaterial, [side * 5.2, -0.01, -53])
     }
 
-    for (const laneX of LANE_POSITIONS) {
-      const laneBed = addMesh(scene, new THREE.PlaneGeometry(2.24, 145), trackMaterial, [laneX, -0.07, -53])
-      laneBed.rotation.x = -Math.PI / 2
-      for (const railOffset of [-0.77, 0.77]) {
-        addMesh(scene, new THREE.BoxGeometry(0.1, 0.1, 145), railMaterial, [laneX + railOffset, 0, -53])
+    const roadMarkings: THREE.Mesh[] = []
+    for (let index = 0; index < 28; index++) {
+      const z = 8 - index * 5
+      for (const x of [-1.25, 1.25]) {
+        roadMarkings.push(addMesh(scene, new THREE.BoxGeometry(0.1, 0.025, 2.4), lineMaterial, [x, -0.055, z]))
       }
-      for (const edgeOffset of [-1.17, 1.17]) {
-        addMesh(scene, new THREE.BoxGeometry(0.045, 0.035, 145), accentMaterial, [laneX + edgeOffset, 0.025, -53])
-      }
-    }
-
-    const sleepers: THREE.Mesh[] = []
-    for (let index = 0; index < 32; index++) {
-      const sleeper = addMesh(
-        scene,
-        new THREE.BoxGeometry(8.15, 0.09, 0.34),
-        darkWoodMaterial(),
-        [0, -0.005, 8 - index * 4],
-      )
-      sleepers.push(sleeper)
     }
 
     const player = createLilo()
@@ -298,14 +282,29 @@ export default function GameWorld3D({
     player.rotation.y = Math.PI
     scene.add(player)
 
-    const sideShelves: THREE.Group[] = []
+    const sideScenery: Array<{ group: THREE.Group; wrapLength: number }> = []
+    const leafColors = [0x4c9850, 0x5ca957, 0x6cae5b]
+    const buildingColors = [0xe8cda8, 0xd7e6e5, 0xe2d6c6, 0xcddfce]
+    const carColors = [0xc64e45, 0x397d91, 0xe1b94c, 0x66767b]
     for (const side of [-1, 1]) {
+      for (let index = 0; index < 10; index++) {
+        const tree = createTree(leafColors[index % leafColors.length])
+        tree.position.set(side * 8.7, -0.2, 8 - index * 13)
+        scene.add(tree)
+        sideScenery.push({ group: tree, wrapLength: 130 })
+      }
       for (let index = 0; index < 6; index++) {
-        const shelf = createSideShelf()
-        shelf.position.set(side * 5.2, 0, 4 - index * 20)
-        shelf.rotation.y = side * -0.12
-        scene.add(shelf)
-        sideShelves.push(shelf)
+        const building = createBuilding(buildingColors[index % buildingColors.length])
+        building.position.set(side * (13.5 + (index % 2) * 1.8), -0.2, 8 - index * 22)
+        building.rotation.y = side * -0.06
+        scene.add(building)
+        sideScenery.push({ group: building, wrapLength: 132 })
+      }
+      for (let index = 0; index < 4; index++) {
+        const car = createParkedCar(carColors[(index + (side > 0 ? 1 : 0)) % carColors.length])
+        car.position.set(side * 6.5, -0.08, 4 - index * 32)
+        scene.add(car)
+        sideScenery.push({ group: car, wrapLength: 128 })
       }
     }
 
@@ -346,24 +345,19 @@ export default function GameWorld3D({
       gate.visible = current.checkpoint
 
       if (activeWorldIndex !== current.worldIndex) {
-        const color = WORLD_COLORS[current.worldIndex]
-        const background = current.worldIndex === 1 ? 0x0b263e : current.worldIndex === 2 ? 0x183143 : 0x102b3b
+        const background = WORLD_SKIES[current.worldIndex]
         backgroundColor.setHex(background)
         if (scene.fog instanceof THREE.Fog) scene.fog.color.setHex(background)
-        neonLight.color.setHex(color)
-        neonLight.intensity = current.worldIndex === 1 ? 28 : 24
-        accentMaterial.color.setHex(color)
-        accentMaterial.emissive.setHex(color)
         activeWorldIndex = current.worldIndex
       }
       if (current.running) {
-        for (const sleeper of sleepers) {
-          sleeper.position.z += delta * 20
-          if (sleeper.position.z > 10) sleeper.position.z -= 128
+        for (const marking of roadMarkings) {
+          marking.position.z += delta * 20
+          if (marking.position.z > 10) marking.position.z -= 140
         }
-        for (const shelf of sideShelves) {
-          shelf.position.z += delta * 20
-          if (shelf.position.z > 12) shelf.position.z -= 120
+        for (const scenery of sideScenery) {
+          scenery.group.position.z += delta * 20
+          if (scenery.group.position.z > 12) scenery.group.position.z -= scenery.wrapLength
         }
       }
 
@@ -495,8 +489,4 @@ export default function GameWorld3D({
       )}
     </div>
   )
-}
-
-function darkWoodMaterial() {
-  return new THREE.MeshStandardMaterial({ color: 0x765d46, roughness: 0.9 })
 }
