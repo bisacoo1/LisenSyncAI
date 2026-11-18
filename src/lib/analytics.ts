@@ -35,7 +35,7 @@ export function checkDiagnosis(user: string, expected: string, acceptable: strin
   const u = normalizeText(user)
   if (!u) return false
   const candidates = [expected, ...acceptable].map(normalizeText)
-  return candidates.some(c => c && (u === c || u.includes(c) || c.includes(u)))
+  return candidates.some(c => c !== '' && u === c)
 }
 
 export function checkSequence(userOrder: string[], correct: string[]) {
@@ -54,7 +54,7 @@ export function checkEnumeration(userInput: string, correctItems: string[]) {
   if (!userItems.length || userItems.length !== expected.length) return false
   const remaining = [...expected]
   for (const u of userItems) {
-    const i = remaining.findIndex(e => e === u || e.includes(u) || u.includes(e))
+    const i = remaining.findIndex(e => e === u)
     if (i === -1) return false
     remaining.splice(i, 1)
   }

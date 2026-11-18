@@ -397,8 +397,6 @@ begin
         where public.normalize_answer_text(candidate.value) <> ''
           and (
             v_user_text = public.normalize_answer_text(candidate.value)
-            or position(public.normalize_answer_text(candidate.value) in v_user_text) > 0
-            or position(v_user_text in public.normalize_answer_text(candidate.value)) > 0
           )
       ) into v_correct;
     end if;
@@ -428,8 +426,6 @@ begin
         where public.normalize_answer_text(expected_part.value) <> ''
           and (
             public.normalize_answer_text(user_part.value) = public.normalize_answer_text(expected_part.value)
-            or position(public.normalize_answer_text(user_part.value) in public.normalize_answer_text(expected_part.value)) > 0
-            or position(public.normalize_answer_text(expected_part.value) in public.normalize_answer_text(user_part.value)) > 0
           )
       );
     select count(*), count(distinct public.normalize_answer_text(user_part.value))
@@ -610,8 +606,6 @@ begin
           where public.normalize_answer_text(candidate.value) <> ''
             and (
               v_user_text = public.normalize_answer_text(candidate.value)
-              or position(public.normalize_answer_text(candidate.value) in v_user_text) > 0
-              or position(v_user_text in public.normalize_answer_text(candidate.value)) > 0
             )
         ) into v_correct;
       end if;

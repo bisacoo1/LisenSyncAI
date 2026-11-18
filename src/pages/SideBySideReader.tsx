@@ -1,20 +1,21 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { explainText } from '@/lib/ai'
 import type { ReviewMaterial, DocumentHighlight } from '@/types'
-import { Card, CardHeader, CardContent, Button, Badge, Icon, Input, EmptyState, useToast } from '@/components/ui'
+import { Card, CardContent, Button, Badge, Icon, EmptyState, useToast } from '@/components/ui'
 
 interface HighlightBubbleProps {
   text: string
   onExplain: () => void
   onHighlight: () => void
   onClose: () => void
+  busy: boolean
   style: React.CSSProperties
 }
 
-function HighlightBubble({ text, onExplain, onHighlight, onClose, style }: HighlightBubbleProps) {
+function HighlightBubble({ text, onExplain, onHighlight, onClose, busy, style }: HighlightBubbleProps) {
   return (
     <div
       style={{
@@ -36,10 +37,10 @@ function HighlightBubble({ text, onExplain, onHighlight, onClose, style }: Highl
         “{text.length > 60 ? text.slice(0, 60) + '…' : text}”
       </div>
       <div style={{ display: 'flex', gap: 8 }}>
-        <Button variant="primary" size="sm" onClick={onExplain} fullWidth leftIcon="brain">
+        <Button variant="primary" size="sm" onClick={onExplain} disabled={busy} fullWidth leftIcon="brain">
           Explain with AI
         </Button>
-        <Button variant="outline" size="sm" onClick={onHighlight} fullWidth leftIcon="check-circle">
+        <Button variant="outline" size="sm" onClick={onHighlight} disabled={busy} fullWidth leftIcon="check-circle">
           Highlight
         </Button>
       </div>
@@ -71,7 +72,15 @@ export default function SideBySideReader() {
   const [followUpInput, setFollowUpInput] = useState('')
   const [sendingFollowUp, setSendingFollowUp] = useState(false)
   const [bubble, setBubble] = useState<{ x: number; y: number; text: string } | null>(null)
-  const [followUps, setFollowUps] = useState<{ question: string; answer: string }[]>([])
+  const [messages, setMessages] = useState<{ role: 'user' | 'assistant'; content: string }[]>([])
+  const [panelTab, setPanelTab] = useState<'chat' | 'highlights'>('chat')
+  const [mobileView, setMobileView] = useState<'document' | 'chat'>('document')
+  const chatMessagesRef = useRef<HTMLDivElement>(null)
+  const requestVersion = useRef(0)
+  const chatRequestPending = useRef(false)
+  const highlightPending = useRef(false)
+  const [savingHighlight, setSavingHighlight] = useState(false)
+  const [loadError, setLoadError] = useState(false)
   const [currentPage, setCurrentPage] = useState(1)
   const ITEMS_PER_PAGE = 4
 
@@ -80,60 +89,70 @@ export default function SideBySideReader() {
 
   useEffect(() => {
     if (!profile) return
-    loadMaterial()
+    let active = true
+    const userId = profile.id
+    async function loadMaterial() {
+      setLoading(true)
+      setLoadError(false)
+      setMaterial(null)
+      setHighlights([])
+      try {
+        let query = supabase.from('review_materials').select('*').eq('user_id', userId)
+        query = materialId ? query.eq('id', materialId) : query.order('created_at', { ascending: false }).limit(1)
+        const { data, error } = await query.maybeSingle()
+        if (error) throw error
+        if (!active) return
+        const found = data as ReviewMaterial | null
+        setMaterial(found)
+        if (!materialId && found) {
+          nav(`/side-by-side/${found.id}`, { replace: true })
+          return
+        }
+        if (found) {
+          const { data: hl, error: highlightError } = await supabase.from('document_highlights')
+            .select('*').eq('material_id', found.id).eq('user_id', userId)
+            .order('created_at', { ascending: false })
+          if (!active) return
+          if (highlightError) addToast({ type: 'error', title: 'Could not load highlights', message: highlightError.message })
+          else setHighlights((hl as DocumentHighlight[]) || [])
+        }
+      } catch (e: any) {
+        if (active) {
+          setLoadError(true)
+          addToast({ type: 'error', title: 'Could not load reviewer', message: e.message })
+        }
+      } finally {
+        if (active) setLoading(false)
+      }
+    }
+    void loadMaterial()
+    return () => { active = false }
   }, [materialId, profile?.id])
 
-  async function loadMaterial() {
-    if (!profile) return
-    setLoading(true)
-    try {
-      let data: ReviewMaterial | null = null
-      let error: unknown = null
-
-      if (materialId) {
-        const result = await supabase
-          .from('review_materials')
-          .select('*')
-          .eq('id', materialId)
-          .eq('user_id', profile.id)
-          .maybeSingle()
-        data = result.data as ReviewMaterial | null
-        error = result.error
-      } else {
-        const result = await supabase
-          .from('review_materials')
-          .select('*')
-          .eq('user_id', profile.id)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle()
-        data = result.data as ReviewMaterial | null
-        error = result.error
-      }
-      if (error) throw error
-      setMaterial(data)
-
-      if (!materialId && data) {
-        nav(`/side-by-side/${data.id}`, { replace: true })
-      }
-
-      if (data) {
-        const { data: hl } = await supabase
-          .from('document_highlights')
-          .select('*')
-          .eq('material_id', data.id)
-          .eq('user_id', profile.id)
-          .order('created_at', { ascending: false })
-        setHighlights((hl as DocumentHighlight[]) || [])
-      } else {
-        setHighlights([])
-      }
-    } catch (e: any) {
-      addToast({ type: 'error', title: 'Error', message: e.message })
-    } finally {
-      setLoading(false)
+  useEffect(() => {
+    requestVersion.current += 1
+    chatRequestPending.current = false
+    highlightPending.current = false
+    setSavingHighlight(false)
+    setMessages([])
+    setCurrentExplanation(null)
+    setFollowUpInput('')
+    setSendingFollowUp(false)
+    setExplaining(false)
+    setCurrentPage(1)
+    setBubble(null)
+    setSelectedText('')
+    setMobileView('document')
+    return () => {
+      requestVersion.current += 1
+      if (selectionTimeout.current) clearTimeout(selectionTimeout.current)
     }
-  }
+  }, [materialId, profile?.id])
+
+  useEffect(() => {
+    const messagesPanel = chatMessagesRef.current
+    if (messagesPanel) messagesPanel.scrollTop = messagesPanel.scrollHeight
+  }, [messages, sendingFollowUp, explaining, panelTab, mobileView])
 
   if (loading) {
     return (
@@ -153,12 +172,12 @@ export default function SideBySideReader() {
       <div className="container" style={{ paddingTop: 60, paddingBottom: 48 }}>
         <EmptyState
           icon="book-open"
-          title="No reviewer available"
-          description="Upload a reviewer first, then open the side-by-side reader."
+          title={loadError ? "Could not load reviewer" : "No reviewer available"}
+          description={loadError ? "Please try again or choose a reviewer from your library." : "Upload a reviewer first, then open the side-by-side reader."}
           action={
             {
-              label: 'Upload reviewer',
-              onClick: () => nav('/reviewer?tab=upload'),
+              label: loadError ? 'Open my reviewers' : 'Upload reviewer',
+              onClick: () => nav(loadError ? '/reviewers' : '/reviewer?tab=upload'),
               variant: 'primary',
             }
           }
@@ -193,102 +212,98 @@ export default function SideBySideReader() {
   }
 
   async function handleExplain() {
-    if (!selectedText || !profile || !user) return
+    const text = bubble?.text || selectedText
+    if (!text || !profile || !user || chatRequestPending.current) return
+    chatRequestPending.current = true
+    const version = requestVersion.current
+    setBubble(null)
+    setPanelTab('chat')
+    setMobileView('chat')
+    setCurrentExplanation(null)
+    setMessages([{ role: 'user', content: `Explain this passage:\n\n${text}` }])
     setExplaining(true)
     try {
-      const result = await explainText({
-        selectedText,
-        program: mat.board_program,
-        subject: mat.subject,
-      })
-
-      setCurrentExplanation({ text: selectedText, explanation: result.explanation, model: result.model })
-      setBubble(null)
-
-      const { error } = await supabase.from('document_highlights').insert({
-        user_id: user.id,
-        material_id: mat.id,
-        selected_text: selectedText,
-        explanation: result.explanation,
-        ai_model: result.model,
-      })
-      if (error) throw error
-
-      await loadMaterial()
-      addToast({ type: 'success', title: 'Explained', message: 'AI explanation added to side panel' })
+      const result = await explainText({ selectedText: text, program: mat.board_program, subject: mat.subject })
+      if (version !== requestVersion.current) return
+      setCurrentExplanation({ text, explanation: result.explanation, model: result.model })
+      setMessages(previous => [...previous, { role: 'assistant', content: result.explanation }])
+      try {
+        const { data, error } = await supabase.from('document_highlights').insert({
+          user_id: user.id, material_id: mat.id, selected_text: text,
+          explanation: result.explanation, ai_model: result.model,
+        }).select().single()
+        if (version !== requestVersion.current) return
+        if (error) throw error
+        if (data) setHighlights(previous => [data as DocumentHighlight, ...previous])
+      } catch (error: any) {
+        if (version === requestVersion.current) addToast({ type: 'error', title: 'Explanation not saved', message: error.message })
+      }
     } catch (e: any) {
+      if (version !== requestVersion.current) return
+      setMessages([])
       addToast({ type: 'error', title: 'Explanation failed', message: e.message })
     } finally {
-      setExplaining(false)
+      if (version === requestVersion.current) { chatRequestPending.current = false; setExplaining(false) }
     }
   }
 
   async function handleHighlight() {
-    if (!selectedText || !profile || !user) return
+    const text = bubble?.text || selectedText
+    if (!text || !profile || !user || highlightPending.current) return
+    const version = requestVersion.current
+    highlightPending.current = true
+    setSavingHighlight(true)
     try {
-      const { error } = await supabase.from('document_highlights').insert({
-        user_id: user.id,
-        material_id: mat.id,
-        selected_text: selectedText,
-        explanation: null,
-        ai_model: null,
-      })
+      const { data, error } = await supabase.from('document_highlights').insert({
+        user_id: user.id, material_id: mat.id, selected_text: text, explanation: null, ai_model: null,
+      }).select().single()
+      if (version !== requestVersion.current) return
       if (error) throw error
-      await loadMaterial()
+      if (data) setHighlights(previous => [data as DocumentHighlight, ...previous])
       setBubble(null)
       setSelectedText('')
       addToast({ type: 'success', title: 'Highlighted', message: 'Text saved to highlights' })
     } catch (e: any) {
-      addToast({ type: 'error', title: 'Highlight failed', message: e.message })
+      if (version === requestVersion.current) addToast({ type: 'error', title: 'Highlight failed', message: e.message })
+    } finally {
+      if (version === requestVersion.current) { highlightPending.current = false; setSavingHighlight(false) }
     }
   }
 
   async function sendFollowUp() {
-    if (!followUpInput.trim() || !currentExplanation || !profile || !user) return
+    const question = followUpInput.trim()
+    if (!question || !profile || chatRequestPending.current) return
+    const context = currentExplanation?.text || pageParagraphs.join('\n\n')
+    if (!context.trim()) {
+      addToast({ type: 'error', title: 'No document text', message: 'This page has no extracted text to discuss.' })
+      return
+    }
+    chatRequestPending.current = true
+    const version = requestVersion.current
+    const history = messages
+    setMessages(previous => [...previous, { role: 'user', content: question }])
+    setFollowUpInput('')
     setSendingFollowUp(true)
     try {
-      const result = await explainText({
-        selectedText: currentExplanation.text,
-        followUp: followUpInput,
-        program: mat.board_program,
-        subject: mat.subject,
-      })
-
-      const newFollowUps = [...followUps, { question: followUpInput, answer: result.explanation }]
-      setFollowUps(newFollowUps)
-      setFollowUpInput('')
-
-      const { error } = await supabase.from('document_highlights').insert({
-        user_id: user.id,
-        material_id: mat.id,
-        selected_text: currentExplanation.text,
-        explanation: result.explanation,
-        ai_model: result.model,
-      })
-      if (error) throw error
-
-      await loadMaterial()
+      const result = await explainText({ selectedText: context, followUp: question, history, program: mat.board_program, subject: mat.subject })
+      if (version !== requestVersion.current) return
+      setMessages(previous => [...previous, { role: 'assistant', content: result.explanation }])
     } catch (e: any) {
-      addToast({ type: 'error', title: 'Follow-up failed', message: e.message })
+      if (version !== requestVersion.current) return
+      setMessages(history)
+      setFollowUpInput(previous => previous.trim() ? `${question}\n\n${previous}` : question)
+      addToast({ type: 'error', title: 'Message not sent', message: e.message })
     } finally {
-      setSendingFollowUp(false)
+      if (version === requestVersion.current) { chatRequestPending.current = false; setSendingFollowUp(false) }
     }
   }
 
-  async function removeFollowUp(index: number) {
-    if (!currentExplanation) return
-    setFollowUps(followUps.filter((_, i) => i !== index))
-    addToast({ type: 'success', title: 'Deleted', message: 'Follow-up removed' })
-  }
-
   async function clearAllHighlights() {
-    if (!profile || !user) return
+    if (!profile || !user || explaining || savingHighlight || !window.confirm('Delete all saved highlights for this reviewer? This cannot be undone.')) return
     try {
       const { error } = await supabase.from('document_highlights').delete().eq('material_id', mat.id).eq('user_id', user.id)
       if (error) throw error
       setHighlights([])
-      setCurrentExplanation(null)
-      setFollowUps([])
       addToast({ type: 'success', title: 'Cleared', message: 'All highlights deleted' })
     } catch (e: any) {
       addToast({ type: 'error', title: 'Delete failed', message: e.message })
@@ -296,12 +311,14 @@ export default function SideBySideReader() {
   }
 
   const goToPage = (page: number) => {
-    if (page < 1 || page > totalPages) return
+    if (page < 1 || page > totalPages || sendingFollowUp || explaining) return
     setCurrentPage(page)
+    setBubble(null)
+    if (!currentExplanation) setMessages([])
   }
 
   return (
-    <div className="container" style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', overflow: 'auto' }}>
+    <div className="container reader-page">
       {/* Header */}
       <div className="reader-header" style={{ padding: '24px 0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -325,11 +342,15 @@ export default function SideBySideReader() {
         </div>
       </div>
 
+      <div className="reader-mobile-switch" aria-label="Reader view">
+        <button type="button" className={mobileView === 'document' ? 'active' : ''} aria-pressed={mobileView === 'document'} onClick={() => setMobileView('document')}>Document</button>
+        <button type="button" className={mobileView === 'chat' ? 'active' : ''} aria-pressed={mobileView === 'chat'} onClick={() => setMobileView('chat')}>AI chat</button>
+      </div>
       {/* Main reader area - document left, AI panel right */}
-      <div className="reader-grid" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 400px', gap: 0, flex: 1, minHeight: 0, overflow: 'auto' }}>
+      <div className="reader-grid">
         {/* Left: Document viewer */}
         <div
-          className="reader-document"
+          className={`reader-document${mobileView !== 'document' ? ' reader-mobile-hidden' : ''}`}
           style={{
             background: 'var(--bg)',
             overflow: 'auto',
@@ -343,6 +364,7 @@ export default function SideBySideReader() {
                 ref={textRef}
                 onMouseUp={handleSelectionChange}
                 onTouchEnd={handleSelectionChange}
+                onKeyUp={handleSelectionChange}
                 style={{
                   lineHeight: 1.8,
                   fontSize: 16,
@@ -366,7 +388,7 @@ export default function SideBySideReader() {
                     ))}
                     {/* Page number marker */}
                     <div style={{ textAlign: 'center', marginTop: 30, color: 'var(--muted)', fontSize: 12, fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
-                      Page {currentPage} of {totalPages}
+                      Section {currentPage} of {totalPages}
                     </div>
                   </>
                 )}
@@ -375,11 +397,11 @@ export default function SideBySideReader() {
               {/* Page navigation */}
               {totalPages > 1 && (
                 <div className="reader-pagination" aria-label="Document pagination">
-                  <Button variant="outline" size="sm" leftIcon="chevron-left" aria-label="Previous page" onClick={() => goToPage(currentPage - 1)} disabled={currentPage === 1}>
+                  <Button variant="outline" size="sm" leftIcon="chevron-left" aria-label="Previous page" onClick={() => goToPage(currentPage - 1)} disabled={currentPage === 1 || sendingFollowUp || explaining}>
                     Previous
                   </Button>
-                  <span aria-label={`Page ${currentPage} of ${totalPages}`}>{currentPage} / {totalPages}</span>
-                  <Button variant="outline" size="sm" rightIcon="chevron-right" aria-label="Next page" onClick={() => goToPage(currentPage + 1)} disabled={currentPage === totalPages}>
+                  <span aria-label={`Section ${currentPage} of ${totalPages}`}>{currentPage} / {totalPages}</span>
+                  <Button variant="outline" size="sm" rightIcon="chevron-right" aria-label="Next page" onClick={() => goToPage(currentPage + 1)} disabled={currentPage === totalPages || sendingFollowUp || explaining}>
                     Next
                   </Button>
                 </div>
@@ -389,157 +411,76 @@ export default function SideBySideReader() {
         </div>
 
         {/* Right: AI panel */}
-        <div
-          className="reader-side-panel"
-          style={{
-            width: 400,
-            minWidth: 400,
-            background: 'var(--panel)',
-            borderLeft: '1px solid var(--border)',
-            boxShadow: '-4px 0 16px rgba(0, 0, 0, 0.15)',
-            display: 'flex',
-            flexDirection: 'column',
-            overflow: 'hidden',
-          }}
-        >
-          {/* Panel header */}
-          <div style={{ padding: 20, borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <Icon name="brain" size={16} style={{ color: 'var(--primary)' }} />
-              <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>AI Assistant</span>
-            </div>
-            <p style={{ margin: 0, fontSize: 12, color: 'var(--muted)' }}>
-              {currentExplanation ? `Model: ${currentExplanation.model}` : `${highlights.length} saved`}
-            </p>
+        <aside className={`reader-side-panel${mobileView !== 'chat' ? ' reader-mobile-hidden' : ''}`} aria-label="Study assistant">
+          <div className="reader-chat-header">
+            <span className="reader-chat-avatar"><Icon name="brain" size={20} /></span>
+            <div><strong>Study assistant</strong><small>Ask questions as you read</small></div>
           </div>
-
-          {/* Panel content */}
-          <div style={{ flex: 1, overflow: 'auto', padding: 20, display: 'flex', flexDirection: 'column', gap: 16 }}>
-            {/* Saved highlights section */}
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                <h4 style={{ margin: 0, fontSize: 13, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  Saved Highlights ({highlights.length})
-                </h4>
-                {highlights.length > 0 && (
-                  <button
-                    onClick={clearAllHighlights}
-                    style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', padding: 4, borderRadius: 4, fontSize: 11, fontWeight: 600 }}
-                  >
-                    Clear all
-                  </button>
-                )}
+          <div className="reader-panel-tabs" role="group" aria-label="Assistant panel">
+            <button type="button" className={panelTab === 'chat' ? 'active' : ''} aria-pressed={panelTab === 'chat'} onClick={() => setPanelTab('chat')}>Chat</button>
+            <button type="button" className={panelTab === 'highlights' ? 'active' : ''} aria-pressed={panelTab === 'highlights'} onClick={() => setPanelTab('highlights')}>Saved highlights <span>{highlights.length}</span></button>
+          </div>
+          {panelTab === 'chat' ? (
+            <>
+              <div className="reader-chat-context">
+                <Icon name="file-text" size={15} />
+                <span>{currentExplanation ? 'Discussing selected text' : `Using document section ${currentPage} of ${totalPages}`}</span>
+                {currentExplanation && <button type="button" disabled={sendingFollowUp || explaining} onClick={() => { setCurrentExplanation(null); setMessages([]) }}>Clear selection</button>}
               </div>
-              {highlights.length === 0 ? (
-                <div style={{ fontSize: 13, color: 'var(--muted)', textAlign: 'center', padding: 24 }}>
-                  No highlights yet. Select text in the document and tap 'Highlight'.
+              {currentExplanation && <div className="reader-chat-selection" title={currentExplanation.text}>“{currentExplanation.text}”</div>}
+              <div ref={chatMessagesRef} className="reader-chat-messages" aria-label="Conversation" aria-live="polite" aria-busy={sendingFollowUp || explaining}>
+                {messages.length === 0 && !explaining && (
+                  <div className="reader-chat-empty">
+                    <span className="reader-chat-avatar"><Icon name="brain" size={24} /></span>
+                    <h2>Let's study together.</h2>
+                    <p>Ask a question about this section, or select a passage and choose “Explain with AI”.</p>
+                  </div>
+                )}
+                {messages.map((message, index) => (
+                  <div key={index} className={`reader-message reader-message--${message.role}`}>
+                    <span>{message.role === 'user' ? 'You' : 'Study assistant'}</span>
+                    <div>{message.content}</div>
+                  </div>
+                ))}
+                {(sendingFollowUp || explaining) && <div className="reader-chat-thinking" role="status"><Icon name="loader" size={15} className="spin" /> Thinking…</div>}
+              </div>
+              <form className="reader-chat-composer" onSubmit={event => { event.preventDefault(); void sendFollowUp() }}>
+                <label htmlFor="reader-chat-input">Your question</label>
+                <div>
+                  <textarea id="reader-chat-input" rows={2} placeholder="Ask about this section…" value={followUpInput} onChange={event => setFollowUpInput(event.target.value)} onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); void sendFollowUp() } }} />
+                  <Button type="submit" variant="primary" size="sm" disabled={!followUpInput.trim() || sendingFollowUp || explaining || (!currentExplanation && !paragraphs.length)} aria-label="Send question" leftIcon="arrow-right">Send</Button>
                 </div>
-              ) : (
-                <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {highlights.map(h => (
-                    <li key={h.id}>
-                      <button type="button" className="reader-highlight" onClick={() => setCurrentExplanation(h.explanation ? { text: h.selected_text, explanation: h.explanation, model: h.ai_model || 'unknown' } : null)}>
-                        <span className="reader-highlight-text">{h.selected_text}</span>
-                        {h.explanation ? (
-                          <span className="reader-highlight-meta"><Icon name="brain" size={12} /> AI explained — tap to view</span>
-                        ) : (
-                          <span className="reader-highlight-meta">Highlighted (no explanation)</span>
-                        )}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
+                <small>Enter to send · Shift + Enter for a new line. Chat is not saved.</small>
+                <small>AI can make mistakes. Verify important information.</small>
+              </form>
+            </>
+          ) : (
+            <div className="reader-saved">
+              <div className="reader-saved-heading"><div><strong>Saved highlights</strong><p>Passages you've saved from this reviewer.</p></div>
+                {highlights.length > 0 && <button type="button" disabled={explaining || savingHighlight} onClick={clearAllHighlights}>Clear all</button>}
+              </div>
+              {highlights.length === 0 ? <p className="reader-saved-empty">Select text in the document and choose “Highlight” to save it here.</p> : (
+                <ul>{highlights.map(h => <li key={h.id}>
+                  <button type="button" className="reader-highlight" disabled={sendingFollowUp || explaining} onClick={() => {
+                    setCurrentExplanation({ text: h.selected_text, explanation: h.explanation || '', model: h.ai_model || '' })
+                    setMessages(h.explanation ? [{ role: 'user', content: `Explain this passage:\n\n${h.selected_text}` }, { role: 'assistant', content: h.explanation }] : [])
+                    setPanelTab('chat')
+                  }}>
+                    <span className="reader-highlight-text">{h.selected_text}</span>
+                    <span className="reader-highlight-meta">{h.explanation ? 'View explanation' : 'Ask about this passage'} <Icon name="arrow-right" size={12} /></span>
+                  </button>
+                </li>)}</ul>
               )}
             </div>
-
-            {/* Current explanation section */}
-            {currentExplanation && (
-              <>
-                <div style={{ background: 'var(--panel-2)', border: '1px solid var(--border)', borderRadius: 10, padding: 16 }}>
-                  <div style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>
-                    Selected text
-                  </div>
-                  <div style={{ fontSize: 14, color: 'var(--text-dim)', fontStyle: 'italic', marginBottom: 16, lineHeight: 1.6 }}>
-                    “{currentExplanation.text}”
-                  </div>
-                  <div style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>
-                    Explanation
-                  </div>
-                  <div style={{ fontSize: 14, color: 'var(--text)', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>
-                    {currentExplanation.explanation}
-                  </div>
-                </div>
-
-                <h4 style={{ margin: '0 0 8px', fontSize: 13, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  Follow-up question
-                </h4>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <Input
-                    placeholder="Ask a follow-up question…"
-                    aria-label="Ask a follow-up question"
-                    value={followUpInput}
-                    onChange={e => setFollowUpInput(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendFollowUp()}
-                    fullWidth
-                    leftIcon="comment"
-                  />
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    onClick={sendFollowUp}
-                    disabled={!followUpInput.trim() || sendingFollowUp}
-                    loading={sendingFollowUp}
-                    leftIcon="arrow-right"
-                  >
-                    Ask
-                  </Button>
-                </div>
-
-                    {followUps.length > 0 && (
-                      <div>
-                        <h4 style={{ margin: '16px 0 12px', fontSize: 13, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                          Conversation
-                        </h4>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                          {followUps.map((f, i) => (
-                            <div key={i} style={{ padding: 10, background: 'var(--panel-2)', borderRadius: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--primary)' }}>You:</div>
-                                <button
-                                  aria-label="Delete follow-up"
-                                  onClick={() => removeFollowUp(i)}
-                                  style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', padding: 2, borderRadius: 4 }}
-                                >
-                                  <Icon name="trash" size={14} />
-                                </button>
-                              </div>
-                              <div style={{ fontSize: 12.5, color: 'var(--text)' }}>{f.question}</div>
-                              <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', marginTop: 4 }}>AI:</div>
-                              <div style={{ fontSize: 12.5, color: 'var(--text-dim)', lineHeight: 1.6 }}>{f.answer}</div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-              </>
-            )}
-
-            {/* Empty state */}
-            {!currentExplanation && (
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 16, alignItems: 'center', justifyContent: 'center', textAlign: 'center', color: 'var(--muted)' }}>
-                <Icon name="check-circle" size={48} style={{ opacity: 0.4 }} />
-                <p style={{ fontSize: 14, marginBottom: 16 }}>No explanation yet</p>
-                <p style={{ fontSize: 12, maxWidth: 260, lineHeight: 1.6 }}>Select text in the document and tap 'Explain with AI' to start.</p>
-              </div>
-            )}
-          </div>
-        </div>
+          )}
+        </aside>
       </div>
 
       {/* Floating explain/highlight bubble */}
       {bubble && (
         <HighlightBubble
           text={bubble.text}
+          busy={savingHighlight || explaining || sendingFollowUp}
           onExplain={handleExplain}
           onHighlight={handleHighlight}
           onClose={() => setBubble(null)}

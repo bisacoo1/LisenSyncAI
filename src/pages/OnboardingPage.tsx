@@ -8,8 +8,8 @@ import { Card, CardHeader, CardContent, Button, Input, Icon, useToast } from '@/
 export default function OnboardingPage() {
   const { user, profile, refreshProfile } = useAuth()
   const nav = useNavigate()
-  const [fullName, setFullName] = useState(profile?.full_name || '')
-  const [track, setTrack] = useState<StudyTrack>(profile?.track || 'board')
+  const [fullName, setFullName] = useState(profile?.full_name || user?.user_metadata?.full_name || '')
+  const [track, setTrack] = useState<StudyTrack>(profile?.track || (user?.user_metadata?.track === 'course' ? 'course' : 'board'))
   const [examDate, setExamDate] = useState(profile?.target_exam_date || '')
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
