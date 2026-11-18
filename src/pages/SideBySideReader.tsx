@@ -445,9 +445,8 @@ export default function SideBySideReader() {
                 {(sendingFollowUp || explaining) && <div className="reader-chat-thinking" role="status"><Icon name="loader" size={15} className="spin" /> Thinking…</div>}
               </div>
               <form className="reader-chat-composer" onSubmit={event => { event.preventDefault(); void sendFollowUp() }}>
-                <label htmlFor="reader-chat-input">Your question</label>
                 <div>
-                  <textarea id="reader-chat-input" rows={2} placeholder="Ask about this section…" value={followUpInput} onChange={event => setFollowUpInput(event.target.value)} onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); void sendFollowUp() } }} />
+                  <textarea id="reader-chat-input" aria-label="Ask a follow-up question" rows={2} placeholder="Ask a follow-up question…" value={followUpInput} onChange={event => setFollowUpInput(event.target.value)} onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); void sendFollowUp() } }} />
                   <Button type="submit" variant="primary" size="sm" disabled={!followUpInput.trim() || sendingFollowUp || explaining || (!currentExplanation && !paragraphs.length)} aria-label="Send question" leftIcon="arrow-right">Send</Button>
                 </div>
                 <small>Enter to send · Shift + Enter for a new line. Chat is not saved.</small>
