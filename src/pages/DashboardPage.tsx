@@ -278,41 +278,6 @@ export default function DashboardPage() {
         </Link>
       </header>
 
-      <Reveal as="section" className="dashboard-section study-plan-section" aria-labelledby="study-plan-title">
-        <div className="dashboard-section-heading">
-          <div>
-            <span className="section-kicker">{isCourse ? 'Your next course steps' : 'Your next best steps'}</span>
-            <h2 id="study-plan-title">{isCourse ? 'Today’s course study plan' : 'Today’s smart study plan'}</h2>
-          </div>
-          <span className="study-plan-goal">
-            <Icon name="target" size={15} aria-hidden="true" />
-            {dailyCompleted} of {dailyGoal} items today
-          </span>
-        </div>
-        {loading ? (
-          <div className="study-plan-loading" aria-label="Preparing your study plan">
-            <Skeleton variant="text" width={260} />
-            <Skeleton variant="text" width={190} />
-          </div>
-        ) : (
-          <Reveal as="ol" className="study-plan-list motion-stagger">
-            {studyPlanSteps.map((step, index) => (
-              <li key={`${step.title}-${index}`}>
-                <Link to={step.to} className="study-plan-step">
-                  <span className="study-plan-step-number">{String(index + 1).padStart(2, '0')}</span>
-                  <span className="study-plan-step-icon" aria-hidden="true"><Icon name={step.icon} size={19} /></span>
-                  <span className="study-plan-step-copy">
-                    <strong>{step.title}</strong>
-                    <small>{step.description}</small>
-                  </span>
-                  <span className="study-plan-step-action">{step.action}<Icon name="arrow-right" size={15} /></span>
-                </Link>
-              </li>
-            ))}
-          </Reveal>
-        )}
-      </Reveal>
-
       {isCourse ? (
         <Reveal as="section" className="course-overview-panel" aria-labelledby="course-overview-title">
           <div className="course-overview-copy">
@@ -475,6 +440,41 @@ export default function DashboardPage() {
         </section>
       </Reveal>
       )}
+
+      <Reveal as="section" className="dashboard-section study-plan-section" aria-labelledby="study-plan-title">
+        <div className="dashboard-section-heading">
+          <div>
+            <span className="section-kicker">{isCourse ? 'Your next course steps' : 'Your next best steps'}</span>
+            <h2 id="study-plan-title">{isCourse ? 'Today’s course study plan' : 'Today’s smart study plan'}</h2>
+          </div>
+          <span className="study-plan-goal">
+            <Icon name="target" size={15} aria-hidden="true" />
+            {dailyCompleted} of {dailyGoal} items today
+          </span>
+        </div>
+        {loading ? (
+          <div className="study-plan-loading" aria-label="Preparing your study plan">
+            <Skeleton variant="text" width={260} />
+            <Skeleton variant="text" width={190} />
+          </div>
+        ) : (
+          <Reveal as="ol" className="study-plan-list motion-stagger">
+            {studyPlanSteps.map((step, index) => (
+              <li key={`${step.title}-${index}`}>
+                <Link to={step.to} className="study-plan-step">
+                  <span className="study-plan-step-number">{String(index + 1).padStart(2, '0')}</span>
+                  <span className="study-plan-step-icon" aria-hidden="true"><Icon name={step.icon} size={19} /></span>
+                  <span className="study-plan-step-copy">
+                    <strong>{step.title}</strong>
+                    <small>{step.description}</small>
+                  </span>
+                  <span className="study-plan-step-action">{step.action}<Icon name="arrow-right" size={15} /></span>
+                </Link>
+              </li>
+            ))}
+          </Reveal>
+        )}
+      </Reveal>
 
       <section className="dashboard-section" aria-labelledby="momentum-title">
         <div className="dashboard-section-heading">
