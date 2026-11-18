@@ -45,6 +45,7 @@ export default function App() {
 
       {/* Protected routes with Layout (sidebar + main content) */}
       <Route
+        path="/onboarding"
         element={
           <Layout>
             <ProtectedRoute requireProfile={false}>
@@ -52,10 +53,9 @@ export default function App() {
             </ProtectedRoute>
           </Layout>
         }
-      >
-        <Route path="/onboarding" />
-      </Route>
+      />
       <Route
+        path="/dashboard"
         element={
           <Layout>
             <ProtectedRoute>
@@ -63,9 +63,7 @@ export default function App() {
             </ProtectedRoute>
           </Layout>
         }
-      >
-        <Route path="/dashboard" />
-      </Route>
+      />
       <Route
         path="/reviewer"
         element={
@@ -77,6 +75,7 @@ export default function App() {
         }
       />
       <Route
+        path="/reviewers"
         element={
           <Layout>
             <ProtectedRoute>
@@ -84,10 +83,9 @@ export default function App() {
             </ProtectedRoute>
           </Layout>
         }
-      >
-        <Route path="/reviewers" />
-      </Route>
+      />
       <Route
+        path="/practice"
         element={
           <Layout focus>
             <ProtectedRoute>
@@ -95,10 +93,9 @@ export default function App() {
             </ProtectedRoute>
           </Layout>
         }
-      >
-        <Route path="/practice" />
-      </Route>
+      />
       <Route
+        path="/mock"
         element={
           <Layout>
             <ProtectedRoute>
@@ -106,10 +103,9 @@ export default function App() {
             </ProtectedRoute>
           </Layout>
         }
-      >
-        <Route path="/mock" />
-      </Route>
+      />
       <Route
+        path="/analytics"
         element={
           <Layout>
             <ProtectedRoute>
@@ -117,10 +113,9 @@ export default function App() {
             </ProtectedRoute>
           </Layout>
         }
-      >
-        <Route path="/analytics" />
-      </Route>
+      />
       <Route
+        path="/side-by-side"
         element={
           <Layout>
             <ProtectedRoute>
@@ -128,10 +123,17 @@ export default function App() {
             </ProtectedRoute>
           </Layout>
         }
-      >
-        <Route path="/side-by-side" />
-        <Route path="/side-by-side/:materialId" />
-      </Route>
+      />
+      <Route
+        path="/side-by-side/:materialId"
+        element={
+          <Layout>
+            <ProtectedRoute>
+              <SideBySideReader />
+            </ProtectedRoute>
+          </Layout>
+        }
+      />
 
       {/* 404 */}
       <Route
