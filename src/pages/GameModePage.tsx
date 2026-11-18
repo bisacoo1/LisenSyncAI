@@ -1,15 +1,18 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { supabase } from '@/lib/supabase'
 import type { McqAnswer, McqQuestion, PracticeItem } from '@/types'
+import type { GameWorldCollectible, GameWorldObstacle } from '@/components/GameWorld3D'
+import { obstacleDodged, type GameObstacleKind, type PlayerAction } from '@/lib/gameMode'
 import { Badge, Button, Card, Icon } from '@/components/ui'
 import liloAvatar from '@/assets/mascot/mascot-avatar-256.png'
 
-type Obstacle = { id: number; lane: number; progress: number; kind: 'barrier' | 'crate' | 'cart' }
+const GameWorld3D = lazy(() => import('@/components/GameWorld3D'))
+type Obstacle = GameWorldObstacle
 type GameStatus = 'ready' | 'running' | 'paused' | 'gameover'
 
-const CHECKPOINT_DISTANCE = 180
+const CHECKPOINT_DISTANCE = 200
 const QUESTION_SECONDS = 20
 const WORLDS = [
   { name: 'Pharmora Central', sign: 'CITY LINE' },
@@ -27,7 +30,9 @@ export default function GameModePage() {
   const [materialId, setMaterialId] = useState(searchParams.get('material') || '')
   const [status, setStatus] = useState<GameStatus>('ready')
   const [lane, setLane] = useState(1)
+  const [playerAction, setPlayerAction] = useState<PlayerAction>('run')
   const [obstacles, setObstacles] = useState<Obstacle[]>([])
+  const [collectibles, setCollectibles] = useState<GameWorldCollectible[]>([])
   const [distance, setDistance] = useState(0)
   const [totalDistance, setTotalDistance] = useState(0)
   const [score, setScore] = useState(0)
@@ -39,7 +44,15 @@ export default function GameModePage() {
   const [loading, setLoading] = useState(true)
   const [gameMessage, setGameMessage] = useState('')
   const timerRef = useRef<number | null>(null)
+  const actionTimerRef = useRef<number | null>(null)
+  const obstacleSpawnTimer = useRef(0)
   const obstacleId = useRef(0)
+  const collectibleId = useRef(0)
+  const obstaclesRef = useRef<Obstacle[]>([])
+  const collectiblesRef = useRef<GameWorldCollectible[]>([])
+  const distanceRef = useRef(0)
+  const livesRef = useRef(3)
+  const timeLeftRef = useRef(QUESTION_SECONDS)
 
   useEffect(() => {
     if (!profile) return
@@ -83,86 +96,144 @@ export default function GameModePage() {
     setLane(Math.max(0, Math.min(2, nextLane)))
   }, [])
 
+  const performAction = useCallback((action: Exclude<PlayerAction, 'run'>) => {
+    if (status !== 'running') return
+    if (actionTimerRef.current) window.clearTimeout(actionTimerRef.current)
+    setPlayerAction(action)
+    actionTimerRef.current = window.setTimeout(() => {
+      setPlayerAction('run')
+      actionTimerRef.current = null
+    }, 680)
+  }, [status])
+
+  const handleSwipe = useCallback((direction: 'left' | 'right' | 'up' | 'down') => {
+    if (direction === 'left') moveLane(lane - 1)
+    else if (direction === 'right') moveLane(lane + 1)
+    else performAction(direction === 'up' ? 'jump' : 'slide')
+  }, [lane, moveLane, performAction])
+
+  useEffect(() => () => {
+    if (actionTimerRef.current) window.clearTimeout(actionTimerRef.current)
+    if (timerRef.current) window.clearInterval(timerRef.current)
+  }, [])
+
   const startGame = () => {
     setStatus('running')
     setLane(1)
+    obstaclesRef.current = []
+    collectiblesRef.current = []
     setObstacles([])
+    setCollectibles([])
+    distanceRef.current = 0
     setDistance(0)
     setTotalDistance(0)
     setScore(0)
+    livesRef.current = 3
     setLives(3)
     setQuestionIndex(0)
     setGameMessage('')
+    setPlayerAction('run')
+    obstacleSpawnTimer.current = 0
+    if (actionTimerRef.current) window.clearTimeout(actionTimerRef.current)
   }
 
   useEffect(() => {
     if (status !== 'running') return
     const interval = window.setInterval(() => {
-      setDistance(previous => {
-        const next = previous + 4
-        if (next >= CHECKPOINT_DISTANCE && previous < CHECKPOINT_DISTANCE) {
-          setStatus('paused')
-          setTimeLeft(QUESTION_SECONDS)
-          setSelectedAnswer(null)
-          setAnswerResult(null)
-        }
-        return next
-      })
-      setTotalDistance(previous => previous + 4)
+      obstacleSpawnTimer.current += 0.1
+      const spawnRow = obstacleSpawnTimer.current >= 1.15
+      if (spawnRow) obstacleSpawnTimer.current = 0
+      const availableLanes = [0, 1, 2].sort(() => Math.random() - 0.5)
+      const obstacleCount = Math.random() < 0.58 ? 2 : 1
+      const newObstacles: Obstacle[] = spawnRow
+        ? availableLanes.slice(0, obstacleCount).map(laneIndex => ({
+          id: ++obstacleId.current,
+          lane: laneIndex,
+          progress: -8,
+          kind: (['low', 'overhead', 'tall'] as const)[Math.floor(Math.random() * 3)],
+        }))
+        : []
+      const newCollectibles: GameWorldCollectible[] = spawnRow
+        ? Array.from({ length: 2 + Math.floor(Math.random() * 2) }, (_, index) => ({
+          id: ++collectibleId.current,
+          lane: availableLanes[obstacleCount],
+          progress: -8 - index * 7,
+          kind: Math.random() < 0.18 ? 'gold' as const : 'capsule' as const,
+        }))
+        : []
 
-      setObstacles(previous => {
-        let nextObstacles = previous
-          .map(obstacle => ({ ...obstacle, progress: obstacle.progress + 5 }))
-          .filter(obstacle => obstacle.progress < 100)
+      const nextDistance = distanceRef.current + 1
+      distanceRef.current = nextDistance
+      setDistance(nextDistance)
+      if (nextDistance >= CHECKPOINT_DISTANCE && nextDistance - 1 < CHECKPOINT_DISTANCE) {
+        setStatus('paused')
+        timeLeftRef.current = QUESTION_SECONDS
+        setTimeLeft(QUESTION_SECONDS)
+        setSelectedAnswer(null)
+        setAnswerResult(null)
+      }
+      setTotalDistance(previous => previous + 1)
+      setScore(previous => previous + 1)
 
-        if (Math.random() > 0.78) {
-          nextObstacles = [
-            ...nextObstacles,
-            {
-              id: ++obstacleId.current,
-              lane: Math.floor(Math.random() * 3),
-              progress: -8,
-              kind: (['barrier', 'crate', 'cart'] as const)[Math.floor(Math.random() * 3)],
-            }
-          ]
+      let nextObstacles = [
+        ...obstaclesRef.current.map(obstacle => ({ ...obstacle, progress: obstacle.progress + 5 }))
+          .filter(obstacle => obstacle.progress < 100),
+        ...newObstacles,
+      ]
+      const collision = nextObstacles.find(obstacle =>
+        obstacle.lane === lane && obstacle.progress > 76 && obstacle.progress < 91,
+      )
+      if (collision) {
+        if (obstacleDodged(collision.kind, playerAction)) {
+          setScore(previousScore => previousScore + 25)
+          setGameMessage('Great move! +25 points')
+        } else {
+          const nextLives = Math.max(0, livesRef.current - 1)
+          livesRef.current = nextLives
+          setLives(nextLives)
+          setGameMessage('Ouch! Lilo hit an obstacle.')
+          if (nextLives === 0) setStatus('gameover')
         }
+        nextObstacles = nextObstacles.filter(obstacle => obstacle.id !== collision.id)
+      }
+      obstaclesRef.current = nextObstacles
+      setObstacles(nextObstacles)
 
-        const collision = nextObstacles.find(obstacle =>
-          obstacle.lane === lane && obstacle.progress > 76 && obstacle.progress < 91,
-        )
-        if (collision) {
-          setLives(previousLives => {
-            const nextLives = previousLives - 1
-            setGameMessage('Ouch! Lilo hit an obstacle.')
-            if (nextLives <= 0) setStatus('gameover')
-            return Math.max(0, nextLives)
-          })
-          nextObstacles = nextObstacles.filter(obstacle => obstacle.id !== collision.id)
-        }
-        return nextObstacles
-      })
+      let nextCollectibles = [
+        ...collectiblesRef.current.map(item => ({ ...item, progress: item.progress + 5 }))
+          .filter(item => item.progress < 100),
+        ...newCollectibles,
+      ]
+      const collected = nextCollectibles.filter(item =>
+        item.lane === lane && item.progress > 76 && item.progress < 91,
+      )
+      if (collected.length) {
+        setScore(previousScore => previousScore + collected.reduce((sum, item) => sum + (item.kind === 'gold' ? 100 : 20), 0))
+        setGameMessage(collected.some(item => item.kind === 'gold') ? 'Golden Rx collected!' : 'Capsules collected!')
+        nextCollectibles = nextCollectibles.filter(item => !collected.some(pickup => pickup.id === item.id))
+      }
+      collectiblesRef.current = nextCollectibles
+      setCollectibles(nextCollectibles)
     }, 100)
     return () => window.clearInterval(interval)
-  }, [status, lane])
+  }, [status, lane, playerAction])
 
   useEffect(() => {
     if (status !== 'paused' || answerResult) return
     if (timerRef.current) window.clearInterval(timerRef.current)
     timerRef.current = window.setInterval(() => {
-      setTimeLeft(previous => {
-        if (previous <= 1) {
-          window.clearInterval(timerRef.current!)
-          timerRef.current = null
-          setAnswerResult('wrong')
-          setLives(current => {
-            const next = current - 1
-            if (next <= 0) setStatus('gameover')
-            return Math.max(0, next)
-          })
-          return 0
-        }
-        return previous - 1
-      })
+      const nextTime = Math.max(0, timeLeftRef.current - 1)
+      timeLeftRef.current = nextTime
+      setTimeLeft(nextTime)
+      if (nextTime === 0) {
+        window.clearInterval(timerRef.current!)
+        timerRef.current = null
+        setAnswerResult('wrong')
+        const nextLives = Math.max(0, livesRef.current - 1)
+        livesRef.current = nextLives
+        setLives(nextLives)
+        if (nextLives === 0) setStatus('gameover')
+      }
     }, 1000)
     return () => {
       if (timerRef.current) window.clearInterval(timerRef.current)
@@ -172,12 +243,26 @@ export default function GameModePage() {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (status !== 'running') return
-      if (event.key === 'ArrowLeft' || event.key.toLowerCase() === 'a') moveLane(lane - 1)
-      if (event.key === 'ArrowRight' || event.key.toLowerCase() === 'd') moveLane(lane + 1)
+      if (event.key === 'ArrowLeft' || event.key.toLowerCase() === 'a') {
+        event.preventDefault()
+        moveLane(lane - 1)
+      }
+      if (event.key === 'ArrowRight' || event.key.toLowerCase() === 'd') {
+        event.preventDefault()
+        moveLane(lane + 1)
+      }
+      if (event.key === 'ArrowUp' || event.key.toLowerCase() === 'w' || event.code === 'Space') {
+        event.preventDefault()
+        performAction('jump')
+      }
+      if (event.key === 'ArrowDown' || event.key.toLowerCase() === 's') {
+        event.preventDefault()
+        performAction('slide')
+      }
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [status, lane, moveLane])
+  }, [status, lane, moveLane, performAction])
 
   const resumeAfterCheckpoint = useCallback(async (correct: boolean) => {
     if (currentQuestion && user) {
@@ -193,21 +278,29 @@ export default function GameModePage() {
     }
     if (correct) setScore(previous => previous + 100)
     setQuestionIndex(previous => previous + 1)
-    setDistance(previous => previous - CHECKPOINT_DISTANCE)
+    const remainingDistance = Math.max(0, distanceRef.current - CHECKPOINT_DISTANCE)
+    distanceRef.current = remainingDistance
+    setDistance(remainingDistance)
     setSelectedAnswer(null)
     setAnswerResult(null)
+    timeLeftRef.current = QUESTION_SECONDS
     setTimeLeft(QUESTION_SECONDS)
     setGameMessage(correct ? 'Checkpoint cleared! +100 points' : 'Keep going—you will get the next one.')
-    setStatus(lives > 0 ? 'running' : 'gameover')
+    setStatus(livesRef.current > 0 ? 'running' : 'gameover')
     if (profile) await refreshProfile()
-  }, [currentQuestion, lives, profile, refreshProfile, selectedAnswer, user])
+  }, [currentQuestion, profile, refreshProfile, selectedAnswer, user])
 
   const submitAnswer = (index: number) => {
     if (answerResult !== null || mcqAnswer == null) return
     setSelectedAnswer(index)
     const correct = index === mcqAnswer.correctIndex
     setAnswerResult(correct ? 'correct' : 'wrong')
-    if (!correct) setLives(previous => Math.max(0, previous - 1))
+    if (!correct) {
+      const nextLives = Math.max(0, livesRef.current - 1)
+      livesRef.current = nextLives
+      setLives(nextLives)
+      if (nextLives === 0) setStatus('gameover')
+    }
   }
 
   const changeSubject = (nextSubject: string) => {
@@ -215,15 +308,13 @@ export default function GameModePage() {
     setSearchParams(nextSubject ? { subject: nextSubject, ...(materialId ? { material: materialId } : {}) } : {})
   }
 
-  const laneButtons = useMemo(() => [0, 1, 2], [])
-
   return (
     <div className="game-page">
       <div className="game-header">
         <div>
           <span className="section-kicker"><span className="eyebrow-dot" /> LILO GAME MODE</span>
-          <h1>Checkpoint Run</h1>
-          <p>Dodge obstacles, reach checkpoints, and answer questions before time runs out.</p>
+          <h1>Rx Runner</h1>
+          <p>Collect Rx tokens, dodge pharmacy hazards, and clear document-based checkpoints.</p>
         </div>
         {subjects.length > 1 && (
           <label className="game-subject-picker">
@@ -233,6 +324,7 @@ export default function GameModePage() {
             </select>
           </label>
         )}
+        <Button variant="ghost" leftIcon="arrow-left" onClick={() => navigate('/dashboard')}>Exit game</Button>
       </div>
 
       {loading ? (
@@ -256,42 +348,24 @@ export default function GameModePage() {
             </div>
 
             <div className={`runner-track world-${worldIndex}${status === 'running' ? ' runner-track--running' : ''}`} aria-label={`${world.name} subway track`}>
-              <div className="world-skyline" aria-hidden="true">
-                {Array.from({ length: 10 }, (_, index) => (
-                  <span key={index} className={`skyline-building building-${index % 4}`} />
-                ))}
-              </div>
-              <div className="world-tree tree-left tree-0" aria-hidden="true"><i /><span /></div>
-              <div className="world-tree tree-left tree-1" aria-hidden="true"><i /><span /></div>
-              <div className="world-tree tree-right tree-0" aria-hidden="true"><i /><span /></div>
-              <div className="world-tree tree-right tree-1" aria-hidden="true"><i /><span /></div>
-              <div className="world-station-sign" aria-hidden="true">
-                <small>PHARMORA METRO</small>
-                <strong>{world.name}</strong>
-                <span>{world.sign}</span>
-              </div>
-              <div className="runner-road">
-                {[0, 1, 2].map(index => <span key={index} className={`road-lane lane-${index}`} />)}
-                {obstacles.map(obstacle => (
-                  <div
-                    key={obstacle.id}
-                    className={`runner-obstacle obstacle-${obstacle.kind}`}
-                    style={{
-                      left: `${16.666 + obstacle.lane * 33.333}%`,
-                      top: `${obstacle.progress}%`,
-                      transform: `translateX(-50%) scale(${Math.max(0.45, Math.min(1.25, 0.55 + obstacle.progress / 160))})`,
-                    }}
-                    aria-hidden="true"
-                  >
-                    <span />
-                  </div>
-                ))}
-              </div>
+              <Suspense fallback={<div className="game-scene-loading">Preparing the Pharmacy Metro…</div>}>
+                <GameWorld3D
+                  running={status === 'running'}
+                  checkpoint={status === 'paused'}
+                  lane={lane}
+                  action={playerAction}
+                  obstacles={obstacles}
+                  collectibles={collectibles}
+                  worldIndex={worldIndex}
+                  worldName={world.name}
+                  onSwipe={handleSwipe}
+                />
+              </Suspense>
               {status === 'ready' && (
                 <div className="runner-overlay">
                   <img src={liloAvatar} alt="Lilo mascot" />
                   <h2>Ready to run?</h2>
-                  <p>Use ← → or A D to dodge.</p>
+                  <p>Change lanes, jump over bins, and slide under IV racks.</p>
                   <Button size="lg" onClick={startGame} leftIcon="zap">Start run</Button>
                 </div>
               )}
@@ -304,29 +378,22 @@ export default function GameModePage() {
                 </div>
               )}
               {status === 'running' && gameMessage && <div className="runner-message">{gameMessage}</div>}
-              {status !== 'ready' && status !== 'gameover' && (
-                <img
-                  className="lilo-runner"
-                  src={liloAvatar}
-                  alt="Lilo"
-                  style={{ left: `${16.666 + lane * 33.333}%` }}
-                />
-              )}
             </div>
 
             {status === 'running' && (
               <div className="runner-controls" aria-label="Runner controls">
-                {laneButtons.map(index => (
-                  <button
-                    key={index}
-                    type="button"
-                    className={lane === index ? 'active' : ''}
-                    onClick={() => moveLane(index)}
-                    aria-label={`Move to lane ${index + 1}`}
-                  >
-                    {index === 0 ? '←' : index === 1 ? '•' : '→'}
-                  </button>
-                ))}
+                <button type="button" onClick={() => moveLane(lane - 1)} aria-label="Move left">
+                  <Icon name="arrow-left" size={18} /><span>Lane</span>
+                </button>
+                <button type="button" onClick={() => performAction('jump')} aria-label="Jump">
+                  <Icon name="zap" size={18} /><span>Jump</span>
+                </button>
+                <button type="button" onClick={() => performAction('slide')} aria-label="Slide">
+                  <Icon name="arrow-down" size={18} /><span>Slide</span>
+                </button>
+                <button type="button" onClick={() => moveLane(lane + 1)} aria-label="Move right">
+                  <Icon name="arrow-right" size={18} /><span>Lane</span>
+                </button>
               </div>
             )}
           </Card>

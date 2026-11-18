@@ -138,7 +138,7 @@ export default function App() {
       <Route
         path="/game"
         element={
-          <Layout>
+          <Layout focus>
             <ProtectedRoute>
               <GameModePage />
             </ProtectedRoute>
