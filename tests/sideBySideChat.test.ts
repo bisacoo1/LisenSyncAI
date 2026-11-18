@@ -7,7 +7,9 @@ const file = (path: string) => readFileSync(resolve(process.cwd(), path), 'utf8'
 describe('side-by-side study chat', () => {
   it('keeps a composer available without requiring an explanation first', () => {
     const reader = file('src/pages/SideBySideReader.tsx')
-    expect(reader).toContain('Ask about this section')
+    expect(reader).toContain('placeholder="Ask a follow-up question…"')
+    expect(reader).toContain('aria-label="Ask a follow-up question"')
+    expect(reader).not.toContain('>Your question</label>')
     expect(reader).toContain("currentExplanation?.text || pageParagraphs.join")
     expect(reader).toContain('Chat is not saved')
   })
@@ -43,6 +45,14 @@ describe('side-by-side study chat', () => {
     expect(reader).toContain('highlightPending.current = true')
     expect(reader).toContain('previous.trim() ? `${question}\\n\\n${previous}` : question')
     expect(reader).toContain("title: 'Explanation not saved'")
+  })
+
+  it('gives the conversation room and prevents messages from shrinking under the composer', () => {
+    const css = file('src/design.css')
+    expect(css).toMatch(/\.reader-grid\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\) minmax\(0, 1fr\)/s)
+    expect(css).toMatch(/\.reader-grid\s*\{[^}]*grid-template-rows:\s*minmax\(0, 1fr\)/s)
+    expect(css).toMatch(/\.reader-message\s*\{[^}]*flex:\s*0 0 auto/s)
+    expect(css).toMatch(/\.reader-chat-composer\s*\{[^}]*flex:\s*0 0 auto/s)
   })
 
 })

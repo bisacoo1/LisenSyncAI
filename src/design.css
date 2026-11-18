@@ -2277,38 +2277,38 @@ textarea:focus-visible, [tabindex]:focus-visible {
 /* Side-by-side reader: a document workspace with a persistent chat composer. */
 .reader-page { height: calc(100vh - 72px); height: calc(100dvh - 72px); min-height: 0; display: flex; flex-direction: column; overflow: hidden; padding-bottom: 16px; }
 .reader-page .reader-header { flex: 0 0 auto; min-width: 0; }
-.reader-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(320px, 400px); flex: 1 1 0; min-height: 0; overflow: hidden !important; border: 1px solid var(--border); border-radius: 18px; background: var(--panel); }
+.reader-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); flex: 1 1 0; min-height: 0; overflow: hidden !important; border: 1px solid var(--border); border-radius: 18px; background: var(--panel); }
 .reader-document { min-width: 0; }
 .reader-document-card { margin: 20px; }
 .reader-side-panel { min-width: 0; min-height: 0; height: 100%; display: flex; flex-direction: column; overflow: hidden; background: var(--panel); border-left: 1px solid var(--border); }
-.reader-chat-header { display: flex; align-items: center; gap: 12px; padding: 18px 20px; }
+.reader-chat-header { flex: 0 0 auto; display: flex; align-items: center; gap: 12px; padding: 18px 20px; }
 .reader-chat-avatar { display: grid; flex: 0 0 auto; place-items: center; width: 42px; height: 42px; border-radius: 13px; color: var(--primary); background: var(--primary-bg); }
 .reader-chat-header strong, .reader-chat-header small { display: block; }
 .reader-chat-header strong { font-size: 15px; color: var(--text); }
 .reader-chat-header small { margin-top: 3px; color: var(--muted); font-size: 12px; }
-.reader-panel-tabs { display: flex; gap: 4px; padding: 0 16px; border-bottom: 1px solid var(--border); }
+.reader-panel-tabs { flex: 0 0 auto; display: flex; gap: 4px; padding: 0 16px; border-bottom: 1px solid var(--border); }
 .reader-panel-tabs button { min-height: 44px; padding: 0 12px; border: 0; border-bottom: 2px solid transparent; background: transparent; color: var(--text-dim); cursor: pointer; font-weight: 600; }
 .reader-panel-tabs button.active { color: var(--primary); border-bottom-color: var(--primary); }
 .reader-panel-tabs span { padding: 2px 6px; border-radius: 999px; background: var(--panel-2); font-size: 11px; }
-.reader-chat-context { display: flex; align-items: center; gap: 8px; padding: 11px 20px; color: var(--text-dim); background: var(--panel-2); font-size: 12px; }
+.reader-chat-context { flex: 0 0 auto; display: flex; align-items: center; gap: 8px; padding: 11px 20px; color: var(--text-dim); background: var(--panel-2); font-size: 12px; }
 .reader-chat-context span { flex: 1; }
 .reader-chat-context button, .reader-saved-heading button { border: 0; background: transparent; color: var(--primary); font-size: 12px; font-weight: 700; cursor: pointer; }
-.reader-chat-messages { flex: 1; min-height: 0; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 18px; }
+.reader-chat-messages { flex: 1 1 0; min-height: 0; overscroll-behavior: contain; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 18px; }
+.reader-chat-thinking { flex: 0 0 auto; }
 .reader-chat-empty { margin: auto; max-width: 280px; text-align: center; color: var(--text-dim); }
 .reader-chat-empty .reader-chat-avatar { margin: 0 auto 14px; width: 52px; height: 52px; }
 .reader-chat-empty h2 { margin: 0 0 8px; color: var(--text); font-size: 18px; }
 .reader-chat-empty p { margin: 0; font-size: 13px; line-height: 1.6; }
-.reader-message { max-width: 93%; min-width: 0; }
+.reader-message { flex: 0 0 auto; max-width: 93%; min-width: 0; }
 .reader-message > span { display: block; margin: 0 4px 6px; color: var(--muted); font-size: 11px; font-weight: 700; }
 .reader-message > div { padding: 12px 14px; border-radius: 14px 14px 14px 4px; background: var(--panel-2); color: var(--text); font-size: 14px; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; }
 .reader-message--user { align-self: flex-end; }
 .reader-message--user > span { text-align: right; }
 .reader-message--user > div { background: var(--primary); color: var(--on-primary); border-radius: 14px 14px 4px 14px; }
 .reader-chat-thinking { display: flex; align-items: center; gap: 8px; color: var(--text-dim); font-size: 13px; }
-.reader-chat-composer { flex-shrink: 0; padding: 14px 16px 16px; border-top: 1px solid var(--border); background: var(--panel); }
-.reader-chat-composer label { display: block; margin-bottom: 7px; color: var(--text); font-size: 12px; font-weight: 700; }
+.reader-chat-composer { flex: 0 0 auto; position: relative; padding: 12px 16px 14px; border-top: 1px solid var(--border); background: var(--panel); }
 .reader-chat-composer > div { display: flex; align-items: flex-end; gap: 8px; }
-.reader-chat-composer textarea { flex: 1; min-width: 0; min-height: 54px; max-height: 150px; resize: vertical; padding: 10px 12px; border: 1px solid var(--border-strong); border-radius: 10px; background: var(--bg); color: var(--text); font: inherit; font-size: 14px; line-height: 1.4; }
+.reader-chat-composer textarea { flex: 1; min-width: 0; min-height: 54px; max-height: 110px; resize: none; padding: 10px 12px; border: 1px solid var(--border-strong); border-radius: 10px; background: var(--bg); color: var(--text); font: inherit; font-size: 14px; line-height: 1.4; }
 .reader-chat-composer .ui-button { min-height: 44px; }
 .reader-chat-composer small { display: block; margin-top: 6px; color: var(--muted); font-size: 11px; line-height: 1.4; }
 .reader-saved { flex: 1; min-height: 0; overflow-y: auto; padding: 20px; }
@@ -2342,7 +2342,7 @@ textarea:focus-visible, [tabindex]:focus-visible {
   .reader-chat-header { padding: 8px 16px; }
   .reader-chat-header .reader-chat-avatar { width: 34px; height: 34px; }
   .reader-chat-composer { padding: 8px 12px; }
-  .reader-chat-composer small { display: none; }
+  .reader-chat-composer small { margin-top: 3px; font-size: 10px; }
 }
 
 /* Dashboard readability and resilient small-screen layout. */
