@@ -745,7 +745,7 @@ export default function DashboardPage() {
       </Reveal>
       <div className="dashboard-endnote">
         <span>{isCourse ? 'YOUR COURSEWORK, ONE DAY AT A TIME.' : 'YOUR JOURNEY TO RPh, ONE DAY AT A TIME.'}</span>
-        <span>{isCourse ? 'LISENSYNC AI / COURSE MODE' : 'LISENSYNC AI / BS PHARMACY'}</span>
+        <span>{isCourse ? 'PHARMORA AI / COURSE MODE' : 'PHARMORA AI / BS PHARMACY'}</span>
       </div>
     </div>
   )

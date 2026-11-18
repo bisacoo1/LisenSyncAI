@@ -113,7 +113,7 @@ const TRACKS: Record<StudyTrack, TrackContent> = {
       </>
     ),
     description:
-      'Still taking BS Pharmacy? Upload your lecture notes and reviewers, and LisenSync builds flashcards, multiple-choice, identification, and enumeration sets for each of your own subjects.',
+      'Still taking BS Pharmacy? Upload your lecture notes and reviewers, and Pharmora builds flashcards, multiple-choice, identification, and enumeration sets for each of your own subjects.',
     primaryCta: 'Start course mode',
     secondaryCta: 'See the course study tools',
     secondaryHref: '#study-tracks',
@@ -510,8 +510,8 @@ export default function LandingPage() {
             </div>
             <p>
               {track === 'course'
-                ? 'Your BS Pharmacy coursework is dense. LisenSync turns each reviewer into a calm set of study modes so you can review by recall, by question, by term, or by list.'
-                : 'Preparing for the Pharmacist Licensure Examination takes focus. LisenSync helps you turn dense Pharmacy reviewers into a calm, consistent daily rhythm.'}
+                ? 'Your BS Pharmacy coursework is dense. Pharmora turns each reviewer into a calm set of study modes so you can review by recall, by question, by term, or by list.'
+                : 'Preparing for the Pharmacist Licensure Examination takes focus. Pharmora helps you turn dense Pharmacy reviewers into a calm, consistent daily rhythm.'}
             </p>
           </div>
           <Reveal className="method-grid motion-stagger" id="study-tools">
@@ -707,7 +707,7 @@ export default function LandingPage() {
                 The details, <em>up front.</em>
               </h2>
             </div>
-            <p>Still deciding which mode fits? Here is how LisenSync handles both.</p>
+            <p>Still deciding which mode fits? Here is how Pharmora handles both.</p>
           </div>
           <div className="faq-list">
             {FAQS.map((item) => (
@@ -730,7 +730,7 @@ export default function LandingPage() {
             <span className="section-kicker">
               {track === 'course' ? 'COURSE MODE IS READY' : 'YOUR RPh CHAPTER IS WAITING'}
             </span>
-            <h2>{track === 'course' ? 'Every subject, in sync.' : 'Ready when you are.'}</h2>
+            <h2>{track === 'course' ? 'Every subject, ready.' : 'Ready when you are.'}</h2>
             <p>
               {track === 'course'
                 ? 'Create an account and turn your first BS Pharmacy reviewer into four study sets.'
@@ -751,7 +751,7 @@ export default function LandingPage() {
             <a href="#study-tracks">Study modes</a>
             <Link to="/login">Sign in</Link>
             <Link to={registerHref}>Get started</Link>
-            <span>© {new Date().getFullYear()} LisenSync AI</span>
+            <span>© {new Date().getFullYear()} Pharmora AI</span>
           </div>
         </div>
       </footer>

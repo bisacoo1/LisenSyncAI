@@ -1,4 +1,4 @@
-project_id = "lisensync"
+project_id = "pharmora"
 
 [functions.gemini]
 verify_jwt = true

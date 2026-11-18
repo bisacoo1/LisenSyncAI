@@ -11,7 +11,7 @@ export function Brand({ inverse = false, compact = false }: { inverse?: boolean;
     <Link
       to="/"
       className={`brand-lockup${inverse ? ' brand-lockup--inverse' : ''}${compact ? ' brand-lockup--compact' : ''}`}
-      aria-label="LisenSync AI BS Pharmacy study space home"
+      aria-label="Pharmora AI BS Pharmacy study space home"
     >
       <span className="brand-lockup-mark" aria-hidden="true">
         <img src={logoMark} alt="" className="brand-lockup-owl" draggable={false} />
@@ -40,7 +40,7 @@ export function Brand({ inverse = false, compact = false }: { inverse?: boolean;
         </svg>
       </span>
       <span className="brand-lockup-name">
-        LisenSync <span>AI</span> <small>PHARMACY REVIEW</small>
+        Pharmora <span>AI</span> <small>BS PHARMACY & PhLE</small>
       </span>
     </Link>
   )

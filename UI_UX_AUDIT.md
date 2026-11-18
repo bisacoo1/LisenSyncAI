@@ -1,4 +1,4 @@
-# UI/UX Audit Report - LisenSync AI
+# UI/UX Audit Report - Pharmora AI
 
 > **Motion pass (2026-11-17):** Added a shared motion system — `<AnimatedNumber>` count-up stats, `<Reveal>` scroll entrances with staggered children, animated progress rings/bars, card hover/press feedback, a readiness ring sweep, urgent-timer pulse, and modal/toast polish. All motion honors `prefers-reduced-motion`; counters expose the final value to screen readers and use tabular figures to avoid layout shift. Tokens live at the end of `src/design.css` (`--motion-fast/base/slow`, `--motion-ease/spring`).
 

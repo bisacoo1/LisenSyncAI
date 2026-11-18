@@ -22,9 +22,9 @@ export function NavBar() {
   return (
     <nav className="nav" role="navigation" aria-label="Main navigation">
       <div className="links" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <Link to="/" className="brand" aria-label="LisenSync AI Home">
+        <Link to="/" className="brand" aria-label="Pharmora AI Home">
           <Icon name="logo" size={28} style={{ color: 'var(--primary)' }} />
-          <span>LisenSync AI</span>
+          <span>Pharmora AI</span>
         </Link>
         <div style={{ width: 1, height: 24, background: 'var(--border)', marginLeft: 8, marginRight: 4 }} />
         {user && profile && (

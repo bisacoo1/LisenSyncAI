@@ -1,6 +1,6 @@
-# LisenSync AI
+# Pharmora AI
 
-**LisenSync AI: An AI-Powered BS Pharmacy (PhLE) Licensure Exam Reviewer and Mock Assessment System**
+**Pharmora AI: An AI-Powered BS Pharmacy Coursework Companion and Licensure Examination (PhLE) Review System**
 
 A specialized study and assessment platform focused on **BS Pharmacy** and the **PRC Pharmacist Licensure Examination (PhLE)** across all 6 official board modules (Pharmaceutical Chemistry, Pharmacognosy, Practice of Pharmacy, Pharmacology-Pharmacokinetics, Pharmaceutics, and Quality Assurance/Quality Control), aligned to the 75% PRC passing benchmark.
 

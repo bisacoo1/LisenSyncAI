@@ -38,10 +38,10 @@ export default function OnboardingPage() {
       <header className="workspace-page-header">
         <div>
           <div className="section-kicker">
-            <span className="eyebrow-dot" /> BS PHARMACY · PhLE SETUP <span>/ 00</span>
+            <span className="eyebrow-dot" /> {track === 'course' ? 'BS PHARMACY · COURSE MODE SETUP' : 'BS PHARMACY · PhLE SETUP'} <span>/ 00</span>
           </div>
           <h1>
-            Let's set up <em>your PhLE plan.</em>
+            {track === 'course' ? <>Let's set up <em>your course plan.</em></> : <>Let's set up <em>your PhLE plan.</em></>}
           </h1>
           <p>
             {track === 'course'

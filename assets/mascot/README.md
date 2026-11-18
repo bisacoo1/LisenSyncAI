@@ -1,4 +1,4 @@
-# Lilo — LisenSync AI TTS Mascot
+# Lilo — Pharmora AI TTS Mascot
 
 **Character:** Lilo, the pharmacist owl who reads your lessons aloud.
 **Feature:** the text-to-speech (read-aloud) control in Practice Mode.
@@ -9,7 +9,7 @@
 ## 1. The idea
 
 Lilo is an owl — the animal we already associate with study, night-before recall, and wisdom — wearing the two
-things that define LisenSync AI at a glance:
+things that define Pharmora AI at a glance:
 
 | Element | Why it's there |
 | --- | --- |
@@ -30,7 +30,7 @@ Voice-tone for any copy written in Lilo's voice: short sentences, second person,
 
 ## 3. Naming
 
-**Lilo** is the recommended name — short, easy to say, and phonetically hides "Lisen". Alternatives if you want
+**Lilo** is the recommended name — short, easy to say, and pairs naturally with Pharmora. Alternatives if you want
 to keep it more literal: *Syn*, *Ollie*, *Rex* (after Rx), *Hoot*.
 
 ## 4. Palette
@@ -79,7 +79,7 @@ src/assets/mascot/                  the copies the React app imports
 - Add props (flasks, books, graduation caps) without redrawing the whole character in the same style.
 - Stretch, rotate, or add drop shadows that fight the render's own lighting.
 - Put it on dark navy panels without a light chip behind it.
-- Let it speak in first person about *results* ("you failed"). Lilo reads; LisenSync assesses.
+- Let it speak in first person about *results* ("you failed"). Lilo reads; Pharmora assesses.
 
 ## 7. States
 

@@ -1,4 +1,4 @@
--- LisenSync AI: Supabase schema (run in Supabase SQL editor)
+-- Pharmora AI: Supabase schema (run in Supabase SQL editor)
 -- Enable extensions
 create extension if not exists "pgcrypto";
 
