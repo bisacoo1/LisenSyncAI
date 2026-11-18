@@ -63,6 +63,7 @@ export interface ReviewMaterial {
   title: string
   board_program: BoardProgramKey
   subject: string
+  subject_folder_id?: string | null
   source_filename: string | null
   file_uri: string | null
   mime_type: string | null

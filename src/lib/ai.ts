@@ -1,6 +1,7 @@
 import { BoardProgramKey, PracticeItem, PracticeType, StudyTrack } from '@/types'
 import { getProgram } from './syllabus'
 import { supabase } from './supabase'
+import { validateGeneratedPracticeItems } from './practiceItemValidation'
 
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY as string | undefined
 const GEMINI_MODEL = (import.meta.env.VITE_GEMINI_MODEL as string | undefined) || 'gemini-3.5-flash-lite'
@@ -209,16 +210,12 @@ export async function generatePracticeItemsFromFile(params: MaterialSource & {
     ...parts,
     { text: `${common}\n${spec}\nGenerate items from the uploaded document.` },
   ], 0.4, 'application/json')
-  const out = extractJson(text)
-  const arr = Array.isArray(out) ? out : []
-  return arr.map((it: any) => ({
-    type: params.type,
-    subject: params.subject,
-    board_program: prog.key,
-    question: it.question,
-    answer: it.answer,
-    rationale: it.rationale || null,
-  }))
+  return validateGeneratedPracticeItems(
+    extractJson(text),
+    params.type,
+    params.subject,
+    prog.key,
+  )
 }
 
 export async function explainText(params: {

@@ -4,10 +4,9 @@ import { useAuth } from '@/context/AuthContext'
 import { getProgram } from '@/lib/syllabus'
 import { supabase } from '@/lib/supabase'
 import { generateStudyHint } from '@/lib/ai'
-import { checkDiagnosis, checkEnumeration, checkSequence, computeProfileStatsUpdate } from '@/lib/analytics'
 import { isCardDue, scheduleReview, type ReviewQuality } from '@/lib/srs'
 import { buildPracticeReviewQueue, updatePracticeReviewQueue, type PracticeReviewAttempt, type PracticeReviewQueueItem } from '@/lib/practiceReview'
-import type { Flashcard, McqAnswer, McqQuestion, PracticeItem, PracticeType, SequenceAnswer, SequenceQuestion, DiagnosisAnswer, DiagnosisQuestion, EnumerationAnswer, Profile } from '@/types'
+import type { Flashcard, McqAnswer, McqQuestion, PracticeItem, PracticeType, SequenceAnswer, SequenceQuestion, DiagnosisAnswer, DiagnosisQuestion, EnumerationAnswer } from '@/types'
 import { AnimatedNumber, Card, CardHeader, CardContent, Button, Badge, Icon, EmptyState, Tabs, useToast, type TabItem } from '@/components/ui'
 import LevelUpCelebration from '@/components/LevelUpCelebration'
 import AiHelper from '@/components/AiHelper'
@@ -39,6 +38,7 @@ export default function PracticePage() {
   const [loading, setLoading] = useState(false)
   const loadRequest = useRef(0)
   const hintRequest = useRef(0)
+  const attemptSubmitting = useRef(false)
   const readyPromptScheduled = useRef(false)
   const practicePanelRef = useRef<HTMLDivElement>(null)
   const focusPanelAfterAdvance = useRef(false)
@@ -233,103 +233,102 @@ export default function PracticePage() {
     setSearchParams(params)
   }
 
-  async function bumpProfileStats(isCorrect: boolean) {
-    if (!user || !profile) return
-    try {
-      const { data: fresh, error: readError } = await supabase.from('profiles').select('*').eq('id', profile.id).single()
-      if (readError) throw new Error(readError.message)
-      const today = new Date().toISOString().slice(0, 10)
-      const updates = computeProfileStatsUpdate((fresh as Profile) || profile, isCorrect, today)
-      if ((updates.level ?? 0) > ((fresh as Profile).level ?? 1)) {
-        setLevelUp(updates.level ?? null)
-      }
-      const { error: updateError } = await supabase.from('profiles').update(updates).eq('id', profile.id)
-      if (updateError) throw new Error(updateError.message)
-      await refreshProfile()
-    } catch (e: any) {
-      addToast({ type: 'error', title: 'Could not save progress', message: e.message })
-    }
-  }
-
-  async function recordAttempt(correct: boolean, response: unknown) {
+  async function recordAttempt(response: unknown): Promise<boolean | null> {
     const it = items[idx]
-    if (it) setSessionResults(previous => ({ ...previous, [it.id]: correct }))
-    if (!user || !profile || !program) return
+    if (!it || !user || !profile || !program || attemptSubmitting.current) return null
+    attemptSubmitting.current = true
     try {
-      const { error: attemptError } = await supabase.from('attempts').insert({
-        user_id: user.id,
-        practice_item_id: it?.id || null,
-        board_program: program.key,
-        subject,
-        type: mode,
-        user_response: response,
-        is_correct: correct
+      const { data, error } = await supabase.rpc('record_practice_attempt', {
+        p_practice_item_id: it.id,
+        p_response: response,
       })
-      if (attemptError) throw new Error(attemptError.message)
+      if (error) throw new Error(error.message)
+      const result = Array.isArray(data) ? data[0] : data
+      if (!result) throw new Error('Attempt recording returned no result.')
+      const correct = Boolean(result.is_correct)
+      setSessionResults(previous => ({ ...previous, [it.id]: correct }))
+      if (result.level > result.previous_level) setLevelUp(result.level)
+      setReviewQueue(previous => updatePracticeReviewQueue(previous, it.id, correct))
+      await refreshProfile()
+      return correct
     } catch (e: any) {
       addToast({ type: 'error', title: 'Could not save progress', message: e.message })
-      return
+      return null
+    } finally {
+      attemptSubmitting.current = false
     }
-    if (it) setReviewQueue(previous => updatePracticeReviewQueue(previous, it.id, correct))
-    await bumpProfileStats(correct)
   }
 
   async function rateCard(quality: ReviewQuality) {
     if (!currentCard || !profile) return
     const sched = scheduleReview(currentCard, quality)
-    const { error } = await supabase.from('flashcards').update(sched).eq('id', currentCard.id)
+    const { data, error } = await supabase.rpc('record_flashcard_review', {
+      p_flashcard_id: currentCard.id,
+      p_quality: quality,
+      p_expected_last_reviewed_at: currentCard.last_reviewed_at || null,
+      p_schedule: sched,
+    })
     if (error) {
       addToast({ type: 'error', title: 'Could not save review', message: error.message })
       return
     }
+    const result = Array.isArray(data) ? data[0] : data
+    if (!result) {
+      addToast({ type: 'error', title: 'Could not save review', message: 'Review recording returned no result.' })
+      return
+    }
     setFlashcards(prev => prev.map(c => (c.id === currentCard.id ? { ...c, ...sched } : c)))
     setSessionCardRatings(previous => ({ ...previous, [currentCard.id]: quality }))
-    await bumpProfileStats(quality !== 'again')
+    if (result.level > result.previous_level) setLevelUp(result.level)
+    try {
+      await refreshProfile()
+    } catch (error) {
+      addToast({ type: 'error', title: 'Could not refresh profile progress', message: error instanceof Error ? error.message : 'Review and progress were saved.' })
+    }
     next()
   }
 
   async function submitMcq() {
     if (selected == null || !current) return
-    const ans = current.answer as McqAnswer
-    const correct = selected === ans.correctIndex
+    const correct = await recordAttempt({ selected })
+    if (correct === null) return
     setFeedback({ correct, text: current.rationale || '' })
-    await recordAttempt(correct, { selected })
     addToast({ type: correct ? 'success' : 'error', title: correct ? 'Correct!' : 'Incorrect', message: current.rationale || undefined, duration: 3000 })
   }
 
   async function submitDiagnosis() {
     if (!current) return
     const ans = current.answer as DiagnosisAnswer
-    const correct = checkDiagnosis(diagInput, ans.expected, ans.acceptable || [])
+    const correct = await recordAttempt({ text: diagInput })
+    if (correct === null) return
     setFeedback({ correct, text: current.rationale || `Expected: ${ans.expected}` })
-    await recordAttempt(correct, { text: diagInput })
     addToast({ type: correct ? 'success' : 'error', title: correct ? 'Correct!' : 'Incorrect', message: current.rationale || `Expected: ${ans.expected}`, duration: 3000 })
   }
 
   async function submitSequence() {
     if (!current) return
     const ans = current.answer as SequenceAnswer
-    const correct = checkSequence(seqOrder, ans.order)
+    const correct = await recordAttempt({ order: seqOrder })
+    if (correct === null) return
     setFeedback({ correct, text: current.rationale || '' })
-    await recordAttempt(correct, { order: seqOrder })
     addToast({ type: correct ? 'success' : 'error', title: correct ? 'Correct order!' : 'Incorrect order', message: current.rationale || `Correct: ${ans.order.join(' → ')}`, duration: 3000 })
   }
 
   async function submitIdentification() {
     if (!current) return
     const ans = current.answer as DiagnosisAnswer
-    const correct = checkDiagnosis(diagInput, ans.expected, ans.acceptable || [])
+    const correct = await recordAttempt({ text: diagInput })
+    if (correct === null) return
     setFeedback({ correct, text: current.rationale || `Expected: ${ans.expected}` })
-    await recordAttempt(correct, { text: diagInput })
     addToast({ type: correct ? 'success' : 'error', title: correct ? 'Correct!' : 'Incorrect', message: current.rationale || `Expected: ${ans.expected}`, duration: 3000 })
   }
 
   async function submitEnumeration() {
     if (!current) return
     const ans = current.answer as EnumerationAnswer
-    const correct = checkEnumeration(diagInput, ans.items || [])
+    const correct = await recordAttempt({ text: diagInput })
+    if (correct === null) return
     setFeedback({ correct, text: current.rationale || `Expected items: ${(ans.items || []).join(', ')}` })
-    await recordAttempt(correct, { text: diagInput })
     addToast({ type: correct ? 'success' : 'error', title: correct ? 'Correct!' : 'Incorrect', message: current.rationale || `Expected: ${(ans.items || []).join(', ')}`, duration: 3000 })
   }
 

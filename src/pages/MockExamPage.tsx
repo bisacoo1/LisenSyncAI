@@ -4,8 +4,8 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { getProgram, getSubjectDetail } from '@/lib/syllabus'
 import { supabase } from '@/lib/supabase'
-import { PASSING_RATE, type Attempt, type DiagnosisAnswer, type DiagnosisQuestion, type McqAnswer, type McqQuestion, type MockExam, type MockExamItem, type PracticeItem, type Profile, type SequenceAnswer, type SequenceQuestion } from '@/types'
-import { checkDiagnosis, checkSequence, computeBulkStatsUpdate } from '@/lib/analytics'
+import { PASSING_RATE, type DiagnosisAnswer, type DiagnosisQuestion, type McqAnswer, type McqQuestion, type MockExam, type MockExamItem, type PracticeItem, type SequenceAnswer, type SequenceQuestion } from '@/types'
+import { buildMockSubmissionAnswers, isMockAnswerCorrect, selectMockExamItems } from '@/lib/mockExam'
 import LevelUpCelebration from '@/components/LevelUpCelebration'
 import { AnimatedNumber, Card, CardHeader, CardContent, Button, Badge, ProgressBar, Icon, EmptyState, Skeleton, Modal, useToast } from '@/components/ui'
 
@@ -21,7 +21,7 @@ export default function MockExamPage() {
   const program = profile ? getProgram(profile.board_program) : null
   const [exam, setExam] = useState<MockExam | null>(null)
   const [items, setItems] = useState<MockExamItem[]>([])
-  const [responses, setResponses] = useState<Record<string, any>>({})
+  const [responses, setResponses] = useState<Record<string, unknown>>({})
   const [current, setCurrent] = useState(0)
   const [remaining, setRemaining] = useState<number | null>(null)
   const [busy, setBusy] = useState(false)
@@ -29,20 +29,47 @@ export default function MockExamPage() {
   const [err, setErr] = useState<string | null>(null)
   const [seqOrder, setSeqOrder] = useState<string[]>([])
   const submittedRef = useRef(false)
+  const submitExamRef = useRef<(auto?: boolean) => Promise<void>>(async () => {})
   const persistTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const pendingPersist = useRef<{ id: string; value: any } | null>(null)
+  const pendingPersist = useRef<{ id: string; value: unknown } | null>(null)
   const { addToast } = useToast()
   const [showSubmitConfirm, setShowSubmitConfirm] = useState(false)
   const [showResults, setShowResults] = useState(false)
   const [levelUp, setLevelUp] = useState<number | null>(null)
 
-  async function persistResponse(itemId: string, value: any) {
+  function draftKey(examId: string) {
+    return `mock-exam-draft:${examId}`
+  }
+
+  function readDraft(examId: string): Record<string, unknown> {
+    try {
+      const saved = localStorage.getItem(draftKey(examId))
+      if (!saved) return {}
+      const parsed: unknown = JSON.parse(saved)
+      return typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)
+        ? parsed as Record<string, unknown>
+        : {}
+    } catch (error) {
+      addToast({ type: 'error', title: 'Could not restore exam draft', message: error instanceof Error ? error.message : 'Local storage is unavailable.' })
+      return {}
+    }
+  }
+
+  async function persistResponse(itemId: string, value: unknown) {
     const { error } = await supabase.from('mock_exam_items').update({ user_response: value ?? null }).eq('id', itemId)
     if (error) addToast({ type: 'error', title: 'Could not save answer', message: error.message })
   }
 
-  function setResponse(itemId: string, value: any, debounce = false) {
+  function setResponse(itemId: string, value: unknown, debounce = false) {
     setResponses(r => ({ ...r, [itemId]: value }))
+    if (exam) {
+      try {
+        const draft = readDraft(exam.id)
+        localStorage.setItem(draftKey(exam.id), JSON.stringify({ ...draft, [itemId]: value }))
+      } catch (error) {
+        addToast({ type: 'error', title: 'Could not preserve exam draft', message: error instanceof Error ? error.message : 'Local storage is unavailable.' })
+      }
+    }
     if (!debounce) {
       void persistResponse(itemId, value)
       return
@@ -56,12 +83,29 @@ export default function MockExamPage() {
     }, 600)
   }
 
-  // Flush any pending debounced answer if the user navigates away mid-exam
+  useEffect(() => {
+    const flushPending = () => {
+      if (persistTimer.current) clearTimeout(persistTimer.current)
+      persistTimer.current = null
+      const pending = pendingPersist.current
+      pendingPersist.current = null
+      if (pending) void persistResponse(pending.id, pending.value)
+    }
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') flushPending()
+    }
+    window.addEventListener('pagehide', flushPending)
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    return () => {
+      window.removeEventListener('pagehide', flushPending)
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+      flushPending()
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   useEffect(() => () => {
     if (persistTimer.current) clearTimeout(persistTimer.current)
-    const p = pendingPersist.current
-    if (p) void persistResponse(p.id, p.value)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   function moveSeq(i: number, dir: -1 | 1) {
@@ -78,7 +122,7 @@ export default function MockExamPage() {
 
   useEffect(() => {
     if (!exam || exam.status !== 'in_progress' || remaining == null) return
-    if (remaining <= 0 && !submittedRef.current) { submitExam(true); return }
+    if (remaining <= 0 && !submittedRef.current) { void submitExamRef.current(true); return }
     const t = setTimeout(() => setRemaining(r => (r == null ? r : r - 1)), 1000)
     return () => clearTimeout(t)
   }, [remaining, exam])
@@ -108,9 +152,9 @@ export default function MockExamPage() {
       const start = new Date(ex.started_at).getTime()
       const end = start + ex.duration_minutes * 60 * 1000
       setRemaining(Math.max(0, Math.floor((end - Date.now()) / 1000)))
-      const r: Record<string, any> = {}
+      const r: Record<string, unknown> = {}
       list.forEach(it => { if (it.user_response != null) r[it.id] = it.user_response })
-      setResponses(r)
+      setResponses({ ...r, ...readDraft(ex.id) })
     }
   }
 
@@ -118,18 +162,14 @@ export default function MockExamPage() {
     if (!profile || !user || !program) return
     setBusy(true); setErr(null); setMsg(null)
     try {
-      let pool: PracticeItem[] = []
-      for (const alloc of program.tos) {
-        const { data } = await supabase.from('practice_items').select('*').eq('user_id', user.id).eq('subject', alloc.subject).in('type', ['mcq', 'diagnosis', 'sequence']).limit(alloc.items * 3)
-        let got = (data as PracticeItem[]) || []
-        if (got.length < alloc.items) {
-          const { data: more } = await supabase.from('practice_items').select('*').eq('user_id', user.id).eq('subject', alloc.subject).limit(alloc.items * 3)
-          got = (more as PracticeItem[]) || []
-        }
-        const shuffled = [...got].sort(() => Math.random() - 0.5).slice(0, alloc.items)
-        pool = pool.concat(shuffled)
-      }
-      if (pool.length === 0) { setErr('No practice items available. Generate MCQ, diagnosis, or sequence items in Reviewer & Generate first.'); setBusy(false); return }
+      const { data, error: poolError } = await supabase
+        .from('practice_items')
+        .select('*')
+        .eq('user_id', user.id)
+        .in('subject', program.tos.map(allocation => allocation.subject))
+        .in('type', ['mcq', 'diagnosis', 'sequence'])
+      if (poolError) throw poolError
+      const pool = selectMockExamItems(program.tos, (data as PracticeItem[]) || [])
       const { data: ex, error } = await supabase.from('mock_exams').insert({
         user_id: user.id, board_program: program.key, title: `${program.name} - Mock Simulation`,
         duration_minutes: program.mockDurationMinutes, tos: program.tos, total_items: pool.length, status: 'in_progress'
@@ -141,7 +181,10 @@ export default function MockExamPage() {
         question: p.question, answer: p.answer, rationale: p.rationale, position: i
       }))
       const { error: ierr } = await supabase.from('mock_exam_items').insert(rows)
-      if (ierr) throw ierr
+      if (ierr) {
+        await supabase.from('mock_exams').delete().eq('id', examId)
+        throw ierr
+      }
       submittedRef.current = false
       await loadInProgress()
       addToast({ type: 'success', title: 'Mock exam started', message: 'Answers and rationales will be revealed only after submission.' })
@@ -153,44 +196,74 @@ export default function MockExamPage() {
     submittedRef.current = true
     setBusy(true); setErr(null)
     try {
-      let correctCount = 0
-      const bySubject: Record<string, { correct: number; total: number }> = {}
-      for (const it of items) {
-        const resp = responses[it.id]
-        let correct = false
-        if (it.type === 'mcq') correct = resp?.selected === (it.answer as McqAnswer).correctIndex
-        else if (it.type === 'diagnosis') correct = checkDiagnosis(resp?.text || '', (it.answer as DiagnosisAnswer).expected, (it.answer as DiagnosisAnswer).acceptable || [])
-        else if (it.type === 'sequence') correct = checkSequence(resp?.order || [], (it.answer as SequenceAnswer).order || [])
-        if (correct) correctCount++
-        const subj = bySubject[it.subject] || (bySubject[it.subject] = { correct: 0, total: 0 })
-        subj.total++
-        if (correct) subj.correct++
-        await supabase.from('mock_exam_items').update({ user_response: resp ?? null, is_correct: correct }).eq('id', it.id)
-        await supabase.from('attempts').insert({ user_id: user.id, practice_item_id: it.practice_item_id, board_program: program?.key || 'pharmacy', subject: it.subject, type: it.type, user_response: resp ?? null, is_correct: correct })
+      let effectiveResponses = { ...responses }
+      if (persistTimer.current) clearTimeout(persistTimer.current)
+      const pending = pendingPersist.current
+      pendingPersist.current = null
+      if (pending) {
+        effectiveResponses = { ...effectiveResponses, [pending.id]: pending.value }
+        setResponses(effectiveResponses)
       }
-      const score = items.length ? Math.round((correctCount / items.length) * 1000) / 10 : 0
-      // RA 10918: 75% general average AND no subject below 50%
-      const allSubjectsAboveFloor = Object.values(bySubject).every(s => s.total === 0 || (s.correct / s.total) * 100 >= 50)
-      const passed = score >= PASSING_RATE && allSubjectsAboveFloor
-      await supabase.from('mock_exams').update({ status: 'submitted', submitted_at: new Date().toISOString(), score, passed }).eq('id', exam.id)
+      const { data: submissionData, error: submissionError } = await supabase.rpc('submit_mock_exam', {
+        p_exam_id: exam.id,
+        p_answers: buildMockSubmissionAnswers(items, effectiveResponses),
+      })
+      if (submissionError) throw new Error(submissionError.message)
+      const submission = Array.isArray(submissionData) ? submissionData[0] : submissionData
+      if (!submission) throw new Error('Exam submission returned no result.')
+
+      const score = Number(submission.score)
+      const passed = Boolean(submission.passed)
+      if (submission.level > submission.previous_level) setLevelUp(submission.level)
       try {
-        const { data: fresh } = await supabase.from('profiles').select('*').eq('id', user.id).single()
-        if (fresh) {
-          const today = new Date().toISOString().slice(0, 10)
-          const updates = computeBulkStatsUpdate(fresh as Profile, correctCount, items.length, today)
-          if ((updates.level ?? 0) > ((fresh as Profile).level ?? 1)) setLevelUp(updates.level ?? null)
-          await supabase.from('profiles').update(updates).eq('id', user.id)
-          await refreshProfile()
-        }
-      } catch { /* XP/stats update is best-effort; exam result already saved */ }
-      const { data } = await supabase.from('mock_exams').select('*').eq('id', exam.id).single()
-      setExam(data as MockExam)
-      const { data: its } = await supabase.from('mock_exam_items').select('*').eq('exam_id', exam.id).order('position', { ascending: true })
-      setItems((its as MockExamItem[]) || [])
+        await refreshProfile()
+      } catch (profileError) {
+        addToast({ type: 'error', title: 'Could not refresh profile progress', message: profileError instanceof Error ? profileError.message : 'Progress was saved, but the profile could not be refreshed.' })
+      }
+      try {
+        localStorage.removeItem(draftKey(exam.id))
+      } catch (storageError) {
+        addToast({ type: 'error', title: 'Could not clear saved exam draft', message: storageError instanceof Error ? storageError.message : 'Local storage is unavailable.' })
+      }
+      const { data: submittedExam, error: submittedExamError } = await supabase
+        .from('mock_exams')
+        .select('*')
+        .eq('id', exam.id)
+        .single()
+      if (submittedExamError) {
+        addToast({ type: 'warning', title: 'Result refresh failed', message: submittedExamError.message })
+        setExam({
+          ...exam,
+          status: 'submitted',
+          submitted_at: new Date().toISOString(),
+          score,
+          passed,
+        })
+      } else {
+        setExam(submittedExam as MockExam)
+      }
+
+      const { data: submittedItems, error: submittedItemsError } = await supabase
+        .from('mock_exam_items')
+        .select('*')
+        .eq('exam_id', exam.id)
+        .order('position', { ascending: true })
+      if (submittedItemsError) {
+        addToast({ type: 'warning', title: 'Answer review refresh failed', message: submittedItemsError.message })
+        setItems(items.map(it => ({
+          ...it,
+          user_response: effectiveResponses[it.id] ?? null,
+          is_correct: isMockAnswerCorrect(it, effectiveResponses[it.id]),
+        })))
+      } else {
+        setItems((submittedItems as MockExamItem[]) || [])
+      }
       setShowResults(true)
       addToast({ type: passed ? 'success' : 'warning', title: auto ? 'Time expired' : 'Exam submitted', message: `Score: ${score}% — ${passed ? 'PASSED (≥75% overall, no subject <50%)' : 'Below passing rule'}` })
     } catch (e: any) { setErr(e.message); submittedRef.current = false } finally { setBusy(false) }
   }
+
+  submitExamRef.current = submitExam
 
   const handleConfirmSubmit = async () => {
     setShowSubmitConfirm(false)
@@ -446,7 +519,7 @@ export default function MockExamPage() {
 
   // In-progress exam
   const it = items[current]
-  const resp = it ? responses[it.id] : null
+  const resp = it ? responses[it.id] as { selected?: number; text?: string; order?: string[] } | null : null
   const answeredCount = items.filter(i => responses[i.id] != null).length
 
   return (

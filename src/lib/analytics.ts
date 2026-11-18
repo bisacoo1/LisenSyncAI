@@ -77,7 +77,7 @@ function streakFields(profile: Profile, today: string) {
   let newStreak = sameDay ? (profile.current_streak || 0) : (profile.current_streak || 0) + 1
 
   if (!sameDay) {
-    const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10)
+    const yesterday = new Date(new Date(`${today}T00:00:00.000Z`).getTime() - 86400000).toISOString().slice(0, 10)
     if (lastDate && lastDate !== yesterday) {
       newStreak = 1
     }
