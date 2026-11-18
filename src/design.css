@@ -9,7 +9,29 @@ input::placeholder, textarea::placeholder { color: var(--muted); opacity: 1; }
 /* Brand lockup */
 .brand-lockup { display: inline-flex; align-items: center; gap: 11px; color: #12233d; text-decoration: none; flex-shrink: 0; }
 .brand-lockup:hover { color: #12233d; text-decoration: none; }
-.brand-lockup-mark { width: 38px; height: 38px; object-fit: contain; border-radius: 9px; }
+.brand-lockup-mark { position: relative; display: inline-block; width: 40px; height: 40px; border-radius: 10px; background: linear-gradient(145deg, #0f223d 0%, #17345e 100%); box-shadow: inset 0 0 0 1px rgba(147, 197, 253, .22), 0 3px 10px rgba(15, 34, 61, .16); overflow: hidden; flex-shrink: 0; }
+.brand-lockup-owl,
+.brand-lockup-smile { position: absolute; inset: 0; width: 100%; height: 100%; transform: translateX(6%); pointer-events: none; user-select: none; }
+.brand-lockup-owl { object-fit: contain; }
+.brand-owl-cheeks { opacity: .22; animation: brand-owl-smile-blush 3.4s ease-in-out infinite; }
+.brand-owl-smile-glow { opacity: 0; animation: brand-owl-smile-warmth 3.4s ease-in-out infinite; }
+.brand-owl-sparkles { opacity: .18; animation: brand-owl-smile-twinkle 3.4s ease-in-out infinite; }
+.brand-lockup:hover .brand-owl-cheeks,
+.brand-lockup:focus-visible .brand-owl-cheeks { opacity: .78; }
+.brand-lockup:hover .brand-owl-sparkles,
+.brand-lockup:focus-visible .brand-owl-sparkles { opacity: .95; }
+@keyframes brand-owl-smile-blush {
+  0%, 100% { opacity: .18; }
+  45%, 60% { opacity: .72; }
+}
+@keyframes brand-owl-smile-warmth {
+  0%, 100% { opacity: 0; }
+  45%, 60% { opacity: .45; }
+}
+@keyframes brand-owl-smile-twinkle {
+  0%, 100% { opacity: .15; }
+  42%, 58% { opacity: .95; }
+}
 .brand-lockup-name { display: block; font-size: 18px; line-height: 1.05; font-weight: 700; letter-spacing: -.045em; white-space: nowrap; }
 .brand-lockup-name > span { display: inline; color: #5b43bd; font-size: 10px; font-weight: 700; letter-spacing: .04em; margin-left: 4px; }
 .brand-lockup-name small { display: block; color: #526785; font-size: 9px; letter-spacing: .16em; margin-top: 5px; font-weight: 700; }
@@ -1729,7 +1751,10 @@ textarea:focus-visible, [tabindex]:focus-visible {
   .momentum-card--attention .momentum-icon.sky svg,
   .landing-activity-stat svg,
   .ui-progress-fill--live::after,
-  .timer.is-urgent {
+  .timer.is-urgent,
+  .brand-owl-cheeks,
+  .brand-owl-smile-glow,
+  .brand-owl-sparkles {
     animation: none !important;
   }
   .readiness-progress > span,
