@@ -223,12 +223,10 @@ export default function DashboardPage() {
       to: '/practice',
     })
   }
-  const primaryAction =
-    !loading && reviewerCount === 0 && attempts.length === 0
-      ? { label: isCourse ? 'Add course materials' : 'Add your first reviewer', to: '/reviewer' }
-      : !loading && dueCards > 0
-        ? { label: 'Review due flashcards', to: dueFlashcardPath }
-        : { label: 'Continue studying', to: '/practice' }
+  const nextStudyStep = studyPlanSteps[0]
+  const primaryAction = loading || !nextStudyStep
+    ? { label: 'Continue studying', to: '/practice' }
+    : { label: nextStudyStep.action, to: nextStudyStep.to }
 
   async function saveExamDate() {
     if (!profile || !examDateInput) return

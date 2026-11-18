@@ -10,6 +10,7 @@ import type { Flashcard, PracticeType, ReviewMaterial, UserSubject } from '@/typ
 import { Card, CardHeader, CardContent, Button, Badge, Icon, Input, Select, EmptyState, Skeleton, useToast, Modal } from '@/components/ui'
 
 type GeneratedStudySet = 'flashcards' | Exclude<PracticeType, 'flashcard_drill'>
+type UploadStage = 'uploading' | 'extracting' | 'saving' | 'generating'
 const DEFAULT_COURSE_SUBJECT = 'General'
 const COURSE_STUDY_SETS: { type: GeneratedStudySet; label: string }[] = [
   { type: 'flashcards', label: 'flashcards' },
@@ -57,6 +58,8 @@ export default function ReviewerPage() {
   const [subject, setSubject] = useState('')
   const [file, setFile] = useState<File | null>(null)
   const [fileReady, setFileReady] = useState(false)
+  const [uploadStage, setUploadStage] = useState<UploadStage | null>(null)
+  const [generationStep, setGenerationStep] = useState(0)
   const [busy, setBusy] = useState<string | null>(null)
   const [msg, setMsg] = useState<string | null>(null)
   const [err, setErr] = useState<string | null>(null)
@@ -74,7 +77,17 @@ export default function ReviewerPage() {
   const [materialsLoading, setMaterialsLoading] = useState(true)
   const { addToast } = useToast()
   const isCourse = profile?.track === 'course'
+  const aiIsConfigured = aiConfigured()
   const [customSubjects, setCustomSubjects] = useState<UserSubject[]>([])
+  const uploadSteps: { stage: UploadStage; label: string }[] = [
+    { stage: 'uploading', label: 'Uploading file' },
+    ...(aiIsConfigured ? [{ stage: 'extracting' as const, label: 'Extracting document text' }] : []),
+    { stage: 'saving', label: 'Saving reviewer' },
+    ...(isCourse && aiIsConfigured ? [{ stage: 'generating' as const, label: 'Creating study sets' }] : []),
+  ]
+  const currentUploadStep = uploadStage
+    ? uploadSteps.findIndex(step => step.stage === uploadStage)
+    : -1
 
   useEffect(() => {
     if (isCourse) setSubject(DEFAULT_COURSE_SUBJECT)
@@ -165,6 +178,8 @@ export default function ReviewerPage() {
     const materialSubject = isCourse ? DEFAULT_COURSE_SUBJECT : subject
     if (!title || !materialSubject) { setErr('Title and subject are required.'); return }
     setErr(null); setMsg(null)
+    setUploadStage('uploading')
+    setGenerationStep(0)
     let storagePath = ''
     try {
       assertReviewFile(file)
@@ -172,7 +187,8 @@ export default function ReviewerPage() {
       storagePath = await uploadReviewFile(user.id, file)
       let extractedText = ''
       let extractError: string | null = null
-      if (aiConfigured()) {
+      if (aiIsConfigured) {
+        setUploadStage('extracting')
         setBusy('Extracting text from document...')
         try {
           extractedText = await extractTextFromFile({ storagePath, mimeType: file.type })
@@ -181,6 +197,8 @@ export default function ReviewerPage() {
         }
       }
 
+      setUploadStage('saving')
+      setBusy('Saving reviewer...')
       const { data, error } = await supabase.from('review_materials').insert({
         user_id: user.id, title, board_program: program.key, subject: materialSubject,
         source_filename: file.name,
@@ -202,15 +220,17 @@ export default function ReviewerPage() {
       setTitle(''); setFile(null); setFileReady(false)
 
       if (isCourse) {
-        if (!aiConfigured()) {
+        if (!aiIsConfigured) {
           setMsg('Reviewer saved under General.')
           setErr('Automatic generation did not run. Configure VITE_GEMINI_API_KEY, then upload the reviewer again.')
           addToast({ type: 'error', title: 'AI is not configured', message: 'The reviewer was saved, but study sets were not generated.' })
         } else {
           const generated: string[] = []
           const failures: string[] = []
+          setUploadStage('generating')
 
-          for (const studySet of COURSE_STUDY_SETS) {
+          for (const [index, studySet] of COURSE_STUDY_SETS.entries()) {
+            setGenerationStep(index + 1)
             setBusy(`Generating ${studySet.label}...`)
             try {
               const count = await generateStudySet(studySet.type, savedMaterial)
@@ -231,7 +251,7 @@ export default function ReviewerPage() {
           }
         }
       } else {
-        setMsg(extractedText ? 'Material saved and text extracted.' : extractError ? 'Material saved. Text extraction failed, so generation will read the stored file.' : aiConfigured() ? 'Material saved, but no text was extracted. Generation can use the stored file.' : 'Material saved. Configure AI to extract text and generate study items.')
+        setMsg(extractedText ? 'Material saved and text extracted.' : extractError ? 'Material saved. Text extraction failed, so generation will read the stored file.' : aiIsConfigured ? 'Material saved, but no text was extracted. Generation can use the stored file.' : 'Material saved. Configure AI to extract text and generate study items.')
         if (extractError) setErr(extractError)
         addToast({ type: 'success', title: 'Material saved', message: title })
       }
@@ -240,7 +260,10 @@ export default function ReviewerPage() {
     } catch (e: any) {
       if (storagePath) await removeReviewFile(storagePath)
       setErr(getErrorMessage(e))
-    } finally { setBusy(null) }
+    } finally {
+      setBusy(null)
+      setUploadStage(null)
+    }
   }
 
   async function generateStudySet(type: 'flashcards' | PracticeType, mat: ReviewMaterial): Promise<number> {
@@ -323,7 +346,7 @@ export default function ReviewerPage() {
         description={isCourse
           ? 'Upload your course notes once. Saving a reviewer automatically creates flashcards, multiple choice, enumeration, and identification practice.'
           : 'Give your BS Pharmacy notes a new life. Upload lecture decks, drug monographs, or review handouts to create PhLE flashcards and clinical drills.'}
-        action={!aiConfigured() && <Badge variant="warning" size="md"><Icon name="alert-triangle" size={12} /> AI not configured</Badge>}
+        action={!aiIsConfigured && <Badge variant="warning" size="md"><Icon name="alert-triangle" size={12} /> AI not configured</Badge>}
       />
 
       {err && (
@@ -340,7 +363,7 @@ export default function ReviewerPage() {
         </div>
       )}
 
-      {busy && (
+      {busy && !uploadStage && (
         <Card variant="outlined" style={{ marginBottom: 16 }}>
           <CardContent style={{ padding: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
             <Icon name="loader" size={20} className="spin" style={{ color: 'var(--primary)' }} />
@@ -429,9 +452,36 @@ export default function ReviewerPage() {
                   {fileReady ? 'File ready' : 'Check file'}
                 </Button>
                 <Button variant="primary" size="lg" leftIcon="save" onClick={saveMaterial} disabled={!!busy || !title || !file} fullWidth style={{ maxWidth: 240 }}>
-                  {isCourse && aiConfigured() ? 'Save & generate study sets' : 'Save Material'}
+                  {isCourse && aiIsConfigured ? 'Save & generate study sets' : 'Save Material'}
                 </Button>
               </div>
+
+              {uploadStage && currentUploadStep >= 0 && (
+                <div
+                  role="status"
+                  aria-live="polite"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: 12,
+                    padding: 14,
+                    border: '1px solid var(--primary-border)',
+                    borderRadius: 10,
+                    background: 'var(--primary-bg)',
+                  }}
+                >
+                  <Icon name="loader" size={19} style={{ color: 'var(--primary)', flexShrink: 0 }} />
+                  <div>
+                    <strong style={{ display: 'block', color: 'var(--text)', fontSize: 13 }}>
+                      {uploadSteps[currentUploadStep].label}
+                    </strong>
+                    <span style={{ display: 'block', marginTop: 4, color: 'var(--muted)', fontSize: 12 }}>
+                      Step {currentUploadStep + 1} of {uploadSteps.length}
+                      {uploadStage === 'generating' ? ` · Study set ${generationStep} of ${COURSE_STUDY_SETS.length}` : ''}
+                    </span>
+                  </div>
+                </div>
+              )}
 
               {!isCourse && (
               <div ref={generateCardRef} style={{ borderTop: '1px solid var(--border)', paddingTop: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
