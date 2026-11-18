@@ -15,6 +15,7 @@ const pageNames: Record<string, string> = {
   '/practice': 'Practice',
   '/mock': 'Mock exam',
   '/analytics': 'Analytics',
+  '/game': 'Game mode',
   '/onboarding': 'Set up your profile'
 }
 

@@ -10,6 +10,7 @@ const navItems: { path: string; label: string; icon: IconName }[] = [
   { path: '/side-by-side', label: 'Side by side', icon: 'move' },
   { path: '/practice', label: 'Practice', icon: 'practice' },
   { path: '/mock', label: 'Mock exam', icon: 'mock' },
+  { path: '/game', label: 'Game mode', icon: 'zap' },
   { path: '/analytics', label: 'Analytics', icon: 'analytics' }
 ]
 

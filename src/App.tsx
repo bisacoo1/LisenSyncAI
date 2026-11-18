@@ -14,6 +14,7 @@ const PracticePage = lazy(() => import('@/pages/PracticePage'))
 const MockExamPage = lazy(() => import('@/pages/MockExamPage'))
 const AnalyticsPage = lazy(() => import('@/pages/AnalyticsPage'))
 const SideBySideReader = lazy(() => import('@/pages/SideBySideReader'))
+const GameModePage = lazy(() => import('@/pages/GameModePage'))
 
 export default function App() {
   return (
@@ -130,6 +131,16 @@ export default function App() {
           <Layout>
             <ProtectedRoute>
               <SideBySideReader />
+            </ProtectedRoute>
+          </Layout>
+        }
+      />
+      <Route
+        path="/game"
+        element={
+          <Layout>
+            <ProtectedRoute>
+              <GameModePage />
             </ProtectedRoute>
           </Layout>
         }
