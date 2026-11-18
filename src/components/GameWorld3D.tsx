@@ -97,6 +97,50 @@ function createCollectible(kind: GameWorldCollectible['kind']) {
   return group
 }
 
+function createSideShelf() {
+  const group = new THREE.Group()
+  const frame = new THREE.MeshStandardMaterial({ color: 0x526d70, metalness: 0.35, roughness: 0.48 })
+  const backing = new THREE.MeshStandardMaterial({ color: 0xd5e2d9, roughness: 0.78 })
+  const shelf = new THREE.MeshStandardMaterial({ color: 0xe6eee7, roughness: 0.42 })
+  const light = new THREE.MeshStandardMaterial({
+    color: 0x99f6e4,
+    emissive: 0x2dd4bf,
+    emissiveIntensity: 0.7,
+    roughness: 0.35,
+  })
+  const products = [
+    new THREE.MeshStandardMaterial({ color: 0xf6f4e9, roughness: 0.5 }),
+    new THREE.MeshStandardMaterial({ color: 0xf0b95c, roughness: 0.45 }),
+    new THREE.MeshStandardMaterial({ color: 0x6ab8a3, roughness: 0.5 }),
+    new THREE.MeshStandardMaterial({ color: 0xd98b79, roughness: 0.55 }),
+    new THREE.MeshStandardMaterial({ color: 0x76a8c0, roughness: 0.5 }),
+  ]
+
+  addMesh(group, new THREE.BoxGeometry(1.85, 3.45, 0.16), backing, [0, 1.83, -0.32])
+  for (const x of [-0.82, 0.82]) {
+    addMesh(group, new THREE.BoxGeometry(0.1, 3.35, 0.65), frame, [x, 1.8, 0.06])
+  }
+  for (let row = 0; row < 4; row++) {
+    const shelfY = 0.36 + row * 0.78
+    addMesh(group, new THREE.BoxGeometry(1.72, 0.1, 0.72), shelf, [0, shelfY, 0.05])
+    if (row === 3) {
+      addMesh(group, new THREE.BoxGeometry(1.7, 0.07, 0.08), light, [0, shelfY + 0.08, 0.42])
+      continue
+    }
+    for (let product = 0; product < 4; product++) {
+      const height = 0.34 + (product % 2) * 0.12
+      const x = -0.54 + product * 0.36
+      addMesh(
+        group,
+        new THREE.BoxGeometry(0.22, height, 0.2),
+        products[(row + product) % products.length],
+        [x, shelfY + height / 2 + 0.05, 0.22],
+      )
+    }
+  }
+  return group
+}
+
 function disposeObject(object: THREE.Object3D) {
   object.traverse((child) => {
     if (!(child instanceof THREE.Mesh)) return
@@ -214,8 +258,18 @@ export default function GameWorld3D({
       emissive: WORLD_COLORS[0],
       emissiveIntensity: 0.45,
     })
+    const sideWallMaterial = new THREE.MeshStandardMaterial({
+      color: 0x506a70,
+      emissive: 0x122b31,
+      emissiveIntensity: 0.18,
+      roughness: 0.82,
+    })
     const ground = addMesh(scene, new THREE.PlaneGeometry(15, 150), floorMaterial, [0, -0.13, -56])
     ground.rotation.x = -Math.PI / 2
+    for (const side of [-1, 1]) {
+      addMesh(scene, new THREE.BoxGeometry(0.24, 5.6, 145), sideWallMaterial, [side * 6.55, 2.8, -53])
+      addMesh(scene, new THREE.BoxGeometry(0.07, 4.9, 145), accentMaterial, [side * 6.38, 2.55, -53])
+    }
 
     for (const laneX of LANE_POSITIONS) {
       const laneBed = addMesh(scene, new THREE.PlaneGeometry(2.24, 145), trackMaterial, [laneX, -0.07, -53])
@@ -241,7 +295,20 @@ export default function GameWorld3D({
 
     const player = createLilo()
     player.position.set(0, 0.08, 1.6)
+    player.rotation.y = Math.PI
     scene.add(player)
+
+    const sideShelves: THREE.Group[] = []
+    for (const side of [-1, 1]) {
+      for (let index = 0; index < 6; index++) {
+        const shelf = createSideShelf()
+        shelf.position.set(side * 5.2, 0, 4 - index * 20)
+        shelf.rotation.y = side * -0.12
+        scene.add(shelf)
+        sideShelves.push(shelf)
+      }
+    }
+
     const gate = new THREE.Group()
     const gateMaterial = new THREE.MeshStandardMaterial({
       color: 0x10b981,
@@ -293,6 +360,10 @@ export default function GameWorld3D({
         for (const sleeper of sleepers) {
           sleeper.position.z += delta * 20
           if (sleeper.position.z > 10) sleeper.position.z -= 128
+        }
+        for (const shelf of sideShelves) {
+          shelf.position.z += delta * 20
+          if (shelf.position.z > 12) shelf.position.z -= 120
         }
       }
 
