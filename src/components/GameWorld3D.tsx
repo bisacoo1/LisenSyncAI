@@ -172,6 +172,8 @@ function createLilo() {
 
   addMesh(body, new THREE.SphereGeometry(0.59, 24, 18), brown, [0, 1.05, 0])
   addMesh(body, new THREE.SphereGeometry(0.48, 24, 18), cream, [0, 0.88, 0.31]).scale.set(0.84, 0.9, 0.54)
+  addMesh(body, new THREE.SphereGeometry(0.55, 20, 16), coat, [0, 0.96, -0.41]).scale.set(0.92, 1.05, 0.5)
+  addMesh(body, new THREE.TorusGeometry(0.34, 0.055, 8, 24), coat, [0, 1.48, -0.05])
   addMesh(body, new THREE.SphereGeometry(0.69, 24, 18), darkBrown, [0, 1.86, 0.02]).scale.set(1, 0.85, 0.78)
   addMesh(body, new THREE.ConeGeometry(0.2, 0.44, 5), darkBrown, [-0.36, 2.37, 0.01]).rotation.z = 0.38
   addMesh(body, new THREE.ConeGeometry(0.2, 0.44, 5), darkBrown, [0.36, 2.37, 0.01]).rotation.z = -0.38
