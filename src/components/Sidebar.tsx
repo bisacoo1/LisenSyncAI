@@ -7,6 +7,7 @@ import { Icon, Tooltip, type IconName } from '@/components/ui'
 const navItems: { path: string; label: string; icon: IconName }[] = [
   { path: '/dashboard', label: 'Overview', icon: 'dashboard' },
   { path: '/reviewers', label: 'My reviewers', icon: 'reviewer' },
+  { path: '/side-by-side', label: 'Side by side', icon: 'move' },
   { path: '/practice', label: 'Practice', icon: 'practice' },
   { path: '/mock', label: 'Mock exam', icon: 'mock' },
   { path: '/analytics', label: 'Analytics', icon: 'analytics' }
@@ -66,7 +67,9 @@ export function Sidebar({
       <nav className="sidebar-nav" aria-label="Workspace navigation">
         <ul className="sidebar-list">
           {navItems.filter((item) => item.path !== '/mock' || profile?.track !== 'course').map((item) => {
-            const active = location.pathname === item.path
+            const active = item.path === '/side-by-side'
+              ? location.pathname.startsWith('/side-by-side')
+              : location.pathname === item.path
             const link = (
               <Link
                 to={item.path}
@@ -99,7 +102,6 @@ export function Sidebar({
           </li>
           {uploadItems.map((item) => {
             const active =
-              location.pathname.startsWith('/side-by-side/') ||
               (location.pathname === '/reviewer' && location.search.includes(`tab=${item.tab}`))
             const link = (
               <Link

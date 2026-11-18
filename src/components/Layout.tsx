@@ -11,6 +11,7 @@ const pageNames: Record<string, string> = {
   '/dashboard': 'Overview',
   '/reviewers': 'My reviewers',
   '/reviewer': 'Upload & materials',
+  '/side-by-side': 'Side by side',
   '/practice': 'Practice',
   '/mock': 'Mock exam',
   '/analytics': 'Analytics',

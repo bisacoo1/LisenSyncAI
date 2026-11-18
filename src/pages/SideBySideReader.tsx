@@ -79,30 +79,55 @@ export default function SideBySideReader() {
   const selectionTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
-    if (!materialId) return
+    if (!profile) return
     loadMaterial()
-  }, [materialId])
+  }, [materialId, profile?.id])
 
   async function loadMaterial() {
     if (!profile) return
     setLoading(true)
     try {
-      const { data, error } = await supabase
-        .from('review_materials')
-        .select('*')
-        .eq('id', materialId)
-        .eq('user_id', profile.id)
-        .maybeSingle()
-      if (error) throw error
-      setMaterial(data as ReviewMaterial | null)
+      let data: ReviewMaterial | null = null
+      let error: unknown = null
 
-      const { data: hl } = await supabase
-        .from('document_highlights')
-        .select('*')
-        .eq('material_id', materialId)
-        .eq('user_id', profile.id)
-        .order('created_at', { ascending: false })
-      setHighlights((hl as DocumentHighlight[]) || [])
+      if (materialId) {
+        const result = await supabase
+          .from('review_materials')
+          .select('*')
+          .eq('id', materialId)
+          .eq('user_id', profile.id)
+          .maybeSingle()
+        data = result.data as ReviewMaterial | null
+        error = result.error
+      } else {
+        const result = await supabase
+          .from('review_materials')
+          .select('*')
+          .eq('user_id', profile.id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+        data = result.data as ReviewMaterial | null
+        error = result.error
+      }
+      if (error) throw error
+      setMaterial(data)
+
+      if (!materialId && data) {
+        nav(`/side-by-side/${data.id}`, { replace: true })
+      }
+
+      if (data) {
+        const { data: hl } = await supabase
+          .from('document_highlights')
+          .select('*')
+          .eq('material_id', data.id)
+          .eq('user_id', profile.id)
+          .order('created_at', { ascending: false })
+        setHighlights((hl as DocumentHighlight[]) || [])
+      } else {
+        setHighlights([])
+      }
     } catch (e: any) {
       addToast({ type: 'error', title: 'Error', message: e.message })
     } finally {
@@ -110,7 +135,7 @@ export default function SideBySideReader() {
     }
   }
 
-  if (loading || !material) {
+  if (loading) {
     return (
       <div className="container" style={{ paddingTop: 60, paddingBottom: 48, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 'calc(100vh - 108px)' }}>
         <Card variant="outlined">
@@ -119,6 +144,25 @@ export default function SideBySideReader() {
             <p style={{ marginTop: 16, color: 'var(--muted)' }}>Loading document…</p>
           </CardContent>
         </Card>
+      </div>
+    )
+  }
+
+  if (!material) {
+    return (
+      <div className="container" style={{ paddingTop: 60, paddingBottom: 48 }}>
+        <EmptyState
+          icon="book-open"
+          title="No reviewer available"
+          description="Upload a reviewer first, then open the side-by-side reader."
+          action={
+            {
+              label: 'Upload reviewer',
+              onClick: () => nav('/reviewer?tab=upload'),
+              variant: 'primary',
+            }
+          }
+        />
       </div>
     )
   }

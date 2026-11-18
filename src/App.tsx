@@ -130,6 +130,7 @@ export default function App() {
           </Layout>
         }
       >
+        <Route path="/side-by-side" />
         <Route path="/side-by-side/:materialId" />
       </Route>
 
