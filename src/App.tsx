@@ -67,6 +67,7 @@ export default function App() {
         <Route path="/dashboard" />
       </Route>
       <Route
+        path="/reviewer"
         element={
           <Layout>
             <ProtectedRoute>
@@ -74,9 +75,7 @@ export default function App() {
             </ProtectedRoute>
           </Layout>
         }
-      >
-        <Route path="/reviewer" />
-      </Route>
+      />
       <Route
         element={
           <Layout>
