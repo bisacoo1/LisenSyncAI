@@ -6,7 +6,7 @@ const projectFile = (relativePath: string) =>
   readFileSync(resolve(process.cwd(), relativePath), 'utf8')
 
 describe('authenticated frontend hierarchy', () => {
-  it('promotes the dashboard study plan and keeps secondary surfaces restrained', () => {
+  it('places the study plan after the progress overview and before momentum', () => {
     const dashboard = projectFile('src/pages/DashboardPage.tsx')
     const css = projectFile('src/design.css')
 
@@ -14,7 +14,11 @@ describe('authenticated frontend hierarchy', () => {
     const readinessIndex = dashboard.indexOf('dashboard-feature-grid')
 
     expect(studyPlanIndex).toBeGreaterThan(0)
-    expect(readinessIndex).toBeGreaterThan(studyPlanIndex)
+    expect(readinessIndex).toBeGreaterThan(0)
+    expect(dashboard.indexOf('course-overview-panel')).toBeLessThan(studyPlanIndex)
+    expect(readinessIndex).toBeLessThan(studyPlanIndex)
+    expect(dashboard.indexOf('aria-labelledby="momentum-title"')).toBeGreaterThan(studyPlanIndex)
+    expect(css).toMatch(/\.dashboard-page \.study-plan-section\s*\{[^}]*margin-top:\s*40px/s)
     expect(css).toMatch(/\.study-plan-step[^{]*\{[^}]*box-shadow:/s)
   })
 
@@ -53,5 +57,30 @@ describe('dashboard failure handling', () => {
     expect(dashboard).toContain('if (loadError) return')
     expect(dashboard).toContain('setReloadCount(value => value + 1)')
     expect(dashboard).toContain('return () => { active = false }')
+  })
+})
+
+describe('consistent dashboard surfaces', () => {
+  it('uses shared theme surfaces for the dashboard cards without overriding semantic status colors', () => {
+    const css = projectFile('src/design.css')
+    const palette = css.slice(css.indexOf('/* Consistent workspace surfaces:'))
+    expect(palette).toContain(':root .dashboard-page .readiness-panel,')
+    expect(palette).toContain(':root .dashboard-page .toolkit-card:nth-child(2),')
+    expect(palette).toContain('background: var(--panel);')
+    expect(palette).toContain('border: 1px solid var(--border);')
+    expect(palette).toContain('background: var(--primary);')
+    expect(palette).not.toContain('.ui-badge')
+  })
+})
+
+describe('mint workspace theme', () => {
+  it('provides light and dark workspace palettes with accessible active navigation', () => {
+    const css = projectFile('src/design.css')
+    const theme = css.slice(css.indexOf('/* Pharmacy workspace — soft mint surfaces'))
+    expect(theme).toContain(':root .app-shell {')
+    expect(theme).toContain(':root.dark .app-shell {')
+    expect(theme).toContain('--workspace-nav-active-text: #ffffff')
+    expect(theme).toContain('--workspace-nav-active-text: #092d29')
+    expect(theme).toContain('outline: 3px solid var(--primary)')
   })
 })

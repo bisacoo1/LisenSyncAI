@@ -2432,3 +2432,214 @@ textarea:focus-visible, [tabindex]:focus-visible {
   .dashboard-section-heading { align-items: flex-start; flex-wrap: wrap; }
   .dashboard-section-heading .section-link { min-height: 36px; }
 }
+
+
+/* The progress overview leads; recommended actions follow as a balanced study plan. */
+.dashboard-page .study-plan-section { margin-top: 40px; }
+.dashboard-page .study-plan-list { grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); gap: 14px; }
+.dashboard-page .study-plan-step { min-height: 150px; padding: 20px; gap: 12px; }
+.dashboard-page .study-plan-step-copy strong { line-height: 1.4; }
+.dashboard-page .study-plan-step-action { min-height: 28px; }
+@media (max-width: 680px) {
+  .dashboard-page .study-plan-section { margin-top: 32px; }
+  .dashboard-page .study-plan-list { grid-template-columns: minmax(0, 1fr); }
+  .dashboard-page .study-plan-step { min-height: 0; }
+}
+
+/* Consistent workspace surfaces: use color for controls, progress and status, not card order. */
+:root .dashboard-page .readiness-panel,
+:root .dashboard-page .countdown-panel,
+:root .dashboard-page .course-overview-panel,
+:root .dashboard-page .study-plan-step,
+:root .dashboard-page .momentum-card,
+:root .dashboard-page .toolkit-card,
+:root .dashboard-page .toolkit-card:nth-child(2),
+:root .dashboard-page .toolkit-card:nth-child(3),
+:root .dashboard-page .subject-panel,
+:root .dashboard-page .focus-panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+}
+:root .dashboard-page .readiness-panel { color: var(--text); }
+:root .dashboard-page .readiness-panel::before,
+:root .dashboard-page .readiness-panel::after { display: none; }
+:root .dashboard-page .readiness-topline,
+:root .dashboard-page .readiness-topline > span:first-child,
+:root .dashboard-page .readiness-topline > span:last-child,
+:root .dashboard-page .readiness-label,
+:root .dashboard-page .readiness-progress-label,
+:root .dashboard-page .readiness-bottom,
+:root .dashboard-page .readiness-orbit span { color: var(--text-dim); }
+:root .dashboard-page .readiness-score,
+:root .dashboard-page .readiness-bottom strong,
+:root .dashboard-page .readiness-orbit strong { color: var(--text); }
+:root .dashboard-page .readiness-copy p { color: var(--text-dim); }
+:root .dashboard-page .readiness-bottom { border-color: var(--border); }
+:root .dashboard-page .readiness-bottom a { color: var(--primary); }
+:root .dashboard-page .readiness-bottom a:hover { color: var(--primary-2); }
+:root .dashboard-page .readiness-orbit { background: conic-gradient(var(--primary) var(--readiness-fill), var(--panel-3) 0); box-shadow: none; }
+:root .dashboard-page .readiness-orbit > div { background: var(--panel); color: var(--primary); }
+:root .dashboard-page .readiness-progress { background: var(--panel-3); }
+:root .dashboard-page .readiness-progress > span { background: var(--primary); }
+:root .dashboard-page .readiness-progress > i { background: var(--text); }
+:root .dashboard-page .countdown-icon,
+:root .dashboard-page .focus-icon,
+:root .dashboard-page .study-plan-step-icon,
+:root .dashboard-page .momentum-icon,
+:root .dashboard-page .toolkit-icon,
+:root .dashboard-page .toolkit-card:nth-child(2) .toolkit-icon,
+:root .dashboard-page .toolkit-card:nth-child(3) .toolkit-icon {
+  background: var(--primary-bg);
+  color: var(--primary);
+}
+:root .dashboard-page .course-overview-kicker svg { color: var(--primary); }
+:root .dashboard-page .course-overview-metric { background: var(--panel-2); }
+:root .dashboard-page .toolkit-action,
+:root .dashboard-page .focus-panel li { border-color: var(--border); }
+:root .dashboard-page .study-plan-step:hover,
+:root .dashboard-page .toolkit-card:hover,
+:root .dashboard-page .momentum-card--link:hover { border-color: var(--primary-border); box-shadow: var(--shadow-md); }
+/* Repeated informational cards on the public page share the same surface too. */
+:root .landing-method .method-card,
+:root .landing-method .method-card:nth-child(2),
+:root .landing-method .method-card:nth-child(3) { background: var(--panel); border-color: var(--border); }
+:root .landing-method .method-icon,
+:root .landing-method .method-card:nth-child(2) .method-icon,
+:root .landing-method .method-card:nth-child(3) .method-icon { background: var(--primary-bg); color: var(--primary); }
+:root .landing-method .method-card h3 { color: var(--text); }
+:root .landing-method .method-card p,
+:root .landing-method .method-card-top,
+:root .landing-method .method-card-foot { color: var(--text-dim); }
+:root .landing-method .method-card-foot { border-color: var(--border); }
+
+/* Pharmacy workspace — soft mint surfaces and deep teal navigation. */
+:root .app-shell {
+  --bg: #edf6f4;
+  --bg-elevated: #f7fbfa;
+  --panel: #f9fcfb;
+  --panel-2: #e8f3f1;
+  --panel-3: #d3e8e3;
+  --text: #102d2d;
+  --text-dim: #405f5b;
+  --muted: #56736e;
+  --muted-strong: #496863;
+  --primary: #076b60;
+  --primary-2: #075349;
+  --primary-3: #053a37;
+  --on-primary: #ffffff;
+  --primary-bg: #dbeeea;
+  --primary-border: #b6d9d1;
+  --accent: #08796b;
+  --accent-2: #076b60;
+  --accent-bg: #dbeeea;
+  --accent-border: #b6d9d1;
+  --border: #d4e6e1;
+  --border-strong: #bdd6d0;
+  --workspace-sidebar: #e6f3f0;
+  --workspace-nav: #173d39;
+  --workspace-nav-active: #073b39;
+  --workspace-nav-active-text: #ffffff;
+  --workspace-action: #073b39;
+  --workspace-action-text: #ffffff;
+  --shadow-sm: 0 4px 18px rgba(22, 64, 57, .045);
+  --shadow-md: 0 12px 30px rgba(22, 64, 57, .08);
+  --focus-ring: 0 0 0 3px rgba(7, 107, 96, .3);
+}
+:root.dark .app-shell {
+  --bg: #101d1c;
+  --bg-elevated: #172827;
+  --panel: #1a2c2a;
+  --panel-2: #213735;
+  --panel-3: #314b47;
+  --text: #eaf5f2;
+  --text-dim: #bed3ce;
+  --muted: #a0bbb4;
+  --muted-strong: #b3cbc4;
+  --primary: #78d8c7;
+  --primary-2: #a7e8db;
+  --primary-3: #c6f3ea;
+  --on-primary: #092d29;
+  --primary-bg: #21483f;
+  --primary-border: #396c60;
+  --accent: #78d8c7;
+  --accent-2: #a7e8db;
+  --accent-bg: #21483f;
+  --accent-border: #396c60;
+  --border: #304b46;
+  --border-strong: #476b62;
+  --workspace-sidebar: #152825;
+  --workspace-nav: #c8ded8;
+  --workspace-nav-active: #b4e6d9;
+  --workspace-nav-active-text: #092d29;
+  --workspace-action: #a7e5d6;
+  --workspace-action-text: #082c28;
+  --shadow-sm: 0 4px 18px rgba(0, 0, 0, .18);
+  --shadow-md: 0 12px 30px rgba(0, 0, 0, .25);
+}
+:root .app-shell .sidebar { background: var(--workspace-sidebar); color: var(--workspace-nav); border-right: 1px solid var(--border); box-shadow: none; }
+:root .app-shell .sidebar-brand { border-color: var(--border); }
+:root .app-shell .sidebar .brand-lockup--inverse,
+:root .app-shell .sidebar .brand-lockup--inverse:hover { color: var(--text); }
+:root .app-shell .sidebar .brand-lockup-name > span { color: var(--primary); }
+:root .app-shell .sidebar .brand-lockup-name small { color: var(--muted); }
+:root .app-shell .sidebar-nav-heading,
+:root .app-shell .sidebar-section { color: var(--muted-strong); }
+:root .app-shell .sidebar-toggle,
+:root .app-shell .sidebar-signout { color: var(--workspace-nav); border-color: var(--border-strong); }
+:root .app-shell .sidebar-toggle:hover,
+:root .app-shell .sidebar-signout:hover { color: var(--text); background: var(--panel-3); }
+:root .app-shell .sidebar-item { color: var(--workspace-nav); border-radius: 999px; }
+:root .app-shell .sidebar-item:hover { color: var(--text); background: var(--panel-3); }
+:root .app-shell .sidebar-item.active,
+:root .app-shell .sidebar-item.active:hover { color: var(--workspace-nav-active-text); background: var(--workspace-nav-active); }
+:root .app-shell .sidebar-active-dot { background: currentColor; opacity: .7; }
+:root .app-shell .sidebar-note { background: var(--panel-2); border-color: var(--border-strong); color: var(--text-dim); border-radius: 18px; }
+:root .app-shell .sidebar-note-rx { background: var(--primary-bg); color: var(--primary); }
+:root .app-shell .sidebar-note strong,
+:root .app-shell .sidebar-profile-name { color: var(--text); }
+:root .app-shell .sidebar-note small,
+:root .app-shell .sidebar-profile-program { color: var(--text-dim); }
+:root .app-shell .sidebar-profile { border-color: var(--border-strong); }
+:root .app-shell .sidebar-avatar { color: var(--text); background: var(--panel-3); }
+:root .app-shell .workspace-topbar,
+:root .app-shell .mobile-topbar { background: var(--bg); border-color: var(--border); box-shadow: none; }
+:root .app-shell .workspace-breadcrumb,
+:root .app-shell .workspace-date,
+:root .app-shell .mobile-topbar-label { color: var(--text-dim); }
+:root .app-shell .workspace-breadcrumb strong { color: var(--text); }
+:root .app-shell .workspace-program { color: var(--text-dim); background: var(--panel); border-color: var(--border); }
+:root .app-shell .ui-button--primary,
+:root .app-shell .workspace-primary-link { color: var(--workspace-action-text); background: var(--workspace-action); border-color: var(--workspace-action); border-radius: 999px; }
+:root .app-shell .ui-button--primary:hover:not(:disabled),
+:root .app-shell .workspace-primary-link:hover { color: var(--workspace-action-text); background: var(--workspace-action); filter: brightness(.9); }
+:root .app-shell .ui-button--secondary { color: var(--text); background: var(--panel); border-color: var(--border-strong); }
+:root .app-shell .ui-button--outline { color: var(--primary); border-color: var(--primary-border); }
+:root .app-shell .dashboard-heading h1,
+:root .app-shell .workspace-page-header h1,
+:root .app-shell .workspace-content > .container > div:first-child h1,
+:root .app-shell .countdown-content h2,
+:root .app-shell .course-overview-copy h2,
+:root .app-shell .focus-panel h3 { font-family: var(--font-sans); font-style: normal; font-weight: 600 !important; letter-spacing: -.04em; }
+:root .app-shell .dashboard-heading h1 em,
+:root .app-shell .workspace-page-header h1 em { color: var(--primary); font-style: normal; }
+:root .app-shell .dashboard-heading h1 { font-size: clamp(30px, 3vw, 42px); }
+:root .app-shell .readiness-panel,
+:root .app-shell .countdown-panel,
+:root .app-shell .course-overview-panel,
+:root .app-shell .study-plan-step,
+:root .app-shell .momentum-card,
+:root .app-shell .toolkit-card,
+:root .app-shell .subject-panel,
+:root .app-shell .focus-panel,
+:root .app-shell .ui-card { border-radius: 22px; }
+:root .app-shell .table th { color: var(--text-dim); }
+:root .app-shell .table-wrapper { border-color: var(--border); }
+:root .app-shell :is(button, a, input, select, textarea):focus-visible { outline: 3px solid var(--primary); outline-offset: 3px; }
+@media (max-width: 900px) {
+  :root .app-shell .mobile-topbar { background: var(--bg); }
+  :root .app-shell .mobile-toggle { color: var(--primary); border-color: var(--border-strong); }
+}
+@media (prefers-reduced-motion: reduce) {
+  :root .app-shell .workspace-primary-link:hover { transform: none; }
+}
