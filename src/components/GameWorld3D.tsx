@@ -24,7 +24,6 @@ type Props = {
   obstacles: GameWorldObstacle[]
   collectibles: GameWorldCollectible[]
   worldIndex: number
-  worldName: string
   onSwipe: (direction: 'left' | 'right' | 'up' | 'down') => void
 }
 
@@ -41,28 +40,6 @@ function addMesh(
   mesh.position.set(...position)
   parent.add(mesh)
   return mesh
-}
-
-function makeSignTexture(label: string) {
-  const canvas = document.createElement('canvas')
-  canvas.width = 512
-  canvas.height = 128
-  const context = canvas.getContext('2d')
-  if (!context) throw new Error('Could not create the station sign texture.')
-  context.fillStyle = '#082f3b'
-  context.fillRect(0, 0, canvas.width, canvas.height)
-  context.strokeStyle = '#5eead4'
-  context.lineWidth = 8
-  context.strokeRect(5, 5, canvas.width - 10, canvas.height - 10)
-  context.textAlign = 'center'
-  context.textBaseline = 'middle'
-  context.fillStyle = '#d8fffa'
-  context.font = '800 34px system-ui, sans-serif'
-  context.fillText('PHARMORA METRO', canvas.width / 2, 45)
-  context.fillStyle = '#67e8f9'
-  context.font = '700 23px system-ui, sans-serif'
-  context.fillText(label.toUpperCase(), canvas.width / 2, 91)
-  return new THREE.CanvasTexture(canvas)
 }
 
 function createObstacle(kind: GameObstacleKind) {
@@ -133,20 +110,22 @@ function createLilo() {
   const root = new THREE.Group()
   const body = new THREE.Group()
   root.add(body)
-  const navy = new THREE.MeshStandardMaterial({ color: 0x12375a, roughness: 0.58 })
-  const blue = new THREE.MeshStandardMaterial({ color: 0x087e9a, roughness: 0.48 })
-  const cream = new THREE.MeshStandardMaterial({ color: 0xfff3d9, roughness: 0.62 })
-  const white = new THREE.MeshStandardMaterial({ color: 0xf6f7f1, roughness: 0.5 })
+  const darkBrown = new THREE.MeshStandardMaterial({ color: 0x51331f, roughness: 0.62 })
+  const brown = new THREE.MeshStandardMaterial({ color: 0x895432, roughness: 0.58 })
+  const cream = new THREE.MeshStandardMaterial({ color: 0xfff0d2, roughness: 0.62 })
+  const coat = new THREE.MeshStandardMaterial({ color: 0xf6f7f1, roughness: 0.5 })
   const orange = new THREE.MeshStandardMaterial({ color: 0xf4a62a, roughness: 0.38 })
   const gold = new THREE.MeshStandardMaterial({ color: 0xffbd3d, metalness: 0.12, roughness: 0.28 })
   const black = new THREE.MeshStandardMaterial({ color: 0x101b23, roughness: 0.2 })
   const highlight = new THREE.MeshBasicMaterial({ color: 0xffffff })
 
-  addMesh(body, new THREE.SphereGeometry(0.59, 24, 18), blue, [0, 1.05, 0])
-  addMesh(body, new THREE.SphereGeometry(0.48, 24, 18), white, [0, 0.88, 0.31]).scale.set(0.84, 0.9, 0.54)
-  addMesh(body, new THREE.SphereGeometry(0.69, 24, 18), navy, [0, 1.86, 0.02]).scale.set(1, 0.85, 0.78)
-  addMesh(body, new THREE.ConeGeometry(0.2, 0.44, 5), navy, [-0.36, 2.37, 0.01]).rotation.z = 0.38
-  addMesh(body, new THREE.ConeGeometry(0.2, 0.44, 5), navy, [0.36, 2.37, 0.01]).rotation.z = -0.38
+  addMesh(body, new THREE.SphereGeometry(0.59, 24, 18), brown, [0, 1.05, 0])
+  addMesh(body, new THREE.SphereGeometry(0.48, 24, 18), cream, [0, 0.88, 0.31]).scale.set(0.84, 0.9, 0.54)
+  addMesh(body, new THREE.SphereGeometry(0.69, 24, 18), darkBrown, [0, 1.86, 0.02]).scale.set(1, 0.85, 0.78)
+  addMesh(body, new THREE.ConeGeometry(0.2, 0.44, 5), darkBrown, [-0.36, 2.37, 0.01]).rotation.z = 0.38
+  addMesh(body, new THREE.ConeGeometry(0.2, 0.44, 5), darkBrown, [0.36, 2.37, 0.01]).rotation.z = -0.38
+  addMesh(body, new THREE.SphereGeometry(0.3, 16, 12), brown, [-0.55, 1.04, 0.02]).scale.set(0.48, 1.1, 0.55)
+  addMesh(body, new THREE.SphereGeometry(0.3, 16, 12), brown, [0.55, 1.04, 0.02]).scale.set(0.48, 1.1, 0.55)
 
   for (const eyeX of [-0.25, 0.25]) {
     addMesh(body, new THREE.SphereGeometry(0.28, 20, 16), cream, [eyeX, 1.91, 0.54])
@@ -157,14 +136,14 @@ function createLilo() {
 
   const beak = addMesh(body, new THREE.ConeGeometry(0.14, 0.27, 5), orange, [0, 1.59, 0.69])
   beak.rotation.x = Math.PI / 2
-  const headphoneBand = addMesh(body, new THREE.TorusGeometry(0.64, 0.075, 10, 32, Math.PI), blue, [0, 2.01, 0.04])
-  addMesh(body, new THREE.BoxGeometry(0.2, 0.57, 0.31), navy, [-0.68, 1.83, 0.04])
-  addMesh(body, new THREE.BoxGeometry(0.2, 0.57, 0.31), navy, [0.68, 1.83, 0.04])
+  const headphoneBand = addMesh(body, new THREE.TorusGeometry(0.64, 0.075, 10, 32, Math.PI), darkBrown, [0, 2.01, 0.04])
+  addMesh(body, new THREE.BoxGeometry(0.2, 0.57, 0.31), darkBrown, [-0.68, 1.83, 0.04])
+  addMesh(body, new THREE.BoxGeometry(0.2, 0.57, 0.31), darkBrown, [0.68, 1.83, 0.04])
   addMesh(body, new THREE.BoxGeometry(0.26, 0.12, 0.12), gold, [0.44, 0.88, 0.64])
 
-  const leftArm = addMesh(body, new THREE.CapsuleGeometry(0.13, 0.52, 4, 8), white, [-0.58, 0.95, 0.02])
+  const leftArm = addMesh(body, new THREE.CapsuleGeometry(0.13, 0.52, 4, 8), coat, [-0.58, 0.95, 0.02])
   leftArm.rotation.z = 0.45
-  const rightArm = addMesh(body, new THREE.CapsuleGeometry(0.13, 0.52, 4, 8), white, [0.58, 0.95, 0.02])
+  const rightArm = addMesh(body, new THREE.CapsuleGeometry(0.13, 0.52, 4, 8), coat, [0.58, 0.95, 0.02])
   rightArm.rotation.z = -0.45
   const leftLeg = addMesh(root, new THREE.CylinderGeometry(0.1, 0.13, 0.39, 10), orange, [-0.25, 0.28, 0.02])
   const rightLeg = addMesh(root, new THREE.CylinderGeometry(0.1, 0.13, 0.39, 10), orange, [0.25, 0.28, 0.02])
@@ -183,14 +162,13 @@ export default function GameWorld3D({
   obstacles,
   collectibles,
   worldIndex,
-  worldName,
   onSwipe,
 }: Props) {
   const hostRef = useRef<HTMLDivElement>(null)
-  const latestRef = useRef({ running, checkpoint, lane, action, obstacles, collectibles, worldIndex, worldName, onSwipe })
+  const latestRef = useRef({ running, checkpoint, lane, action, obstacles, collectibles, worldIndex, onSwipe })
   const touchStartRef = useRef<{ x: number; y: number } | null>(null)
   const [sceneError, setSceneError] = useState('')
-  latestRef.current = { running, checkpoint, lane, action, obstacles, collectibles, worldIndex, worldName, onSwipe }
+  latestRef.current = { running, checkpoint, lane, action, obstacles, collectibles, worldIndex, onSwipe }
 
   useEffect(() => {
     const host = hostRef.current
@@ -261,27 +239,6 @@ export default function GameWorld3D({
       sleepers.push(sleeper)
     }
 
-    let activeSignTexture = makeSignTexture(worldName)
-    activeSignTexture.userData.worldName = worldName
-    const signMaterial = new THREE.MeshBasicMaterial({ map: activeSignTexture, side: THREE.DoubleSide })
-    const arches: THREE.Group[] = []
-    for (let index = 0; index < 10; index++) {
-      const arch = new THREE.Group()
-      addMesh(arch, new THREE.BoxGeometry(0.42, 4.9, 0.54), floorMaterial, [-5, 2.43, 0])
-      addMesh(arch, new THREE.BoxGeometry(0.42, 4.9, 0.54), floorMaterial, [5, 2.43, 0])
-      addMesh(arch, new THREE.BoxGeometry(10.4, 0.42, 0.54), floorMaterial, [0, 4.82, 0])
-      addMesh(arch, new THREE.BoxGeometry(0.09, 4.45, 0.08), accentMaterial, [-4.75, 2.45, 0.29])
-      addMesh(arch, new THREE.BoxGeometry(0.09, 4.45, 0.08), accentMaterial, [4.75, 2.45, 0.29])
-      addMesh(arch, new THREE.BoxGeometry(8.6, 0.09, 0.08), accentMaterial, [0, 4.58, 0.29])
-
-      if (index % 2 === 0) {
-        addMesh(arch, new THREE.PlaneGeometry(3.2, 0.8), signMaterial, [0, 3.75, 0.34])
-      }
-      arch.position.z = 11 - index * 12
-      scene.add(arch)
-      arches.push(arch)
-    }
-
     const player = createLilo()
     player.position.set(0, 0.08, 1.6)
     scene.add(player)
@@ -332,22 +289,10 @@ export default function GameWorld3D({
         accentMaterial.emissive.setHex(color)
         activeWorldIndex = current.worldIndex
       }
-      if (activeSignTexture.userData.worldName !== current.worldName) {
-        activeSignTexture.dispose()
-        const updatedTexture = makeSignTexture(current.worldName)
-        signMaterial.map = updatedTexture
-        signMaterial.needsUpdate = true
-        activeSignTexture = updatedTexture
-        activeSignTexture.userData.worldName = current.worldName
-      }
       if (current.running) {
         for (const sleeper of sleepers) {
           sleeper.position.z += delta * 20
           if (sleeper.position.z > 10) sleeper.position.z -= 128
-        }
-        for (const arch of arches) {
-          arch.position.z += delta * 20
-          if (arch.position.z > 17) arch.position.z -= 120
         }
       }
 
@@ -447,7 +392,6 @@ export default function GameWorld3D({
           materials.forEach((material) => material.dispose())
         }
       })
-      activeSignTexture.dispose()
       renderer?.dispose()
       renderer?.domElement.remove()
     }
@@ -457,7 +401,7 @@ export default function GameWorld3D({
     <div
       ref={hostRef}
       className="game-world-3d"
-      aria-label="Three-dimensional Pharmacy Metro runner"
+      aria-label="Three-dimensional pharmacy runner"
       onTouchStart={event => {
         const touch = event.touches[0]
         if (touch) touchStartRef.current = { x: touch.clientX, y: touch.clientY }

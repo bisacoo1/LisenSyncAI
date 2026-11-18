@@ -6,7 +6,6 @@ import type { McqAnswer, McqQuestion, PracticeItem } from '@/types'
 import type { GameWorldCollectible, GameWorldObstacle } from '@/components/GameWorld3D'
 import { obstacleDodged, type GameObstacleKind, type PlayerAction } from '@/lib/gameMode'
 import { Badge, Button, Card, Icon } from '@/components/ui'
-import liloAvatar from '@/assets/mascot/mascot-avatar-256.png'
 
 const GameWorld3D = lazy(() => import('@/components/GameWorld3D'))
 type Obstacle = GameWorldObstacle
@@ -310,25 +309,10 @@ export default function GameModePage() {
 
   return (
     <div className="game-page">
-      <div className="game-header">
-        <div>
-          <span className="section-kicker"><span className="eyebrow-dot" /> LILO GAME MODE</span>
-          <h1>Rx Runner</h1>
-          <p>Collect Rx tokens, dodge pharmacy hazards, and clear document-based checkpoints.</p>
-        </div>
-        {subjects.length > 1 && (
-          <label className="game-subject-picker">
-            Subject
-            <select value={subject} onChange={event => changeSubject(event.target.value)}>
-              {subjects.map(name => <option key={name} value={name}>{name}</option>)}
-            </select>
-          </label>
-        )}
-        <Button variant="ghost" leftIcon="arrow-left" onClick={() => navigate('/dashboard')}>Exit game</Button>
-      </div>
-
       {loading ? (
-        <Card padding="lg"><div className="game-empty">Preparing Lilo's questions…</div></Card>
+        <Card padding="lg" className="game-preparation">
+          <div className="game-empty">Preparing Lilo's questions…</div>
+        </Card>
       ) : items.length === 0 ? (
         <Card padding="lg" className="game-empty-card">
           <Icon name="flag" size={30} />
@@ -337,112 +321,136 @@ export default function GameModePage() {
           <Button onClick={() => navigate('/reviewer')} leftIcon="upload">Add study material</Button>
         </Card>
       ) : (
-        <div className="game-layout">
-          <Card padding="none" className="runner-card">
-            <div className="runner-hud">
-              <Badge variant="primary"><Icon name="trophy" size={13} /> {score} pts</Badge>
-              <Badge variant="info"><Icon name="target" size={13} /> {Math.floor(distance)} / {CHECKPOINT_DISTANCE} m</Badge>
-              <div className="lives" aria-label={`${lives} lives left`}>
-                {[0, 1, 2].map(index => <span key={index} className={index < lives ? 'alive' : ''}>♥</span>)}
-              </div>
+        <div className="game-screen">
+          <div className="game-header">
+            <div className="game-title">
+              <span className="section-kicker"><span className="eyebrow-dot" /> LILO GAME MODE</span>
+              <h1>Rx Runner</h1>
             </div>
-
-            <div className={`runner-track world-${worldIndex}${status === 'running' ? ' runner-track--running' : ''}`} aria-label={`${world.name} subway track`}>
-              <Suspense fallback={<div className="game-scene-loading">Preparing the Pharmacy Metro…</div>}>
-                <GameWorld3D
-                  running={status === 'running'}
-                  checkpoint={status === 'paused'}
-                  lane={lane}
-                  action={playerAction}
-                  obstacles={obstacles}
-                  collectibles={collectibles}
-                  worldIndex={worldIndex}
-                  worldName={world.name}
-                  onSwipe={handleSwipe}
-                />
-              </Suspense>
-              {status === 'ready' && (
-                <div className="runner-overlay">
-                  <img src={liloAvatar} alt="Lilo mascot" />
-                  <h2>Ready to run?</h2>
-                  <p>Change lanes, jump over bins, and slide under IV racks.</p>
-                  <Button size="lg" onClick={startGame} leftIcon="zap">Start run</Button>
-                </div>
-              )}
-              {status === 'gameover' && (
-                <div className="runner-overlay">
-                  <img src={liloAvatar} alt="Lilo mascot" />
-                  <h2>Run complete</h2>
-                  <p>You scored {score} points.</p>
-                  <Button size="lg" onClick={startGame} leftIcon="refresh-cw">Run again</Button>
-                </div>
-              )}
-              {status === 'running' && gameMessage && <div className="runner-message">{gameMessage}</div>}
-            </div>
-
-            {status === 'running' && (
-              <div className="runner-controls" aria-label="Runner controls">
-                <button type="button" onClick={() => moveLane(lane - 1)} aria-label="Move left">
-                  <Icon name="arrow-left" size={18} /><span>Lane</span>
-                </button>
-                <button type="button" onClick={() => performAction('jump')} aria-label="Jump">
-                  <Icon name="zap" size={18} /><span>Jump</span>
-                </button>
-                <button type="button" onClick={() => performAction('slide')} aria-label="Slide">
-                  <Icon name="arrow-down" size={18} /><span>Slide</span>
-                </button>
-                <button type="button" onClick={() => moveLane(lane + 1)} aria-label="Move right">
-                  <Icon name="arrow-right" size={18} /><span>Lane</span>
-                </button>
-              </div>
+            {subjects.length > 1 && (
+              <label className="game-subject-picker">
+                Subject
+                <select value={subject} onChange={event => changeSubject(event.target.value)}>
+                  {subjects.map(name => <option key={name} value={name}>{name}</option>)}
+                </select>
+              </label>
             )}
-          </Card>
+            <Button variant="ghost" leftIcon="arrow-left" onClick={() => navigate('/dashboard')}>Exit game</Button>
+          </div>
 
-          {status === 'paused' && mcqQuestion && mcqAnswer && (
-            <Card padding="lg" className="checkpoint-card" aria-live="polite">
-              <div className="checkpoint-heading">
-                <Badge variant="warning"><Icon name="flag" size={13} /> Checkpoint</Badge>
-                <div className={`question-timer ${timeLeft <= 5 ? 'urgent' : ''}`}>
-                  <Icon name="timer" size={16} /> {timeLeft}s
+          <div className="game-layout">
+            <Card padding="none" className="runner-card">
+              <div className="runner-hud">
+                <Badge variant="primary"><Icon name="trophy" size={13} /> {score} pts</Badge>
+                <Badge variant="info"><Icon name="target" size={13} /> {Math.floor(distance)} / {CHECKPOINT_DISTANCE} m</Badge>
+                <div className="lives" aria-label={`${lives} lives left`}>
+                  {[0, 1, 2].map(index => <span key={index} className={index < lives ? 'alive' : ''}>♥</span>)}
                 </div>
               </div>
-              <h2>{mcqQuestion.stem}</h2>
-              <div className="checkpoint-options">
-                {mcqQuestion.options.map((option, index) => {
-                  const selected = selectedAnswer === index
-                  const correct = mcqAnswer.correctIndex === index
-                  const state = answerResult && (correct ? 'correct' : selected ? 'wrong' : '')
-                  return (
-                    <button
-                      key={option}
-                      type="button"
-                      className={`checkpoint-option ${state}`}
-                      onClick={() => submitAnswer(index)}
-                      disabled={answerResult !== null}
+
+              <div className={`runner-track world-${worldIndex}`} aria-label={`${world.name} runner world`}>
+                <Suspense fallback={<div className="game-scene-loading">Preparing the runner…</div>}>
+                  <GameWorld3D
+                    running={status === 'running'}
+                    checkpoint={status === 'paused'}
+                    lane={lane}
+                    action={playerAction}
+                    obstacles={obstacles}
+                    collectibles={collectibles}
+                    worldIndex={worldIndex}
+                    onSwipe={handleSwipe}
+                  />
+                </Suspense>
+                {status === 'ready' && (
+                  <div className="runner-overlay">
+                    <h2>Ready to run?</h2>
+                    <p>Change lanes, jump over bins, and slide under IV racks.</p>
+                    <Button size="lg" onClick={startGame} leftIcon="zap">Start run</Button>
+                  </div>
+                )}
+                {status === 'gameover' && (
+                  <div className="runner-overlay">
+                    <h2>Run complete</h2>
+                    <p>You scored {score} points.</p>
+                    <Button size="lg" onClick={startGame} leftIcon="refresh-cw">Run again</Button>
+                  </div>
+                )}
+                {status === 'running' && gameMessage && <div className="runner-message">{gameMessage}</div>}
+
+                {status === 'paused' && mcqQuestion && mcqAnswer && (
+                  <div className="checkpoint-overlay">
+                    <Card
+                      padding="lg"
+                      className="checkpoint-card"
+                      role="dialog"
+                      aria-modal="true"
+                      aria-labelledby="checkpoint-question"
+                      aria-live="polite"
                     >
-                      <span>{String.fromCharCode(65 + index)}</span>
-                      {option}
-                    </button>
-                  )
-                })}
+                      <div className="checkpoint-heading">
+                        <Badge variant="warning"><Icon name="flag" size={13} /> Checkpoint</Badge>
+                        <div className={`question-timer ${timeLeft <= 5 ? 'urgent' : ''}`}>
+                          <Icon name="timer" size={16} /> {timeLeft}s
+                        </div>
+                      </div>
+                      <h2 id="checkpoint-question">{mcqQuestion.stem}</h2>
+                      <div className="checkpoint-options">
+                        {mcqQuestion.options.map((option, index) => {
+                          const selected = selectedAnswer === index
+                          const correct = mcqAnswer.correctIndex === index
+                          const state = answerResult && (correct ? 'correct' : selected ? 'wrong' : '')
+                          return (
+                            <button
+                              key={option}
+                              type="button"
+                              className={`checkpoint-option ${state}`}
+                              onClick={() => submitAnswer(index)}
+                              disabled={answerResult !== null}
+                            >
+                              <span>{String.fromCharCode(65 + index)}</span>
+                              {option}
+                            </button>
+                          )
+                        })}
+                      </div>
+                      {answerResult && (
+                        <div className="checkpoint-result">
+                          <p className={answerResult === 'correct' ? 'correct' : 'wrong'}>
+                            {answerResult === 'correct' ? 'Correct! Lilo is back in motion.' : 'Not quite—Lilo lost a heart.'}
+                          </p>
+                          {currentQuestion.rationale && <small>{currentQuestion.rationale}</small>}
+                          <Button
+                            onClick={() => resumeAfterCheckpoint(answerResult === 'correct')}
+                            rightIcon="arrow-right"
+                            disabled={lives <= 0 && answerResult === 'wrong'}
+                          >
+                            Continue run
+                          </Button>
+                        </div>
+                      )}
+                    </Card>
+                  </div>
+                )}
               </div>
-              {answerResult && (
-                <div className="checkpoint-result">
-                  <p className={answerResult === 'correct' ? 'correct' : 'wrong'}>
-                    {answerResult === 'correct' ? 'Correct! Lilo is back in motion.' : 'Not quite—Lilo lost a heart.'}
-                  </p>
-                  {currentQuestion.rationale && <small>{currentQuestion.rationale}</small>}
-                  <Button
-                    onClick={() => resumeAfterCheckpoint(answerResult === 'correct')}
-                    rightIcon="arrow-right"
-                    disabled={lives <= 0 && answerResult === 'wrong'}
-                  >
-                    Continue run
-                  </Button>
+
+              {status === 'running' && (
+                <div className="runner-controls" aria-label="Runner controls">
+                  <button type="button" onClick={() => moveLane(lane - 1)} aria-label="Move left">
+                    <Icon name="arrow-left" size={18} /><span>Lane</span>
+                  </button>
+                  <button type="button" onClick={() => performAction('jump')} aria-label="Jump">
+                    <Icon name="zap" size={18} /><span>Jump</span>
+                  </button>
+                  <button type="button" onClick={() => performAction('slide')} aria-label="Slide">
+                    <Icon name="arrow-down" size={18} /><span>Slide</span>
+                  </button>
+                  <button type="button" onClick={() => moveLane(lane + 1)} aria-label="Move right">
+                    <Icon name="arrow-right" size={18} /><span>Lane</span>
+                  </button>
                 </div>
               )}
             </Card>
-          )}
+          </div>
         </div>
       )}
     </div>
