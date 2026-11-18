@@ -223,7 +223,7 @@ export function AuthLayout({ children }: { children?: ReactNode }) {
           {children}
         </div>
         <div className="auth-copyright">
-          © {new Date().getFullYear()} LisenSync AI <span>Built for future Registered Pharmacists (RPh).</span>
+          © {new Date().getFullYear()} Pharmora AI <span>Built for future Registered Pharmacists (RPh).</span>
         </div>
       </main>
     </div>

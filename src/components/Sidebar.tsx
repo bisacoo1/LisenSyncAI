@@ -32,7 +32,7 @@ export function Sidebar({
   const location = useLocation()
   const navigate = useNavigate()
   const isCompact = collapsed && !open
-  const initials = (profile?.full_name || 'LisenSync Candidate')
+  const initials = (profile?.full_name || 'Pharmora Candidate')
     .split(' ')
     .filter(Boolean)
     .slice(0, 2)

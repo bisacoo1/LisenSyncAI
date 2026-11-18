@@ -95,7 +95,7 @@ export default function LoginPage() {
         </Button>
       </form>
       <div className="auth-form-bottom">
-        New to LisenSync?{' '}
+        New to Pharmora?{' '}
         <Link to="/register">
           Create an account <Icon name="arrow-right" size={15} />
         </Link>

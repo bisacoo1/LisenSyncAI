@@ -5,7 +5,7 @@ import avatarRound from '@/assets/mascot/mascot-avatar-round-256.png'
 import speaking from '@/assets/mascot/mascot-speaking-1200.png'
 
 /**
- * Mascot: "Lilo" — the LisenSync AI pharmacist owl.
+ * Mascot: "Lilo" — the Pharmora AI pharmacist owl.
  * The face of the text-to-speech (read-aloud) feature in Practice Mode.
  *
  * Visual rules
