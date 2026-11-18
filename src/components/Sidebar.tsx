@@ -2,7 +2,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { Brand } from '@/components/Brand'
 import { PHARMACY_PROGRAM } from '@/lib/syllabus'
-import { Icon, Tooltip, type IconName } from '@/components/ui'
+import { Icon, Tooltip, useToast, type IconName } from '@/components/ui'
 
 const navItems: { path: string; label: string; icon: IconName }[] = [
   { path: '/dashboard', label: 'Overview', icon: 'dashboard' },
@@ -29,6 +29,7 @@ export function Sidebar({
   collapsed?: boolean
 }) {
   const { profile, user, signOut } = useAuth()
+  const { addToast } = useToast()
   const location = useLocation()
   const navigate = useNavigate()
   const isCompact = collapsed && !open
@@ -102,7 +103,7 @@ export function Sidebar({
           </li>
           {uploadItems.map((item) => {
             const active =
-              (location.pathname === '/reviewer' && location.search.includes(`tab=${item.tab}`))
+              (location.pathname === '/reviewer' && (!location.search || new URLSearchParams(location.search).get('tab') === item.tab))
             const link = (
               <Link
                 to={item.path}
@@ -153,8 +154,12 @@ export function Sidebar({
                 className="sidebar-signout"
                 aria-label="Sign out"
                 onClick={async () => {
-                  await signOut()
-                  navigate('/login')
+                  try {
+                    await signOut()
+                    navigate('/login')
+                  } catch (error: any) {
+                    addToast({ type: 'error', title: 'Could not sign out', message: error?.message || 'Please try again.' })
+                  }
                 }}
               >
                 <Icon name="logout" size={17} />

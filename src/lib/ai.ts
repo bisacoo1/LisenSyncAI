@@ -221,12 +221,21 @@ export async function generatePracticeItemsFromFile(params: MaterialSource & {
 export async function explainText(params: {
   selectedText: string
   followUp?: string
+  history?: { role: 'user' | 'assistant'; content: string }[]
   program: BoardProgramKey
   subject: string
 }): Promise<{ explanation: string; model: string }> {
   const prog = getProgram(params.program)
   const prompt = params.followUp
-    ? `The user previously asked about this text and you explained it. Now they have a follow-up question. Selected text: "${params.selectedText}". Follow-up question: "${params.followUp}". Answer the follow-up question based on the context of the selected text. Be concise and educational.`
+    ? `You are a helpful ${prog.name} study tutor for ${params.subject}. Answer the student's question using the provided document excerpt where relevant. If the excerpt does not contain enough information, say so. Be clear and educational.
+
+Document excerpt:
+${params.selectedText.slice(0, 12000)}
+
+Recent conversation:
+${(params.history || []).slice(-8).map(message => `${message.role === 'user' ? 'Student' : 'Tutor'}: ${message.content.slice(0, 3000)}`).join('\n')}
+
+Student: ${params.followUp}`
     : `You are an expert ${prog.name} board exam reviewer. Explain the following selected text from a review document. Subject: ${params.subject}. Provide a clear, educational explanation that helps the student understand the concept. Include key points, definitions, and any important details. Selected text: "${params.selectedText}"`
   const { text, model } = await geminiGenerate([{ text: prompt }], 0.5)
   return { explanation: text || 'No explanation generated.', model }

@@ -32,4 +32,26 @@ describe('authenticated frontend hierarchy', () => {
     expect(css).toMatch(/\.practice-controls-card\s*\{/)
     expect(css).toMatch(/\.mock-exam|\.timer\s*\{/)
   })
+  it('keeps all study plan actions available on mobile and links drills to their subject', () => {
+    const css = projectFile('src/design.css')
+    const dashboard = projectFile('src/pages/DashboardPage.tsx')
+    expect(css).toMatch(/\.study-plan-list li:not\(:first-child\)\s*\{\s*display:\s*block/)
+    expect(dashboard).toContain('/practice?subject=${encodeURIComponent(s.subject)}')
+  })
+
+  it('initializes the workspace theme from the stored preference', () => {
+    const layout = projectFile('src/components/Layout.tsx')
+    expect(layout.indexOf("localStorage.getItem('theme')")).toBeLessThan(layout.indexOf("localStorage.setItem('theme'"))
+  })
+
+})
+
+describe('dashboard failure handling', () => {
+  it('shows a retry instead of presenting failed queries as empty progress', () => {
+    const dashboard = projectFile('src/pages/DashboardPage.tsx')
+    expect(dashboard).toContain('if (error) throw error')
+    expect(dashboard).toContain('if (loadError) return')
+    expect(dashboard).toContain('setReloadCount(value => value + 1)')
+    expect(dashboard).toContain('return () => { active = false }')
+  })
 })

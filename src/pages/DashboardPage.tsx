@@ -71,6 +71,8 @@ export default function DashboardPage() {
   const [hasInProgressMock, setHasInProgressMock] = useState(false)
   const [reviewerCount, setReviewerCount] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [reloadCount, setReloadCount] = useState(0)
   const [examDateInput, setExamDateInput] = useState('')
   const [savingDate, setSavingDate] = useState(false)
   const isCourse = profile?.track === 'course'
@@ -78,62 +80,63 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (!profile) return
+    let active = true
+    const userId = profile.id
+    setLoading(true)
+    setLoadError(null)
     ;(async () => {
-      const { data } = await supabase.from('attempts').select('*').eq('user_id', profile.id).order('created_at', { ascending: false }).limit(500)
-      setAttempts((data as Attempt[]) || [])
-      const dueBefore = new Date().toISOString()
-      const { count } = await supabase
-        .from('flashcards')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', profile.id)
-        .lte('next_review_at', dueBefore)
-      setDueCards(count || 0)
-      if (isCourse) {
-        setHasInProgressMock(false)
-      } else {
-        const { data: activeMock, error: activeMockError } = await supabase
-          .from('mock_exams')
-          .select('id')
-          .eq('user_id', profile.id)
-          .eq('status', 'in_progress')
-          .limit(1)
-          .maybeSingle()
-        if (activeMockError) {
-          addToast({ type: 'error', title: 'Could not load mock exam status', message: activeMockError.message })
-        } else {
-          setHasInProgressMock(Boolean(activeMock))
+      try {
+        const [attemptResult, dueResult, materialResult, secondaryResult] = await Promise.all([
+          supabase.from('attempts').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(500),
+          supabase.from('flashcards').select('*', { count: 'exact', head: true }).eq('user_id', userId).lte('next_review_at', new Date().toISOString()),
+          supabase.from('review_materials').select('id', { count: 'exact', head: true }).eq('user_id', userId),
+          isCourse
+            ? supabase.from('user_subjects').select('*').eq('user_id', userId).order('name')
+            : supabase.from('mock_exams').select('id').eq('user_id', userId).eq('status', 'in_progress').limit(1),
+        ])
+        const error = attemptResult.error || dueResult.error || materialResult.error || secondaryResult.error
+        if (error) throw error
+        let firstDueSubject = ''
+        if (dueResult.count) {
+          const { data, error: dueSubjectError } = await supabase.from('flashcards').select('subject')
+            .eq('user_id', userId).lte('next_review_at', new Date().toISOString())
+            .order('next_review_at', { ascending: true }).limit(1).maybeSingle()
+          if (dueSubjectError) throw dueSubjectError
+          firstDueSubject = data?.subject || ''
         }
+        if (!active) return
+        setAttempts((attemptResult.data as Attempt[]) || [])
+        setDueCards(dueResult.count ?? 0)
+        setDueSubject(firstDueSubject)
+        setReviewerCount(materialResult.count ?? 0)
+        setHasInProgressMock(!isCourse && Boolean(secondaryResult.data?.length))
+        setUserSubjects(isCourse ? (secondaryResult.data as UserSubject[]) || [] : [])
+      } catch (error: any) {
+        if (active) setLoadError(error?.message || 'Please check your connection and try again.')
+      } finally {
+        if (active) setLoading(false)
       }
-      setDueSubject('')
-      if (count) {
-        const { data: firstDueCard, error: dueSubjectError } = await supabase
-          .from('flashcards')
-          .select('subject')
-          .eq('user_id', profile.id)
-          .lte('next_review_at', dueBefore)
-          .order('next_review_at', { ascending: true })
-          .limit(1)
-          .maybeSingle()
-        if (dueSubjectError) {
-          addToast({ type: 'error', title: 'Could not load due flashcards', message: dueSubjectError.message })
-        } else {
-          setDueSubject(firstDueCard?.subject || '')
-        }
-      }
-      const { count: materialCount, error: materialCountError } = await supabase
-        .from('review_materials')
-        .select('id', { count: 'exact', head: true })
-        .eq('user_id', profile.id)
-      if (!materialCountError) setReviewerCount(materialCount ?? 0)
-      if (isCourse) {
-        const { data: subs } = await supabase.from('user_subjects').select('*').eq('user_id', profile.id).order('name')
-        setUserSubjects((subs as UserSubject[]) || [])
-      }
-      setLoading(false)
     })()
-  }, [profile?.id, isCourse])
+    return () => { active = false }
+  }, [profile?.id, isCourse, reloadCount])
 
   if (!profile || !program) return null
+
+  if (loadError) return (
+    <div className="dashboard-page">
+      <header className="dashboard-heading"><div>
+        <div className="section-kicker"><span className="eyebrow-dot" /> Study overview</div>
+        <h1>Your dashboard is <em>temporarily unavailable.</em></h1>
+        <p>We couldn't load your progress. Your saved data has not been changed.</p>
+      </div></header>
+      <div className="dashboard-load-error" role="alert">
+        <Icon name="alert-circle" size={22} />
+        <div><strong>Unable to load your study data</strong><p>{loadError}</p>
+          <Button variant="primary" onClick={() => setReloadCount(value => value + 1)}>Try again</Button>
+        </div>
+      </div>
+    </div>
+  )
 
   const subjectNames = isCourse ? userSubjects.map(s => s.name) : program.subjects
   const overall = overallPercent(attempts)
@@ -237,9 +240,13 @@ export default function DashboardPage() {
       addToast({ type: 'error', title: 'Could not save date', message: error.message })
       return
     }
-    await refreshProfile()
-    setExamDateInput('')
-    addToast({ type: 'success', title: 'Exam date saved', message: 'Your countdown is up to date.' })
+    try {
+      await refreshProfile()
+      setExamDateInput('')
+      addToast({ type: 'success', title: 'Exam date saved', message: 'Your countdown is up to date.' })
+    } catch {
+      addToast({ type: 'error', title: 'Date saved, but profile could not be refreshed', message: 'Please try reloading your profile.' })
+    }
   }
 
   return (
@@ -366,7 +373,7 @@ export default function DashboardPage() {
                   : attempts.length === 0
                     ? 'Your Pharmacy progress starts with your first practice session.'
                     : overall >= PASSING_RATE
-                      ? 'You are on track for the PhLE. Keep that momentum going.'
+                      ? 'Your practice score is at or above the benchmark. Keep building your readiness.'
                       : `${readiness.label}. Every practice session gets you closer to RPh.`}
               </p>
             </div>
@@ -662,7 +669,7 @@ export default function DashboardPage() {
                           </td>
                           <td>
                             <Link
-                              to="/practice"
+                              to={`/practice?subject=${encodeURIComponent(s.subject)}`}
                               className="module-drill-link"
                               aria-label={`Practice ${s.subject}`}
                             >
@@ -734,7 +741,7 @@ export default function DashboardPage() {
                 ))}
               </ul>
             )}
-            <Link to={isCourse && !subjectNames.length ? '/reviewer' : '/practice'}>
+            <Link to={isCourse && !subjectNames.length ? '/reviewer' : focusSubject ? `/practice?subject=${encodeURIComponent(focusSubject.subject)}` : '/practice'}>
               {isCourse
                 ? subjectNames.length ? 'Practice a course subject' : 'Add course materials'
                 : attempts.length ? 'Practice a Pharmacy module' : 'Start your first session'}{' '}

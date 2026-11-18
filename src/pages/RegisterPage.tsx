@@ -2,12 +2,13 @@ import { useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase, supabaseConfigured } from '@/lib/supabase'
 import { DEFAULT_PROGRAM, PHARMACY_PROGRAM } from '@/lib/syllabus'
-import { upsertProfile } from '@/context/AuthContext'
+import { upsertProfile, useAuth } from '@/context/AuthContext'
 import { PASSING_RATE, type StudyTrack } from '@/types'
 import { Button, Input, Icon, useToast } from '@/components/ui'
 
 export default function RegisterPage() {
   const nav = useNavigate()
+  const { refreshProfile } = useAuth()
   const [searchParams] = useSearchParams()
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
@@ -29,7 +30,7 @@ export default function RegisterPage() {
       return
     }
     setLoading(true)
-    const { data, error } = await supabase.auth.signUp({ email, password })
+    const { data, error } = await supabase.auth.signUp({ email, password, options: { data: { full_name: fullName, track } } })
     if (error) {
       setLoading(false)
       setError(error.message)
@@ -37,16 +38,20 @@ export default function RegisterPage() {
       return
     }
     const user = data.user
-    if (user) {
+    if (user && data.session) {
       try {
         await upsertProfile(user.id, DEFAULT_PROGRAM, fullName, null, track)
+        await refreshProfile(user.id)
       } catch (err: any) {
         console.warn('Profile upsert deferred:', err?.message)
       }
     }
     setLoading(false)
     if (data.session) nav('/dashboard')
-    else nav('/login')
+    else {
+      addToast({ type: 'info', title: 'Check your email', message: 'Confirm your account before signing in.' })
+      nav('/login')
+    }
   }
 
   return (

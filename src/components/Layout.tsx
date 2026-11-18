@@ -25,6 +25,8 @@ export function Layout({ children, focus = false }: { children?: ReactNode; focu
   const [collapsed, setCollapsed] = useState(false)
   const [isDark, setIsDark] = useState(() => {
     if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('theme')
+      if (stored === 'dark' || stored === 'light') return stored === 'dark'
       return document.documentElement.classList.contains('dark') ||
              (!document.documentElement.classList.contains('light') && window.matchMedia('(prefers-color-scheme: dark)').matches)
     }
@@ -46,16 +48,6 @@ export function Layout({ children, focus = false }: { children?: ReactNode; focu
   }, [isDark])
 
   const toggleTheme = () => setIsDark(d => !d)
-
-  useEffect(() => {
-    const stored = localStorage.getItem('theme')
-    if (stored) {
-      setIsDark(stored === 'dark')
-    } else if (!document.documentElement.classList.contains('light') && !document.documentElement.classList.contains('dark')) {
-      // Initialize based on system preference if no stored preference
-      setIsDark(window.matchMedia('(prefers-color-scheme: dark)').matches)
-    }
-  }, [])
 
   useEffect(() => {
     const desktop = window.matchMedia('(min-width: 901px)')
