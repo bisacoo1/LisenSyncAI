@@ -6,11 +6,16 @@ import type { McqAnswer, McqQuestion, PracticeItem } from '@/types'
 import { Badge, Button, Card, Icon } from '@/components/ui'
 import liloAvatar from '@/assets/mascot/mascot-avatar-256.png'
 
-type Obstacle = { id: number; lane: number; progress: number }
+type Obstacle = { id: number; lane: number; progress: number; kind: 'barrier' | 'crate' | 'cart' }
 type GameStatus = 'ready' | 'running' | 'paused' | 'gameover'
 
 const CHECKPOINT_DISTANCE = 180
 const QUESTION_SECONDS = 20
+const WORLDS = [
+  { name: 'Pharmora Central', sign: 'CITY LINE' },
+  { name: 'Riverside Station', sign: 'RIVER ROUTE' },
+  { name: 'Garden District', sign: 'GREEN LINE' },
+]
 
 export default function GameModePage() {
   const { profile, user, refreshProfile } = useAuth()
@@ -24,6 +29,7 @@ export default function GameModePage() {
   const [lane, setLane] = useState(1)
   const [obstacles, setObstacles] = useState<Obstacle[]>([])
   const [distance, setDistance] = useState(0)
+  const [totalDistance, setTotalDistance] = useState(0)
   const [score, setScore] = useState(0)
   const [lives, setLives] = useState(3)
   const [questionIndex, setQuestionIndex] = useState(0)
@@ -70,6 +76,8 @@ export default function GameModePage() {
   const currentQuestion = items[questionIndex % Math.max(items.length, 1)] || null
   const mcqQuestion = currentQuestion?.question as McqQuestion | undefined
   const mcqAnswer = currentQuestion?.answer as McqAnswer | undefined
+  const worldIndex = Math.floor(totalDistance / (CHECKPOINT_DISTANCE * 4)) % WORLDS.length
+  const world = WORLDS[worldIndex]
 
   const moveLane = useCallback((nextLane: number) => {
     setLane(Math.max(0, Math.min(2, nextLane)))
@@ -80,6 +88,7 @@ export default function GameModePage() {
     setLane(1)
     setObstacles([])
     setDistance(0)
+    setTotalDistance(0)
     setScore(0)
     setLives(3)
     setQuestionIndex(0)
@@ -99,6 +108,7 @@ export default function GameModePage() {
         }
         return next
       })
+      setTotalDistance(previous => previous + 4)
 
       setObstacles(previous => {
         let nextObstacles = previous
@@ -108,7 +118,12 @@ export default function GameModePage() {
         if (Math.random() > 0.78) {
           nextObstacles = [
             ...nextObstacles,
-            { id: ++obstacleId.current, lane: Math.floor(Math.random() * 3), progress: -8 }
+            {
+              id: ++obstacleId.current,
+              lane: Math.floor(Math.random() * 3),
+              progress: -8,
+              kind: (['barrier', 'crate', 'cart'] as const)[Math.floor(Math.random() * 3)],
+            }
           ]
         }
 
@@ -240,18 +255,32 @@ export default function GameModePage() {
               </div>
             </div>
 
-            <div className="runner-track" aria-label="Lilo runner track">
-              <div className="runner-sky">
-                <span className="runner-cloud cloud-one" />
-                <span className="runner-cloud cloud-two" />
+            <div className={`runner-track world-${worldIndex}${status === 'running' ? ' runner-track--running' : ''}`} aria-label={`${world.name} subway track`}>
+              <div className="world-skyline" aria-hidden="true">
+                {Array.from({ length: 10 }, (_, index) => (
+                  <span key={index} className={`skyline-building building-${index % 4}`} />
+                ))}
+              </div>
+              <div className="world-tree tree-left tree-0" aria-hidden="true"><i /><span /></div>
+              <div className="world-tree tree-left tree-1" aria-hidden="true"><i /><span /></div>
+              <div className="world-tree tree-right tree-0" aria-hidden="true"><i /><span /></div>
+              <div className="world-tree tree-right tree-1" aria-hidden="true"><i /><span /></div>
+              <div className="world-station-sign" aria-hidden="true">
+                <small>PHARMORA METRO</small>
+                <strong>{world.name}</strong>
+                <span>{world.sign}</span>
               </div>
               <div className="runner-road">
                 {[0, 1, 2].map(index => <span key={index} className={`road-lane lane-${index}`} />)}
                 {obstacles.map(obstacle => (
                   <div
                     key={obstacle.id}
-                    className="runner-obstacle"
-                    style={{ left: `${16.666 + obstacle.lane * 33.333}%`, bottom: `${obstacle.progress}%` }}
+                    className={`runner-obstacle obstacle-${obstacle.kind}`}
+                    style={{
+                      left: `${16.666 + obstacle.lane * 33.333}%`,
+                      top: `${obstacle.progress}%`,
+                      transform: `translateX(-50%) scale(${Math.max(0.45, Math.min(1.25, 0.55 + obstacle.progress / 160))})`,
+                    }}
                     aria-hidden="true"
                   >
                     <span />
