@@ -559,7 +559,7 @@ export default function ReviewerPage() {
                   { value: 'oldest', label: 'Oldest first' },
                   { value: 'title', label: 'A to Z' },
                 ]}
-                leftIcon="sort-asc"
+                leftIcon="chevron-up-down"
                 fullWidth
                 style={{ maxWidth: 200 }}
               />

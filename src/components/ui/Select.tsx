@@ -1,5 +1,5 @@
 import React from 'react'
-import { Icon } from './Icon'
+import { Icon, type IconName } from './Icon'
 
 export interface SelectOption {
   value: string
@@ -14,7 +14,7 @@ export interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElemen
   options: SelectOption[]
   placeholder?: string
   fullWidth?: boolean
-  leftIcon?: string
+  leftIcon?: IconName
 }
 
 export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
@@ -93,7 +93,7 @@ export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
                 zIndex: 1,
               }}
             >
-              <Icon name={leftIcon as any} size={18} />
+              <Icon name={leftIcon} size={18} />
             </div>
           )}
           <select
