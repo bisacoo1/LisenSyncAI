@@ -868,6 +868,81 @@ input::placeholder, textarea::placeholder { color: var(--muted); opacity: 1; }
   .reader-pagination .ui-button { padding: 7px 8px; }
   .onboarding-page { margin: 30px auto 48px; padding: 0 20px; }
 }
+/* Authenticated frontend hierarchy */
+.study-plan-section { margin-top: 0; }
+.study-plan-section .dashboard-section-heading h2 { font-size: 22px; }
+.study-plan-list li:first-child .study-plan-step {
+  border-color: var(--primary-border);
+  background: var(--primary-bg);
+  box-shadow: var(--shadow-sm);
+}
+.study-plan-list li:not(:first-child) .study-plan-step {
+  min-height: 112px;
+  box-shadow: none;
+  background: var(--panel);
+}
+.momentum-card,
+.toolkit-card,
+.subject-panel,
+.progress-insight {
+  box-shadow: none;
+}
+.practice-controls-card {
+  border-color: var(--border);
+  box-shadow: none;
+  background: var(--panel);
+}
+.practice-question-card {
+  border-color: var(--primary-border);
+  box-shadow: var(--shadow-md);
+}
+.practice-control-label,
+.reviewer-upload-label,
+.practice-field-label,
+.practice-flashcard-label {
+  text-transform: none;
+  letter-spacing: .03em;
+}
+.reviewer-upload-card,
+.reviewer-set-card,
+.reviewer-mode-section,
+.reader-document-card {
+  box-shadow: none;
+}
+.reader-document {
+  background: var(--panel);
+}
+.reader-side-panel {
+  background: var(--panel-2);
+}
+.timer {
+  min-height: 44px;
+}
+.question-nav {
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+@media (max-width: 680px) {
+  .workspace-topbar-right { display: none; }
+  .study-plan-section .dashboard-section-heading h2 { font-size: 20px; }
+  .study-plan-list li:not(:first-child) { display: none; }
+  .study-plan-list li:first-child .study-plan-step { width: 100%; }
+  .practice-session-panel { grid-template-columns: 1fr; }
+  .practice-companion { position: static; }
+  .mock-exam-question-nav,
+  .question-nav {
+    width: 100%;
+  }
+  .reader-grid { grid-template-columns: 1fr !important; }
+  .reviewer-upload-card,
+  .reviewer-set-card,
+  .reviewer-mode-section {
+    border-radius: 12px;
+  }
+}
+
 @media (max-width: 380px) {
   .landing-hero h1 { font-size: 42px; }
   .landing-nav .brand-lockup-name small { display: none; }
