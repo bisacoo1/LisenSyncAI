@@ -396,7 +396,7 @@ export default function MyReviewersPage() {
             <Card variant="outlined">
               <CardContent>
                 <EmptyState
-                  icon="reviewer"
+                  icon="folder"
                   title="No reviewers yet"
                   description="Upload a reviewer to create your first subject folder and study set."
                   action={{ label: 'Upload reviewer', variant: 'primary', onClick: () => navigate('/reviewer?tab=upload') }}
@@ -413,7 +413,7 @@ export default function MyReviewersPage() {
                   onClick={() => showFolder(folder.subject)}
                   aria-label={`${folder.subject}, ${folder.reviewers.length} reviewer ${folder.reviewers.length === 1 ? 'set' : 'sets'}`}
                 >
-                  <span className="reviewer-folder-icon"><Icon name="reviewer" size={23} /></span>
+                  <span className="reviewer-folder-icon"><Icon name="folder" size={23} /></span>
                   <span className="reviewer-folder-copy">
                     <strong>{folder.subject}</strong>
                     <span>{folder.reviewers.length} reviewer {folder.reviewers.length === 1 ? 'set' : 'sets'}</span>
