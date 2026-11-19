@@ -278,6 +278,58 @@ export default function DashboardPage() {
         </Link>
       </header>
 
+      <Reveal as="section" className="dashboard-stats-strip motion-stagger" aria-label="Study summary">
+        <div className="dashboard-stat">
+          <span className="dashboard-stat-icon" aria-hidden="true"><Icon name="trophy" size={20} /></span>
+          <div className="dashboard-stat-content">
+            <span className="dashboard-stat-label">Study level</span>
+            <strong><AnimatedNumber value={profile.level || 1} duration={800} /></strong>
+            <small><AnimatedNumber value={profile.xp || 0} duration={1100} delay={120} /> XP earned</small>
+          </div>
+        </div>
+        <div className="dashboard-stat">
+          <span className="dashboard-stat-icon" aria-hidden="true"><Icon name="flame" size={20} /></span>
+          <div className="dashboard-stat-content">
+            <span className="dashboard-stat-label">Current streak</span>
+            <strong><AnimatedNumber value={profile.current_streak || 0} duration={900} delay={60} /> <em>days</em></strong>
+            <small>Personal best: <AnimatedNumber value={profile.longest_streak || 0} duration={1000} delay={120} /> days</small>
+          </div>
+        </div>
+        <div className="dashboard-stat">
+          <span className="dashboard-stat-icon" aria-hidden="true"><Icon name="target" size={20} /></span>
+          <div className="dashboard-stat-content">
+            <span className="dashboard-stat-label">Daily goal</span>
+            <strong><AnimatedNumber value={dailyCompleted} duration={900} delay={120} /> <em>/ <AnimatedNumber value={dailyGoal} duration={900} delay={180} /></em></strong>
+            <ProgressBar
+              value={dailyCompleted}
+              max={dailyGoal}
+              size="sm"
+              variant="primary"
+              ariaLabel="Daily study goal"
+              className="dashboard-stat-progress"
+            />
+            <small>
+              {dailyCompleted >= dailyGoal
+                ? 'Goal reached'
+                : `${Math.max(0, dailyGoal - dailyCompleted)} items to go today`}
+            </small>
+          </div>
+        </div>
+        <Link
+          to={dueFlashcardPath}
+          className={`dashboard-stat dashboard-stat--link${!loading && dueCards > 0 ? ' dashboard-stat--attention' : ''}`}
+        >
+          <span className="dashboard-stat-icon" aria-hidden="true"><Icon name="book-open" size={20} /></span>
+          <span className="dashboard-stat-content">
+            <span className="dashboard-stat-label">Flashcards due</span>
+            <strong>{loading ? '—' : <AnimatedNumber value={dueCards} duration={1100} delay={120} />}</strong>
+            <small>
+              {loading ? 'Checking your cards…' : dueCards > 0 ? 'Ready for another look' : 'You’re all caught up'}
+            </small>
+          </span>
+        </Link>
+      </Reveal>
+
       {isCourse ? (
         <Reveal as="section" className="course-overview-panel" aria-labelledby="course-overview-title">
           <div className="course-overview-copy">
@@ -475,85 +527,6 @@ export default function DashboardPage() {
           </Reveal>
         )}
       </Reveal>
-
-      <section className="dashboard-section" aria-labelledby="momentum-title">
-        <div className="dashboard-section-heading">
-          <div>
-            <span className="section-kicker">THE LITTLE WINS</span>
-            <h2 id="momentum-title">Your momentum</h2>
-          </div>
-          <span className="section-side-note">
-            A LITTLE EVERY DAY ADDS UP <Icon name="arrow-up-right" size={15} />
-          </span>
-        </div>
-        <Reveal className="momentum-grid motion-stagger">
-          <div className="momentum-card">
-            <div className="momentum-card-top">
-              <span className="momentum-icon cobalt">
-                <Icon name="trophy" size={19} />
-              </span>
-              <span>01</span>
-            </div>
-            <span className="momentum-label">STUDY LEVEL</span>
-            <strong><AnimatedNumber value={profile.level || 1} duration={800} /></strong>
-            <small><AnimatedNumber value={profile.xp || 0} duration={1100} delay={120} /> XP earned so far</small>
-          </div>
-          <div className="momentum-card">
-            <div className="momentum-card-top">
-              <span className="momentum-icon amber">
-                <Icon name="flame" size={19} />
-              </span>
-              <span>02</span>
-            </div>
-            <span className="momentum-label">CURRENT STREAK</span>
-            <strong>
-              <AnimatedNumber value={profile.current_streak || 0} duration={900} delay={60} /> <em>days</em>
-            </strong>
-            <small>Personal best: <AnimatedNumber value={profile.longest_streak || 0} duration={1000} delay={120} /> days</small>
-          </div>
-          <div className="momentum-card">
-            <div className="momentum-card-top">
-              <span className="momentum-icon violet">
-                <Icon name="target" size={19} />
-              </span>
-              <span>03</span>
-            </div>
-            <span className="momentum-label">DAILY GOAL</span>
-            <strong>
-              <AnimatedNumber value={dailyCompleted} duration={900} delay={120} />
-              <em> / <AnimatedNumber value={dailyGoal} duration={900} delay={180} /></em>
-            </strong>
-            <ProgressBar
-              value={dailyCompleted}
-              max={dailyGoal}
-              size="sm"
-              variant="primary"
-              ariaLabel="Daily study goal"
-            />
-            <small>
-              {dailyCompleted >= dailyGoal
-                ? 'Goal reached'
-                : `${Math.max(0, dailyGoal - dailyCompleted)} items to go today`}
-            </small>
-          </div>
-          <Link
-            to={dueFlashcardPath}
-            className={`momentum-card momentum-card--link${!loading && dueCards > 0 ? ' momentum-card--attention' : ''}`}
-          >
-            <div className="momentum-card-top">
-              <span className="momentum-icon sky">
-                <Icon name="book-open" size={19} />
-              </span>
-              <Icon name="arrow-up-right" size={16} />
-            </div>
-            <span className="momentum-label">FLASHCARDS DUE</span>
-            <strong>{loading ? '—' : <AnimatedNumber value={dueCards} duration={1100} delay={120} />}</strong>
-            <small>
-              {loading ? 'Checking your cards…' : dueCards > 0 ? 'Ready for another look' : 'You’re all caught up'}
-            </small>
-          </Link>
-        </Reveal>
-      </section>
 
       <Reveal as="section" className="dashboard-section" aria-labelledby="toolkit-title">
         <div className="dashboard-section-heading">

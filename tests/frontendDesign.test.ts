@@ -6,18 +6,24 @@ const projectFile = (relativePath: string) =>
   readFileSync(resolve(process.cwd(), relativePath), 'utf8')
 
 describe('authenticated frontend hierarchy', () => {
-  it('places the study plan after the progress overview and before momentum', () => {
+  it('shows card-free study metrics first, followed by progress and the study plan', () => {
     const dashboard = projectFile('src/pages/DashboardPage.tsx')
     const css = projectFile('src/design.css')
 
+    const statsIndex = dashboard.indexOf('dashboard-stats-strip')
     const studyPlanIndex = dashboard.indexOf('study-plan-section')
     const readinessIndex = dashboard.indexOf('dashboard-feature-grid')
 
+    expect(statsIndex).toBeGreaterThan(dashboard.indexOf('</header>'))
+    expect(statsIndex).toBeLessThan(dashboard.indexOf('course-overview-panel'))
+    expect(statsIndex).toBeLessThan(readinessIndex)
     expect(studyPlanIndex).toBeGreaterThan(0)
     expect(readinessIndex).toBeGreaterThan(0)
     expect(dashboard.indexOf('course-overview-panel')).toBeLessThan(studyPlanIndex)
     expect(readinessIndex).toBeLessThan(studyPlanIndex)
-    expect(dashboard.indexOf('aria-labelledby="momentum-title"')).toBeGreaterThan(studyPlanIndex)
+    expect(dashboard).not.toContain('momentum-card')
+    expect(css).toContain('.dashboard-page .dashboard-stats-strip')
+    expect(css).toMatch(/\.dashboard-page \.dashboard-stat\s*\{[^}]*background:\s*transparent/s)
     expect(css).toMatch(/\.dashboard-page \.study-plan-section\s*\{[^}]*margin-top:\s*40px/s)
     expect(css).toMatch(/\.study-plan-step[^{]*\{[^}]*box-shadow:/s)
   })
