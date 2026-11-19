@@ -544,6 +544,7 @@ export default function GameWorld3D({
           mesh.material.opacity = (streak as any).userData.baseOpacity * t * t
           mesh.scale.z = 0.5 + t * 1.5
         }
+        gate.visible = current.checkpoint
         // Gate pulse when checkpoint approaching
         if (current.checkpoint) {
           const pulse = 0.5 + Math.sin(time * 0.006) * 0.35
@@ -553,6 +554,7 @@ export default function GameWorld3D({
           gateRing.material.opacity = 0
         }
       } else {
+        gate.visible = false
         gateRing.material.opacity = 0
       }
 
