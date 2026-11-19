@@ -42,6 +42,8 @@ export default function GameModePage() {
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null)
   const [answerResult, setAnswerResult] = useState<'correct' | 'wrong' | null>(null)
   const [soundOn, setSoundOn] = useState(gameSound.isEnabled)
+  const [countdown, setCountdown] = useState<number | null>(null)
+  const [isSpeaking, setIsSpeaking] = useState(false)
   const [loading, setLoading] = useState(true)
   const [gameMessage, setGameMessage] = useState('')
   const timerRef = useRef<number | null>(null)
@@ -54,6 +56,10 @@ export default function GameModePage() {
   const distanceRef = useRef(0)
   const livesRef = useRef(3)
   const timeLeftRef = useRef(QUESTION_SECONDS)
+  const speechVersion = useRef(0)
+  const voices = useRef<SpeechSynthesisVoice[]>([])
+  const countdownRef = useRef<number | null>(null)
+  const wasCorrectRef = useRef(false)
 
   useEffect(() => {
     if (!profile) return
@@ -87,6 +93,16 @@ export default function GameModePage() {
     load()
   }, [profile, materialId, subject])
 
+  useEffect(() => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return
+    const updateVoices = () => {
+      voices.current = window.speechSynthesis.getVoices()
+    }
+    updateVoices()
+    window.speechSynthesis.addEventListener('voiceschanged', updateVoices)
+    return () => window.speechSynthesis.removeEventListener('voiceschanged', updateVoices)
+  }, [])
+
   const currentQuestion = items[questionIndex % Math.max(items.length, 1)] || null
   const mcqQuestion = currentQuestion?.question as McqQuestion | undefined
   const mcqAnswer = currentQuestion?.answer as McqAnswer | undefined
@@ -113,6 +129,64 @@ export default function GameModePage() {
     setSoundOn(gameSound.toggle())
   }
 
+  const stopSpeech = useCallback(() => {
+    speechVersion.current += 1
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      window.speechSynthesis.cancel()
+    }
+    setIsSpeaking(false)
+  }, [])
+
+  const speakMessage = useCallback((message: string) => {
+    const cleanMessage = message.trim()
+    if (!cleanMessage) return
+    if (
+      typeof window === 'undefined' ||
+      !('speechSynthesis' in window) ||
+      typeof SpeechSynthesisUtterance === 'undefined'
+    ) {
+      return
+    }
+    const version = ++speechVersion.current
+    const utterance = new SpeechSynthesisUtterance(cleanMessage)
+    const voice =
+      voices.current.find(candidate => /\bmicrosoft mark\b/i.test(candidate.name)) ??
+      voices.current.find(candidate => /^(en-ph|fil-ph|tl-ph)\b/i.test(candidate.lang)) ??
+      voices.current.find(candidate => /(filipino|tagalog)/i.test(candidate.name)) ??
+      voices.current.find(candidate => /\bzira\b/i.test(candidate.name)) ??
+      voices.current.find(candidate => /^en-/i.test(candidate.lang))
+    if (voice) {
+      utterance.voice = voice
+      utterance.lang = voice.lang
+    } else {
+      utterance.lang = /^(en|fil|tl)-ph/i.test(navigator.language) ? navigator.language : 'en-US'
+    }
+    utterance.rate = 0.86
+    utterance.pitch = 1.02
+    utterance.volume = 0.78
+    utterance.onstart = () => {
+      if (version === speechVersion.current) setIsSpeaking(true)
+    }
+    utterance.onend = () => {
+      if (version === speechVersion.current) setIsSpeaking(false)
+    }
+    utterance.onerror = event => {
+      if (version !== speechVersion.current || event.error === 'canceled') return
+      setIsSpeaking(false)
+    }
+    if (window.speechSynthesis.speaking) window.speechSynthesis.cancel()
+    setIsSpeaking(true)
+    window.speechSynthesis.speak(utterance)
+  }, [])
+
+  const gameQuestionText = useCallback(() => {
+    if (!mcqQuestion) return ''
+    const options = mcqQuestion.options
+      .map((option, index) => `Option ${String.fromCharCode(65 + index)}: ${option}`)
+      .join('. ')
+    return `Question. ${mcqQuestion.stem}. ${options}.`
+  }, [mcqQuestion])
+
   const handleSwipe = useCallback((direction: 'left' | 'right' | 'up' | 'down') => {
     if (direction === 'left') moveLane(lane - 1)
     else if (direction === 'right') moveLane(lane + 1)
@@ -122,11 +196,15 @@ export default function GameModePage() {
   useEffect(() => () => {
     if (actionTimerRef.current) window.clearTimeout(actionTimerRef.current)
     if (timerRef.current) window.clearInterval(timerRef.current)
+    if (countdownRef.current) window.clearInterval(countdownRef.current)
+    stopSpeech()
   }, [])
 
   const startGame = async () => {
     await gameSound.boot()
     gameSound.playStart()
+    stopSpeech()
+    setCountdown(null)
     setStatus('running')
     setLane(1)
     obstaclesRef.current = []
@@ -261,31 +339,32 @@ export default function GameModePage() {
     }
   }, [status, answerResult, questionIndex])
 
+  // Lilo reads the checkpoint question aloud when it appears.
   useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (status !== 'running') return
-      if (event.key === 'ArrowLeft' || event.key.toLowerCase() === 'a') {
-        event.preventDefault()
-        moveLane(lane - 1)
-      }
-      if (event.key === 'ArrowRight' || event.key.toLowerCase() === 'd') {
-        event.preventDefault()
-        moveLane(lane + 1)
-      }
-      if (event.key === 'ArrowUp' || event.key.toLowerCase() === 'w' || event.code === 'Space') {
-        event.preventDefault()
-        performAction('jump')
-      }
-      if (event.key === 'ArrowDown' || event.key.toLowerCase() === 's') {
-        event.preventDefault()
-        performAction('slide')
-      }
-    }
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
-  }, [status, lane, moveLane, performAction])
+    if (status !== 'paused' || answerResult !== null || !mcqQuestion) return
+    const timer = window.setTimeout(() => {
+      speakMessage(gameQuestionText())
+    }, 500)
+    return () => window.clearTimeout(timer)
+  }, [status, answerResult, mcqQuestion, gameQuestionText, speakMessage])
+
+  // Lilo reads the answer result after the user submits.
+  useEffect(() => {
+    if (answerResult === null || !mcqQuestion || !mcqAnswer) return
+    const timer = window.setTimeout(() => {
+      const correct = answerResult === 'correct'
+      const option = mcqQuestion.options[mcqAnswer.correctIndex]
+      speakMessage(
+        correct
+          ? `Correct! The answer is ${String.fromCharCode(65 + mcqAnswer.correctIndex)}: ${option}.`
+          : `Not quite. The correct answer is ${String.fromCharCode(65 + mcqAnswer.correctIndex)}: ${option}.`,
+      )
+    }, 700)
+    return () => window.clearTimeout(timer)
+  }, [answerResult, mcqQuestion, mcqAnswer, speakMessage])
 
   const resumeAfterCheckpoint = useCallback(async (correct: boolean) => {
+    stopSpeech()
     if (currentQuestion && user) {
       await supabase.from('attempts').insert({
         user_id: user.id,
@@ -310,6 +389,66 @@ export default function GameModePage() {
     setStatus(livesRef.current > 0 ? 'running' : 'gameover')
     if (profile) await refreshProfile()
   }, [currentQuestion, profile, refreshProfile, selectedAnswer, user])
+
+  // Auto-start the resume countdown once an answer has been given.
+  useEffect(() => {
+    if (answerResult === null) return
+    if (livesRef.current === 0) return
+    wasCorrectRef.current = answerResult === 'correct'
+    stopSpeech()
+    setCountdown(3)
+  }, [answerResult, stopSpeech])
+
+  // Countdown 3 → 2 → 1 → Go, then resume the run.
+  useEffect(() => {
+    if (countdown == null) return
+    if (countdown <= 0) {
+      window.clearInterval(countdownRef.current!)
+      countdownRef.current = null
+      setCountdown(null)
+      resumeAfterCheckpoint(wasCorrectRef.current)
+      return
+    }
+    countdownRef.current = window.setInterval(() => {
+      setCountdown(previous => {
+        if (previous == null || previous <= 1) {
+          window.clearInterval(countdownRef.current!)
+          countdownRef.current = null
+          setCountdown(null)
+          resumeAfterCheckpoint(wasCorrectRef.current)
+          return null
+        }
+        return previous - 1
+      })
+    }, 1000)
+    return () => {
+      if (countdownRef.current) window.clearInterval(countdownRef.current)
+    }
+  }, [countdown, resumeAfterCheckpoint])
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (status !== 'running') return
+      if (event.key === 'ArrowLeft' || event.key.toLowerCase() === 'a') {
+        event.preventDefault()
+        moveLane(lane - 1)
+      }
+      if (event.key === 'ArrowRight' || event.key.toLowerCase() === 'd') {
+        event.preventDefault()
+        moveLane(lane + 1)
+      }
+      if (event.key === 'ArrowUp' || event.key.toLowerCase() === 'w' || event.code === 'Space') {
+        event.preventDefault()
+        performAction('jump')
+      }
+      if (event.key === 'ArrowDown' || event.key.toLowerCase() === 's') {
+        event.preventDefault()
+        performAction('slide')
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [status, lane, moveLane, performAction])
 
   const submitAnswer = (index: number) => {
     if (answerResult !== null || mcqAnswer == null) return
@@ -412,6 +551,11 @@ export default function GameModePage() {
                   </div>
                 )}
                 {status === 'running' && gameMessage && <div className="runner-message">{gameMessage}</div>}
+                {countdown != null && (
+                  <div className="game-countdown">
+                    <span className="countdown-number">{countdown > 0 ? countdown : 'Go!'}</span>
+                  </div>
+                )}
 
                 {status === 'paused' && mcqQuestion && mcqAnswer && (
                   <div className="checkpoint-overlay">
@@ -428,6 +572,19 @@ export default function GameModePage() {
                         <div className={`question-timer ${timeLeft <= 5 ? 'urgent' : ''}`}>
                           <Icon name="timer" size={16} /> {timeLeft}s
                         </div>
+                        <button
+                          type="button"
+                          className="game-sound-toggle"
+                          aria-label={isSpeaking ? 'Stop Lilo speaking' : 'Listen with Lilo'}
+                          aria-pressed={isSpeaking}
+                          disabled={!mcqQuestion || isSpeaking}
+                          onClick={() => {
+                            if (isSpeaking) stopSpeech()
+                            else speakMessage(gameQuestionText())
+                          }}
+                        >
+                          <Icon name={isSpeaking ? 'x' : 'volume-2'} size={16} />
+                        </button>
                       </div>
                       <h2 id="checkpoint-question">{mcqQuestion.stem}</h2>
                       <div className="checkpoint-options">
@@ -455,13 +612,23 @@ export default function GameModePage() {
                             {answerResult === 'correct' ? 'Correct! Lilo is back in motion.' : 'Not quite—Lilo lost a heart.'}
                           </p>
                           {currentQuestion.rationale && <small>{currentQuestion.rationale}</small>}
-                          <Button
-                            onClick={() => resumeAfterCheckpoint(answerResult === 'correct')}
-                            rightIcon="arrow-right"
-                            disabled={lives <= 0 && answerResult === 'wrong'}
-                          >
-                            Continue run
-                          </Button>
+                          {countdown != null ? (
+                            <div className="checkpoint-countdown">
+                              <span className="countdown-number">{countdown}</span>
+                              <span className="countdown-label">Resuming run…</span>
+                            </div>
+                          ) : (
+                            <Button
+                              onClick={() => {
+                                wasCorrectRef.current = answerResult === 'correct'
+                                setCountdown(3)
+                              }}
+                              rightIcon="arrow-right"
+                              disabled={lives <= 0 && answerResult === 'wrong'}
+                            >
+                              Continue run
+                            </Button>
+                          )}
                         </div>
                       )}
                     </Card>
