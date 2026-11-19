@@ -425,7 +425,7 @@ function TrendChart({ data, isCourse }: { data: { date: string; percent: number;
 
   return (
     <div>
-      <div className="table-wrapper" role="region" aria-label={isCourse ? 'Course practice trend, scrollable chart' : 'Readiness trend, scrollable chart'} tabIndex={0}>
+      <div className="table-wrapper trend-chart-scroll" role="region" aria-label={isCourse ? 'Course practice trend, scroll horizontally for more dates' : 'Readiness trend, scroll horizontally for more dates'} tabIndex={0}>
         <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', minWidth: 600, maxWidth: 'none', height: 'auto', display: 'block' }} role="img" aria-label={`${isCourse ? 'Course practice trend' : 'Readiness trend'}: ${first.percent}% on ${first.date} to ${last.percent}% on ${last.date}`}>
           {[0, 25, 50, 75, 100].map(v => (
             <g key={v}>

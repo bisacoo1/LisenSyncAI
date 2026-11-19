@@ -368,7 +368,7 @@ export default function LandingPage() {
         </div>
       </header>
 
-      <main>
+      <main aria-label="Pharmora AI study platform" tabIndex={-1} data-route-main>
         <section className="landing-hero landing-wrap">
           <div className="landing-hero-copy">
             <div className="landing-mode-switch" role="group" aria-label="Choose your study mode">

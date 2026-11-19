@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { supabase, supabaseConfigured } from '@/lib/supabase'
-import { Button, Input, Icon, useToast } from '@/components/ui'
+import { Button, Input, Icon } from '@/components/ui'
 
 export default function LoginPage() {
   const nav = useNavigate()
@@ -10,8 +10,6 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
-  const { addToast } = useToast()
-
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
@@ -24,7 +22,6 @@ export default function LoginPage() {
     setLoading(false)
     if (error) {
       setError(error.message)
-      addToast({ type: 'error', title: 'Sign in failed', message: error.message })
     } else {
       nav('/dashboard')
     }

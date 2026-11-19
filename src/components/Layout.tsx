@@ -127,7 +127,7 @@ export function Layout({ children, focus = false }: { children?: ReactNode; focu
         </>
       )}
 
-      <main className="app-main" id="main-content" tabIndex={-1}>
+      <main className="app-main" id="main-content" tabIndex={-1} aria-label={pageName} data-route-main>
         {!focus && (
           <div className="workspace-topbar">
             <div className="workspace-breadcrumb">
@@ -176,6 +176,9 @@ export function Layout({ children, focus = false }: { children?: ReactNode; focu
 }
 
 export function AuthLayout({ children }: { children?: ReactNode }) {
+  const location = useLocation()
+  const pageName = location.pathname === '/register' ? 'Create account' : 'Sign in'
+
   return (
     <div className="auth-layout">
       <aside className="auth-visual">
@@ -204,7 +207,7 @@ export function AuthLayout({ children }: { children?: ReactNode }) {
           <span>06 PhLE MODULES</span>
         </div>
       </aside>
-      <main className="auth-main">
+      <main className="auth-main" tabIndex={-1} aria-label={pageName} data-route-main>
         <div className="auth-mobile-brand">
           <Brand />
         </div>

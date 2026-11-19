@@ -342,7 +342,7 @@ export default function SideBySideReader() {
         </div>
       </div>
 
-      <div className="reader-mobile-switch" aria-label="Reader view">
+      <div className="reader-mobile-switch" role="group" aria-label="Reader view">
         <button type="button" className={mobileView === 'document' ? 'active' : ''} aria-pressed={mobileView === 'document'} onClick={() => setMobileView('document')}>Document</button>
         <button type="button" className={mobileView === 'chat' ? 'active' : ''} aria-pressed={mobileView === 'chat'} onClick={() => setMobileView('chat')}>AI chat</button>
       </div>

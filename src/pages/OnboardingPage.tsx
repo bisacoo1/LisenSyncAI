@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth, upsertProfile } from '@/context/AuthContext'
 import { DEFAULT_PROGRAM, PHARMACY_PROGRAM } from '@/lib/syllabus'
 import { PASSING_RATE, type StudyTrack } from '@/types'
+import { StudyTrackSelector } from '@/components/StudyTrackSelector'
 import { Card, CardHeader, CardContent, Button, Input, Icon, useToast } from '@/components/ui'
 
 export default function OnboardingPage() {
@@ -27,7 +28,6 @@ export default function OnboardingPage() {
       nav('/dashboard')
     } catch (err: any) {
       setError(err.message || 'Failed to save profile')
-      addToast({ type: 'error', title: 'Save failed', message: err.message })
     } finally {
       setSaving(false)
     }
@@ -121,34 +121,14 @@ export default function OnboardingPage() {
               fullWidth
             />
 
-            <div>
-              <span style={{ display: 'block', fontSize: 12, color: 'var(--muted)', marginBottom: 6, fontWeight: 500 }}>HOW ARE YOU PREPARING?</span>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 10 }}>
-                {([
-                  { value: 'board' as StudyTrack, title: 'Board exam review', desc: 'Taking the Pharmacists Licensure Examination — official PhLE modules, TOS mock exam, 75% + 50% rule.' },
-                  { value: 'course' as StudyTrack, title: 'Still studying', desc: 'Currently taking BS Pharmacy — create your own subjects from your uploaded reviewers.' },
-                ]).map(opt => (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() => setTrack(opt.value)}
-                    aria-pressed={track === opt.value}
-                    style={{
-                      textAlign: 'left', padding: '14px 16px', borderRadius: 10, cursor: 'pointer',
-                      border: `2px solid ${track === opt.value ? 'var(--primary)' : 'var(--border)'}`,
-                      background: track === opt.value ? 'var(--primary-bg)' : 'var(--panel-2)',
-                      color: 'var(--text)', transition: 'all 150ms ease'
-                    }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                      <Icon name={opt.value === 'board' ? 'flag' : 'book-open'} size={16} style={{ color: track === opt.value ? 'var(--primary)' : 'var(--muted)' }} />
-                      <span style={{ fontWeight: 600, fontSize: 14 }}>{opt.title}</span>
-                    </div>
-                    <div style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.5 }}>{opt.desc}</div>
-                  </button>
-                ))}
-              </div>
-            </div>
+            <StudyTrackSelector
+              value={track}
+              onChange={setTrack}
+              options={[
+                { value: 'board', title: 'Board exam review', description: 'Taking the Pharmacists Licensure Examination — official PhLE modules, TOS mock exam, 75% + 50% rule.' },
+                { value: 'course', title: 'Still studying', description: 'Currently taking BS Pharmacy — create your own subjects from your uploaded reviewers.' },
+              ]}
+            />
 
             {track === 'board' && (
               <>

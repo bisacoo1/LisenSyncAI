@@ -247,6 +247,130 @@
   --focus-ring: 0 0 0 3px rgba(29, 86, 168, 0.3);
 }
 
+/* Workspace and public shells share one palette in both theme modes. */
+:root .app-shell,
+:root :is(.landing, .auth-layout) {
+  --bg: #f3f7f5;
+  --bg-elevated: #ffffff;
+  --panel: #ffffff;
+  --panel-2: #eef5f2;
+  --panel-3: #deebe5;
+  --text: #142e28;
+  --text-dim: #3c5951;
+  --muted: #527067;
+  --muted-strong: #3d6257;
+  --primary: #087562;
+  --primary-2: #075c4d;
+  --primary-bg: #e0f2ec;
+  --primary-border: #b7dace;
+  --accent: #126d9c;
+  --accent-2: #0e587f;
+  --accent-bg: #e5f1f8;
+  --accent-border: #bfd9e8;
+  --border: #d8e5df;
+  --border-strong: #bfd2c9;
+  --shadow-sm: 0 2px 8px rgba(21, 54, 43, .045);
+  --shadow-md: 0 8px 22px rgba(21, 54, 43, .075);
+  --focus-ring: 0 0 0 3px rgba(8, 117, 98, .28);
+}
+:root .app-shell {
+  --primary-3: #06483d;
+  --on-primary: #ffffff;
+  --workspace-sidebar: #ffffff;
+  --workspace-nav: #37594f;
+  --workspace-nav-active: #0b6b58;
+  --workspace-nav-active-text: #ffffff;
+  --workspace-action: #0b6b58;
+  --workspace-action-text: #ffffff;
+  --shadow-lg: 0 16px 38px rgba(21, 54, 43, .12);
+}
+:root :is(.landing, .auth-layout) {
+  --public-action: #0b6b58;
+  --public-action-text: #ffffff;
+}
+:root.dark .app-shell,
+:root.dark :is(.landing, .auth-layout) {
+  --bg: #101a18;
+  --bg-elevated: #15211e;
+  --panel: #172521;
+  --panel-2: #1d302b;
+  --panel-3: #2a4039;
+  --text: #edf6f1;
+  --text-dim: #c2d5cc;
+  --muted: #a0b9ae;
+  --muted-strong: #b5cdc2;
+  --primary: #79d6bd;
+  --primary-2: #9ce5d0;
+  --primary-bg: #21483d;
+  --primary-border: #3c6b5b;
+  --accent: #83c6e7;
+  --accent-2: #a9dcf1;
+  --accent-bg: #203c48;
+  --accent-border: #385d6d;
+  --border: #2b413a;
+  --border-strong: #3e5d51;
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, .2);
+  --shadow-md: 0 8px 22px rgba(0, 0, 0, .27);
+  --focus-ring: 0 0 0 3px rgba(121, 214, 189, .36);
+}
+:root.dark .app-shell {
+  --primary-3: #c1f1e2;
+  --on-primary: #0d3027;
+  --workspace-sidebar: #121f1c;
+  --workspace-nav: #c3d8ce;
+  --workspace-nav-active: #9ce5d0;
+  --workspace-nav-active-text: #0d3027;
+  --workspace-action: #9ce5d0;
+  --workspace-action-text: #0d3027;
+  --shadow-lg: 0 16px 38px rgba(0, 0, 0, .36);
+}
+:root.dark :is(.landing, .auth-layout) {
+  --public-action: #9ce5d0;
+  --public-action-text: #0d3027;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not(.light):not(.dark) .app-shell,
+  :root:not(.light):not(.dark) :is(.landing, .auth-layout) {
+    --bg: #101a18;
+    --bg-elevated: #15211e;
+    --panel: #172521;
+    --panel-2: #1d302b;
+    --panel-3: #2a4039;
+    --text: #edf6f1;
+    --text-dim: #c2d5cc;
+    --muted: #a0b9ae;
+    --muted-strong: #b5cdc2;
+    --primary: #79d6bd;
+    --primary-2: #9ce5d0;
+    --primary-bg: #21483d;
+    --primary-border: #3c6b5b;
+    --accent: #83c6e7;
+    --accent-2: #a9dcf1;
+    --accent-bg: #203c48;
+    --accent-border: #385d6d;
+    --border: #2b413a;
+    --border-strong: #3e5d51;
+    --shadow-sm: 0 2px 8px rgba(0, 0, 0, .2);
+    --shadow-md: 0 8px 22px rgba(0, 0, 0, .27);
+    --focus-ring: 0 0 0 3px rgba(121, 214, 189, .36);
+  }
+  :root:not(.light):not(.dark) .app-shell {
+    --primary-3: #c1f1e2;
+    --on-primary: #0d3027;
+    --workspace-sidebar: #121f1c;
+    --workspace-nav: #c3d8ce;
+    --workspace-nav-active: #9ce5d0;
+    --workspace-nav-active-text: #0d3027;
+    --workspace-action: #9ce5d0;
+    --workspace-action-text: #0d3027;
+    --shadow-lg: 0 16px 38px rgba(0, 0, 0, .36);
+  }
+  :root:not(.light):not(.dark) :is(.landing, .auth-layout) {
+    --public-action: #9ce5d0;
+    --public-action-text: #0d3027;
+  }
+}
+
 /* === Reset & Base === */
 *, *::before, *::after { box-sizing: border-box; }
 * { margin: 0; padding: 0; }

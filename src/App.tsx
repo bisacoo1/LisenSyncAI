@@ -1,5 +1,5 @@
-import { lazy } from 'react'
-import { Routes, Route } from 'react-router-dom'
+import { lazy, useEffect } from 'react'
+import { Routes, Route, useLocation } from 'react-router-dom'
 import { Layout, AuthLayout } from '@/components/Layout'
 import { ProtectedRoute, PublicOnly } from '@/components/ProtectedRoute'
 import LoginPage from '@/pages/LoginPage'
@@ -17,6 +17,12 @@ const SideBySideReader = lazy(() => import('@/pages/SideBySideReader'))
 const GameModePage = lazy(() => import('@/pages/GameModePage'))
 
 export default function App() {
+  const location = useLocation()
+
+  useEffect(() => {
+    document.querySelector<HTMLElement>('[data-route-main]')?.focus()
+  }, [location.pathname])
+
   return (
     <Routes>
       {/* Public landing page */}

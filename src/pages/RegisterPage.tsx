@@ -4,6 +4,7 @@ import { supabase, supabaseConfigured } from '@/lib/supabase'
 import { DEFAULT_PROGRAM, PHARMACY_PROGRAM } from '@/lib/syllabus'
 import { upsertProfile, useAuth } from '@/context/AuthContext'
 import { PASSING_RATE, type StudyTrack } from '@/types'
+import { StudyTrackSelector } from '@/components/StudyTrackSelector'
 import { Button, Input, Icon, useToast } from '@/components/ui'
 
 export default function RegisterPage() {
@@ -34,7 +35,6 @@ export default function RegisterPage() {
     if (error) {
       setLoading(false)
       setError(error.message)
-      addToast({ type: 'error', title: 'Registration failed', message: error.message })
       return
     }
     const user = data.user
@@ -138,31 +138,14 @@ export default function RegisterPage() {
             </button>
           }
         />
-        <div>
-          <span className="auth-field-hint" style={{ display: 'block', marginBottom: 8, fontWeight: 500 }}>How are you preparing?</span>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-            {([
-              { value: 'board' as StudyTrack, title: 'Board exam', desc: 'PhLE candidate' },
-              { value: 'course' as StudyTrack, title: 'Still studying', desc: 'BS Pharmacy student' },
-            ]).map(opt => (
-              <button
-                key={opt.value}
-                type="button"
-                onClick={() => setTrack(opt.value)}
-                aria-pressed={track === opt.value}
-                style={{
-                  textAlign: 'left', padding: '12px 14px', borderRadius: 10, cursor: 'pointer',
-                  border: `2px solid ${track === opt.value ? 'var(--primary)' : 'var(--border)'}`,
-                  background: track === opt.value ? 'var(--primary-bg)' : 'var(--panel-2)',
-                  color: 'var(--text)', transition: 'all 150ms ease'
-                }}
-              >
-                <div style={{ fontWeight: 600, fontSize: 14 }}>{opt.title}</div>
-                <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>{opt.desc}</div>
-              </button>
-            ))}
-          </div>
-        </div>
+        <StudyTrackSelector
+          value={track}
+          onChange={setTrack}
+          options={[
+            { value: 'board', title: 'Board exam', description: 'PhLE candidate' },
+            { value: 'course', title: 'Still studying', description: 'BS Pharmacy student' },
+          ]}
+        />
         <p className="auth-field-hint" style={{ marginTop: -4 }}>For BS Pharmacy — the Pharmacists Licensure Examination (PhLE) or your current coursework.</p>
         <Button
           variant="primary"

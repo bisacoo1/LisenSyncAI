@@ -293,7 +293,6 @@ export default function PracticePage() {
     const correct = await recordAttempt({ selected })
     if (correct === null) return
     setFeedback({ correct, text: current.rationale || '' })
-    addToast({ type: correct ? 'success' : 'error', title: correct ? 'Correct!' : 'Incorrect', message: current.rationale || undefined, duration: 3000 })
   }
 
   async function submitDiagnosis() {
@@ -302,7 +301,6 @@ export default function PracticePage() {
     const correct = await recordAttempt({ text: diagInput })
     if (correct === null) return
     setFeedback({ correct, text: current.rationale || `Expected: ${ans.expected}` })
-    addToast({ type: correct ? 'success' : 'error', title: correct ? 'Correct!' : 'Incorrect', message: current.rationale || `Expected: ${ans.expected}`, duration: 3000 })
   }
 
   async function submitSequence() {
@@ -311,7 +309,6 @@ export default function PracticePage() {
     const correct = await recordAttempt({ order: seqOrder })
     if (correct === null) return
     setFeedback({ correct, text: current.rationale || '' })
-    addToast({ type: correct ? 'success' : 'error', title: correct ? 'Correct order!' : 'Incorrect order', message: current.rationale || `Correct: ${ans.order.join(' → ')}`, duration: 3000 })
   }
 
   async function submitIdentification() {
@@ -320,7 +317,6 @@ export default function PracticePage() {
     const correct = await recordAttempt({ text: diagInput })
     if (correct === null) return
     setFeedback({ correct, text: current.rationale || `Expected: ${ans.expected}` })
-    addToast({ type: correct ? 'success' : 'error', title: correct ? 'Correct!' : 'Incorrect', message: current.rationale || `Expected: ${ans.expected}`, duration: 3000 })
   }
 
   async function submitEnumeration() {
@@ -329,7 +325,6 @@ export default function PracticePage() {
     const correct = await recordAttempt({ text: diagInput })
     if (correct === null) return
     setFeedback({ correct, text: current.rationale || `Expected items: ${(ans.items || []).join(', ')}` })
-    addToast({ type: correct ? 'success' : 'error', title: correct ? 'Correct!' : 'Incorrect', message: current.rationale || `Expected: ${(ans.items || []).join(', ')}`, duration: 3000 })
   }
 
   function questionContext(includeAnswer = true): string {

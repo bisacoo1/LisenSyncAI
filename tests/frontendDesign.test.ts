@@ -81,12 +81,46 @@ describe('consistent dashboard surfaces', () => {
 
 describe('mint workspace theme', () => {
   it('provides light and dark workspace palettes with accessible active navigation', () => {
-    const css = projectFile('src/design.css')
-    const theme = css.slice(css.indexOf('/* Pharmacy workspace — soft mint surfaces'))
-    expect(theme).toContain(':root .app-shell {')
-    expect(theme).toContain(':root.dark .app-shell {')
+    const theme = projectFile('src/index.css')
+    const styles = projectFile('src/design.css')
+    expect(theme).toContain(':root .app-shell,')
+    expect(theme).toContain(':root.dark .app-shell,')
+    expect(theme).toContain(':root:not(.light):not(.dark) .app-shell')
     expect(theme).toContain('--workspace-nav-active-text: #ffffff')
-    expect(theme).toContain('--workspace-nav-active-text: #092d29')
-    expect(theme).toContain('outline: 3px solid var(--primary)')
+    expect(theme).toContain('--workspace-nav-active-text: #0d3027')
+    expect(styles).toContain('outline: 3px solid var(--primary)')
+    expect(styles).not.toContain('--bg: #f3f7f5')
+  })
+})
+
+describe('accessible route and study controls', () => {
+  it('moves focus to a named main landmark after route changes', () => {
+    const app = projectFile('src/App.tsx')
+    const layout = projectFile('src/components/Layout.tsx')
+    expect(app).toContain("document.querySelector<HTMLElement>('[data-route-main]')?.focus()")
+    expect(layout).toContain('aria-label={pageName} data-route-main')
+  })
+
+  it('uses native radio inputs for the mutually exclusive study track', () => {
+    const selector = projectFile('src/components/StudyTrackSelector.tsx')
+    const reader = projectFile('src/pages/SideBySideReader.tsx')
+    expect(selector).toContain('<fieldset className="study-track-selector">')
+    expect(selector).toContain('type="radio"')
+    expect(reader).toContain('role="group" aria-label="Reader view"')
+  })
+
+  it('keeps practice answer feedback inline without a duplicate result toast', () => {
+    const practice = projectFile('src/pages/PracticePage.tsx')
+    const handlers = practice.slice(practice.indexOf('async function submitMcq()'), practice.indexOf('function questionContext'))
+    expect(handlers).toContain('setFeedback')
+    expect(handlers).not.toContain('addToast')
+  })
+
+  it('gives the narrow analytics chart a visible scroll affordance', () => {
+    const analytics = projectFile('src/pages/AnalyticsPage.tsx')
+    const styles = projectFile('src/design.css')
+    expect(analytics).toContain('className="table-wrapper trend-chart-scroll"')
+    expect(analytics).toContain('scroll horizontally for more dates')
+    expect(styles).toContain(".trend-chart-scroll::after { content: 'Swipe or scroll chart for more dates'; }")
   })
 })
