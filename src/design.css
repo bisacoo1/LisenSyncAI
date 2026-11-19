@@ -2789,3 +2789,197 @@ textarea:focus-visible, [tabindex]:focus-visible {
 :root .landing .landing-programs .programs-copy p { color: #d0e8e0; }
 :root .landing .landing-programs .programs-link { color: #a9e6d9; }
 :root .landing .landing-programs .programs-link:hover { color: #ffffff; }
+
+/* A consistent, high-contrast clinical workspace across every route. */
+:root .app-shell {
+  --bg: #f3f7f5;
+  --bg-elevated: #ffffff;
+  --panel: #ffffff;
+  --panel-2: #eef5f2;
+  --panel-3: #deebe5;
+  --text: #142e28;
+  --text-dim: #3c5951;
+  --muted: #527067;
+  --muted-strong: #3d6257;
+  --primary: #087562;
+  --primary-2: #075c4d;
+  --primary-3: #06483d;
+  --on-primary: #ffffff;
+  --primary-bg: #e0f2ec;
+  --primary-border: #b7dace;
+  --accent: #126d9c;
+  --accent-2: #0e587f;
+  --accent-bg: #e5f1f8;
+  --accent-border: #bfd9e8;
+  --border: #d8e5df;
+  --border-strong: #bfd2c9;
+  --workspace-sidebar: #ffffff;
+  --workspace-nav: #37594f;
+  --workspace-nav-active: #0b6b58;
+  --workspace-nav-active-text: #ffffff;
+  --workspace-action: #0b6b58;
+  --workspace-action-text: #ffffff;
+  --shadow-sm: 0 2px 8px rgba(21, 54, 43, .045);
+  --shadow-md: 0 8px 22px rgba(21, 54, 43, .075);
+  --shadow-lg: 0 16px 38px rgba(21, 54, 43, .12);
+  --focus-ring: 0 0 0 3px rgba(8, 117, 98, .28);
+}
+:root.dark .app-shell {
+  --bg: #101a18;
+  --bg-elevated: #15211e;
+  --panel: #172521;
+  --panel-2: #1d302b;
+  --panel-3: #2a4039;
+  --text: #edf6f1;
+  --text-dim: #c2d5cc;
+  --muted: #a0b9ae;
+  --muted-strong: #b5cdc2;
+  --primary: #79d6bd;
+  --primary-2: #9ce5d0;
+  --primary-3: #c1f1e2;
+  --on-primary: #0d3027;
+  --primary-bg: #21483d;
+  --primary-border: #3c6b5b;
+  --accent: #83c6e7;
+  --accent-2: #a9dcf1;
+  --accent-bg: #203c48;
+  --accent-border: #385d6d;
+  --border: #2b413a;
+  --border-strong: #3e5d51;
+  --workspace-sidebar: #121f1c;
+  --workspace-nav: #c3d8ce;
+  --workspace-nav-active: #9ce5d0;
+  --workspace-nav-active-text: #0d3027;
+  --workspace-action: #9ce5d0;
+  --workspace-action-text: #0d3027;
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, .2);
+  --shadow-md: 0 8px 22px rgba(0, 0, 0, .27);
+  --shadow-lg: 0 16px 38px rgba(0, 0, 0, .36);
+  --focus-ring: 0 0 0 3px rgba(121, 214, 189, .36);
+}
+
+:root :is(.landing, .auth-layout) {
+  --bg: #f3f7f5;
+  --bg-elevated: #ffffff;
+  --panel: #ffffff;
+  --panel-2: #eef5f2;
+  --panel-3: #deebe5;
+  --text: #142e28;
+  --text-dim: #3c5951;
+  --muted: #527067;
+  --muted-strong: #3d6257;
+  --primary: #087562;
+  --primary-2: #075c4d;
+  --primary-bg: #e0f2ec;
+  --primary-border: #b7dace;
+  --accent: #126d9c;
+  --accent-2: #0e587f;
+  --accent-bg: #e5f1f8;
+  --accent-border: #bfd9e8;
+  --border: #d8e5df;
+  --border-strong: #bfd2c9;
+  --public-action: #0b6b58;
+  --public-action-text: #ffffff;
+  --shadow-sm: 0 2px 8px rgba(21, 54, 43, .045);
+  --shadow-md: 0 8px 22px rgba(21, 54, 43, .075);
+  --focus-ring: 0 0 0 3px rgba(8, 117, 98, .28);
+}
+:root.dark :is(.landing, .auth-layout) {
+  --bg: #101a18;
+  --bg-elevated: #15211e;
+  --panel: #172521;
+  --panel-2: #1d302b;
+  --panel-3: #2a4039;
+  --text: #edf6f1;
+  --text-dim: #c2d5cc;
+  --muted: #a0b9ae;
+  --muted-strong: #b5cdc2;
+  --primary: #79d6bd;
+  --primary-2: #9ce5d0;
+  --primary-bg: #21483d;
+  --primary-border: #3c6b5b;
+  --accent: #83c6e7;
+  --accent-2: #a9dcf1;
+  --accent-bg: #203c48;
+  --accent-border: #385d6d;
+  --border: #2b413a;
+  --border-strong: #3e5d51;
+  --public-action: #9ce5d0;
+  --public-action-text: #0d3027;
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, .2);
+  --shadow-md: 0 8px 22px rgba(0, 0, 0, .27);
+  --focus-ring: 0 0 0 3px rgba(121, 214, 189, .36);
+}
+
+:root .app-shell .sidebar-item { min-height: 46px; border-radius: 10px; }
+:root .app-shell .sidebar-item.active,
+:root .app-shell .sidebar-item.active:hover { background: var(--workspace-nav-active); color: var(--workspace-nav-active-text); }
+:root .app-shell .sidebar-toggle,
+:root .app-shell .sidebar-signout { min-width: 40px; min-height: 40px; }
+:root .app-shell :is(.ui-button--primary, .workspace-primary-link) {
+  border-radius: 11px;
+  box-shadow: none;
+}
+:root .app-shell .ui-button--primary:hover:not(:disabled),
+:root .app-shell .workspace-primary-link:hover { filter: brightness(.92); box-shadow: none; }
+:root .app-shell .ui-button--secondary { border-radius: 11px; }
+:root .app-shell .ui-button--outline,
+:root .app-shell .ui-button--ghost,
+:root .app-shell .ui-button--danger,
+:root .app-shell .ui-button--success { border-radius: 11px; }
+:root .app-shell .ui-button--sm { min-height: 40px; }
+:root .app-shell .ui-button--icon { width: 44px; height: 44px; }
+:root .app-shell :is(.ui-card, .readiness-panel, .countdown-panel, .course-overview-panel,
+  .study-plan-step, .momentum-card, .toolkit-card, .subject-panel, .focus-panel,
+  .reviewer-upload-card, .practice-controls-card, .practice-question-card,
+  .reviewer-folder-card, .reviewer-set-card, .reviewer-mode-section,
+  .reviewer-mode-card, .reader-document-card) {
+  border-radius: 16px;
+}
+:root .app-shell .workspace-topbar { background: var(--panel); }
+:root .app-shell .workspace-content > .container { max-width: 1440px; }
+:root .app-shell .dashboard-heading,
+:root .app-shell .workspace-page-header { align-items: flex-start; }
+:root .app-shell :is(.dashboard-heading h1, .workspace-page-header h1) {
+  max-width: 760px;
+  text-wrap: balance;
+}
+:root .app-shell :is(.dashboard-heading p, .workspace-page-header p) {
+  max-width: 680px;
+  line-height: 1.65;
+}
+:root .app-shell :is(a, button, input, select, textarea) { scroll-margin-block: 84px; }
+:root :is(.landing, .auth-layout) :is(.auth-card, .track-card, .method-card, .landing-cta) {
+  border-radius: 16px;
+}
+:root :is(.landing, .auth-layout) :is(.landing-nav-button, .landing-primary-button, .track-card-cta, .auth-submit) {
+  min-height: 44px;
+  border-radius: 11px;
+  box-shadow: none;
+}
+:root :is(.landing, .auth-layout) :is(.landing-nav-button, .landing-primary-button, .track-card-cta):hover,
+:root .auth-layout .auth-submit:hover:not(:disabled) {
+  transform: none;
+  filter: brightness(.92);
+  box-shadow: none;
+}
+:root :is(.landing, .auth-layout) :is(.landing-nav-links a, .landing-sign-in, .auth-back, .auth-form-bottom a) {
+  text-underline-offset: 3px;
+}
+.toast-container > * button[aria-label="Dismiss notification"] { min-width: 44px !important; min-height: 44px !important; }
+@media (max-width: 900px) {
+  :root .app-shell .sidebar { background: var(--workspace-sidebar); }
+}
+@media (max-width: 680px) {
+  :root .app-shell .workspace-topbar { min-height: 56px; padding-inline: 16px; }
+  :root .app-shell .dashboard-heading,
+  :root .app-shell .workspace-page-header { gap: 16px; }
+  :root .app-shell :is(.dashboard-heading h1, .workspace-page-header h1) { font-size: clamp(30px, 8vw, 38px); }
+  :root .app-shell .workspace-primary-link { width: 100%; justify-content: center; }
+  :root .auth-layout .auth-card { border-radius: 16px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  :root .app-shell :is(.ui-card, .ui-button, .sidebar-item, .study-plan-step, .momentum-card, .toolkit-card) {
+    transition: none;
+  }
+}
