@@ -44,6 +44,7 @@ export default function GameModePage() {
   const [soundOn, setSoundOn] = useState(gameSound.isEnabled)
   const [countdown, setCountdown] = useState<number | null>(null)
   const [isSpeaking, setIsSpeaking] = useState(false)
+  const [resultAnnounced, setResultAnnounced] = useState(false)
   const [loading, setLoading] = useState(true)
   const [gameMessage, setGameMessage] = useState('')
   const timerRef = useRef<number | null>(null)
@@ -64,7 +65,12 @@ export default function GameModePage() {
   useEffect(() => {
     if (!profile) return
     async function load() {
-      setLoading(true)
+      // Only show the preparation card on the very first load. When the profile
+      // is refreshed mid-run (resumeAfterCheckpoint), a full "Preparing…"
+      // overlay would flash over the game while obstacles keep moving, making
+      // the player lose through no fault of their own.
+      const firstLoad = items.length === 0
+      if (firstLoad) setLoading(true)
       let subjectQuery = supabase.from('practice_items').select('subject').eq('user_id', profile!.id).eq('type', 'mcq')
       if (materialId) subjectQuery = subjectQuery.eq('material_id', materialId)
       const { data: subjectData } = await subjectQuery
@@ -75,7 +81,7 @@ export default function GameModePage() {
       setSubject(chosenSubject)
       if (!chosenSubject) {
         setItems([])
-        setLoading(false)
+        if (firstLoad) setLoading(false)
         return
       }
 
@@ -88,7 +94,7 @@ export default function GameModePage() {
       if (materialId) itemQuery = itemQuery.eq('material_id', materialId)
       const { data, error } = await itemQuery.limit(30)
       if (!error) setItems((data as PracticeItem[]) || [])
-      setLoading(false)
+      if (firstLoad) setLoading(false)
     }
     load()
   }, [profile, materialId, subject])
@@ -350,8 +356,13 @@ export default function GameModePage() {
 
   // Lilo reads the answer result after the user submits.
   useEffect(() => {
-    if (answerResult === null || !mcqQuestion || !mcqAnswer) return
+    if (answerResult === null || !mcqQuestion || !mcqAnswer) {
+      setResultAnnounced(false)
+      return
+    }
+    setResultAnnounced(false)
     const timer = window.setTimeout(() => {
+      setResultAnnounced(true)
       const correct = answerResult === 'correct'
       const option = mcqQuestion.options[mcqAnswer.correctIndex]
       speakMessage(
@@ -390,14 +401,16 @@ export default function GameModePage() {
     if (profile) await refreshProfile()
   }, [currentQuestion, profile, refreshProfile, selectedAnswer, user])
 
-  // Auto-start the resume countdown once an answer has been given.
+  // Auto-start the resume countdown only after Lilo has finished speaking
+  // the answer result. The countdown must not cut Lilo off mid-sentence.
   useEffect(() => {
     if (answerResult === null) return
     if (livesRef.current === 0) return
+    if (!resultAnnounced) return // Lilo hasn't started speaking the result yet
+    if (isSpeaking) return // Lilo is still speaking; wait until she finishes
     wasCorrectRef.current = answerResult === 'correct'
-    stopSpeech()
     setCountdown(3)
-  }, [answerResult, stopSpeech])
+  }, [answerResult, resultAnnounced, isSpeaking, livesRef.current])
 
   // Countdown 3 → 2 → 1 → Go, then resume the run.
   useEffect(() => {
