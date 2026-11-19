@@ -119,6 +119,92 @@ input::placeholder, textarea::placeholder { color: var(--muted); opacity: 1; }
   letter-spacing: .12em;
   text-transform: uppercase;
 }
+
+/* Screen flash on hit / dodge */
+.screen-flash {
+  position: absolute;
+  z-index: 60;
+  inset: 0;
+  pointer-events: none;
+  animation: screen-flash 140ms ease-out both;
+}
+.screen-flash-hit { background: rgba(255, 77, 77, 0.45); }
+.screen-flash-dodge { background: rgba(74, 222, 128, 0.3); }
+@keyframes screen-flash {
+  0% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* Floating score text */
+.floating-text {
+  position: absolute;
+  z-index: 58;
+  pointer-events: none;
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: 17px;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,.5));
+  white-space: nowrap;
+  animation: floating-text-rise 1s ease-out both;
+}
+@keyframes floating-text-rise {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(.6); }
+  20% { opacity: 1; transform: translate(-50%, -50%) scale(1.15); }
+  100% { opacity: 0; transform: translate(-50%, -110%) scale(1); }
+}
+
+/* Combo badge */
+.combo-badge {
+  position: absolute;
+  z-index: 50;
+  top: max(130px, calc(env(safe-area-inset-top) + 110px));
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: 14px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: #fbbf24;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,.6));
+  animation: combo-pop .35s var(--motion-ease) both;
+}
+@keyframes combo-pop {
+  0% { opacity: 0; transform: translateX(-50%) scale(.7); }
+  60% { opacity: 1; transform: translateX(-50%) scale(1.15); }
+  100% { opacity: 1; transform: translateX(-50%) scale(1); }
+}
+
+/* Enhanced game page background */
+.game-page {
+  background: #0f2533;
+  background-image:
+    radial-gradient(circle at 10% 20%, rgba(16, 92, 130, .35) 0%, transparent 40%),
+    radial-gradient(circle at 90% 80%, rgba(91, 67, 189, .25) 0%, transparent 40%);
+}
+
+/* Glass header polish */
+.game-header > .ui-button,
+.game-sound-toggle {
+  border: 1px solid rgba(255,255,255,.28);
+  box-shadow: 0 4px 14px rgba(0,0,0,.35);
+}
+.game-header > .ui-button:hover,
+.game-sound-toggle:hover {
+  border-color: rgba(255,255,255,.55);
+}
+
+/* Runner message pop */
+.runner-message {
+  animation: runner-message-pop .32s var(--motion-ease) both;
+}
+@keyframes runner-message-pop {
+  0% { opacity: 0; transform: translateX(-50%) scale(.85); }
+  100% { opacity: 1; transform: translateX(-50%) scale(1); }
+}
+
 .runner-card { position: absolute; inset: 0; overflow: hidden; min-height: 0; border: 0; border-radius: 0; background: #102b3b; }
 .runner-hud { position: absolute; z-index: 15; top: max(76px, calc(env(safe-area-inset-top) + 60px)); left: clamp(14px, 3vw, 40px); right: clamp(14px, 3vw, 40px); display: flex; align-items: center; gap: 8px; height: auto; padding: 0; background: none; border: 0; }
 .lives { margin-left: auto; display: flex; gap: 5px; color: var(--border-strong); font-size: 20px; }

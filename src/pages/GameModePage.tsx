@@ -44,6 +44,7 @@ export default function GameModePage() {
   const [soundOn, setSoundOn] = useState(gameSound.isEnabled)
   const [countdown, setCountdown] = useState<number | null>(null)
   const [isSpeaking, setIsSpeaking] = useState(false)
+  const [resultAnnounced, setResultAnnounced] = useState(false)
   const [loading, setLoading] = useState(true)
   const [gameMessage, setGameMessage] = useState('')
   const timerRef = useRef<number | null>(null)
@@ -60,11 +61,21 @@ export default function GameModePage() {
   const voices = useRef<SpeechSynthesisVoice[]>([])
   const countdownRef = useRef<number | null>(null)
   const wasCorrectRef = useRef(false)
+  const [gameEvent, setGameEvent] = useState<'none' | 'hit' | 'dodge' | 'collect' | 'gold'>('none')
+  const [screenFlash, setScreenFlash] = useState<'none' | 'hit' | 'dodge'>('none')
+  const [floatingTexts, setFloatingTexts] = useState<Array<{ id: number; text: string; x: number; y: number; color: string; life: number }>>([])
+  const [combo, setCombo] = useState(0)
+  const floatingIdRef = useRef(0)
 
   useEffect(() => {
     if (!profile) return
     async function load() {
-      setLoading(true)
+      // Only show the preparation card on the very first load. When the profile
+      // is refreshed mid-run (resumeAfterCheckpoint), a full "Preparing…"
+      // overlay would flash over the game while obstacles keep moving, making
+      // the player lose through no fault of their own.
+      const firstLoad = items.length === 0
+      if (firstLoad) setLoading(true)
       let subjectQuery = supabase.from('practice_items').select('subject').eq('user_id', profile!.id).eq('type', 'mcq')
       if (materialId) subjectQuery = subjectQuery.eq('material_id', materialId)
       const { data: subjectData } = await subjectQuery
@@ -75,7 +86,7 @@ export default function GameModePage() {
       setSubject(chosenSubject)
       if (!chosenSubject) {
         setItems([])
-        setLoading(false)
+        if (firstLoad) setLoading(false)
         return
       }
 
@@ -88,7 +99,7 @@ export default function GameModePage() {
       if (materialId) itemQuery = itemQuery.eq('material_id', materialId)
       const { data, error } = await itemQuery.limit(30)
       if (!error) setItems((data as PracticeItem[]) || [])
-      setLoading(false)
+      if (firstLoad) setLoading(false)
     }
     load()
   }, [profile, materialId, subject])
@@ -187,6 +198,11 @@ export default function GameModePage() {
     return `Question. ${mcqQuestion.stem}. ${options}.`
   }, [mcqQuestion])
 
+  const addFloatingText = useCallback((text: string, color: string) => {
+    const id = ++floatingIdRef.current
+    setFloatingTexts(previous => [...previous, { id, text, x: 50, y: 42, color, life: 1 }])
+  }, [])
+
   const handleSwipe = useCallback((direction: 'left' | 'right' | 'up' | 'down') => {
     if (direction === 'left') moveLane(lane - 1)
     else if (direction === 'right') moveLane(lane + 1)
@@ -198,6 +214,31 @@ export default function GameModePage() {
     if (timerRef.current) window.clearInterval(timerRef.current)
     if (countdownRef.current) window.clearInterval(countdownRef.current)
     stopSpeech()
+  }, [])
+
+  // One-shot game event: tell GameWorld3D to shake / react, then reset.
+  useEffect(() => {
+    if (gameEvent === 'none') return
+    const frame = requestAnimationFrame(() => setGameEvent('none'))
+    return () => cancelAnimationFrame(frame)
+  }, [gameEvent])
+
+  // Screen flash auto-reset after a hit or dodge.
+  useEffect(() => {
+    if (screenFlash === 'none') return
+    const timer = setTimeout(() => setScreenFlash('none'), 140)
+    return () => clearTimeout(timer)
+  }, [screenFlash])
+
+  // Animate floating score texts upward and fade them out.
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setFloatingTexts(previous => {
+        const next = previous.map(ft => ({ ...ft, life: ft.life - 0.05, y: ft.y - 0.9 }))
+        return next.filter(ft => ft.life > 0)
+      })
+    }, 40)
+    return () => clearInterval(interval)
   }, [])
 
   const startGame = async () => {
@@ -218,6 +259,7 @@ export default function GameModePage() {
     livesRef.current = 3
     setLives(3)
     setQuestionIndex(0)
+    setCombo(0)
     setGameMessage('')
     setPlayerAction('run')
     obstacleSpawnTimer.current = 0
@@ -273,10 +315,17 @@ export default function GameModePage() {
       if (collision) {
         if (obstacleDodged(collision.kind, playerAction)) {
           gameSound.playDodge()
+          setGameEvent('dodge')
+          setScreenFlash('dodge')
+          setCombo(previous => previous + 1)
+          addFloatingText('+25', '#4ade80')
           setScore(previousScore => previousScore + 25)
           setGameMessage('Great move! +25 points')
         } else {
           gameSound.playHit()
+          setGameEvent('hit')
+          setScreenFlash('hit')
+          setCombo(0)
           const nextLives = Math.max(0, livesRef.current - 1)
           livesRef.current = nextLives
           setLives(nextLives)
@@ -301,9 +350,18 @@ export default function GameModePage() {
       )
       if (collected.length) {
         const hasGold = collected.some(item => item.kind === 'gold')
-        if (hasGold) gameSound.playCollectGold()
-        else gameSound.playCollectCapsule()
-        setScore(previousScore => previousScore + collected.reduce((sum, item) => sum + (item.kind === 'gold' ? 100 : 20), 0))
+        const points = collected.reduce((sum, item) => sum + (item.kind === 'gold' ? 100 : 20), 0)
+        if (hasGold) {
+          gameSound.playCollectGold()
+          setGameEvent('gold')
+          addFloatingText('+100', '#fbbf24')
+        } else {
+          gameSound.playCollectCapsule()
+          setGameEvent('collect')
+          addFloatingText('+20', '#22d3ee')
+        }
+        setCombo(previous => previous + 1)
+        setScore(previousScore => previousScore + points)
         setGameMessage(collected.some(item => item.kind === 'gold') ? 'Golden Rx collected!' : 'Capsules collected!')
         nextCollectibles = nextCollectibles.filter(item => !collected.some(pickup => pickup.id === item.id))
       }
@@ -350,8 +408,13 @@ export default function GameModePage() {
 
   // Lilo reads the answer result after the user submits.
   useEffect(() => {
-    if (answerResult === null || !mcqQuestion || !mcqAnswer) return
+    if (answerResult === null || !mcqQuestion || !mcqAnswer) {
+      setResultAnnounced(false)
+      return
+    }
+    setResultAnnounced(false)
     const timer = window.setTimeout(() => {
+      setResultAnnounced(true)
       const correct = answerResult === 'correct'
       const option = mcqQuestion.options[mcqAnswer.correctIndex]
       speakMessage(
@@ -390,14 +453,16 @@ export default function GameModePage() {
     if (profile) await refreshProfile()
   }, [currentQuestion, profile, refreshProfile, selectedAnswer, user])
 
-  // Auto-start the resume countdown once an answer has been given.
+  // Auto-start the resume countdown only after Lilo has finished speaking
+  // the answer result. The countdown must not cut Lilo off mid-sentence.
   useEffect(() => {
     if (answerResult === null) return
     if (livesRef.current === 0) return
+    if (!resultAnnounced) return // Lilo hasn't started speaking the result yet
+    if (isSpeaking) return // Lilo is still speaking; wait until she finishes
     wasCorrectRef.current = answerResult === 'correct'
-    stopSpeech()
     setCountdown(3)
-  }, [answerResult, stopSpeech])
+  }, [answerResult, resultAnnounced, isSpeaking, livesRef.current])
 
   // Countdown 3 → 2 → 1 → Go, then resume the run.
   useEffect(() => {
@@ -455,8 +520,14 @@ export default function GameModePage() {
     setSelectedAnswer(index)
     const correct = index === mcqAnswer.correctIndex
     setAnswerResult(correct ? 'correct' : 'wrong')
-    if (correct) gameSound.playCheckpointCorrect()
-    else gameSound.playCheckpointWrong()
+    if (correct) {
+      gameSound.playCheckpointCorrect()
+      addFloatingText('+100', '#4ade80')
+      setCombo(previous => previous + 1)
+    } else {
+      gameSound.playCheckpointWrong()
+      setCombo(0)
+    }
     if (!correct) {
       const nextLives = Math.max(0, livesRef.current - 1)
       livesRef.current = nextLives
@@ -488,6 +559,25 @@ export default function GameModePage() {
         </Card>
       ) : (
         <div className="game-screen">
+          {screenFlash !== 'none' && (
+            <div className={`screen-flash screen-flash-${screenFlash}`} aria-hidden="true" />
+          )}
+          {floatingTexts.map(ft => (
+            <div
+              key={ft.id}
+              className="floating-text"
+              style={{
+                left: `${ft.x}%`,
+                top: `${ft.y}%`,
+                color: ft.color,
+                opacity: ft.life,
+                transform: `translate(-50%, -50%) scale(${1 + (1 - ft.life) * 0.4})`,
+              }}
+            >
+              {ft.text}
+            </div>
+          ))}
+          {combo > 1 && <div className="combo-badge">Combo x{combo}</div>}
           <div className="game-header">
             <div className="game-title">
               <span className="section-kicker"><span className="eyebrow-dot" /> LILO GAME MODE</span>
@@ -534,6 +624,7 @@ export default function GameModePage() {
                     collectibles={collectibles}
                     worldIndex={worldIndex}
                     onSwipe={handleSwipe}
+                    event={gameEvent}
                   />
                 </Suspense>
                 {status === 'ready' && (
