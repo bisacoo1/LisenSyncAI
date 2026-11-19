@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase'
 import type { McqAnswer, McqQuestion, PracticeItem } from '@/types'
 import type { GameWorldCollectible, GameWorldObstacle } from '@/components/GameWorld3D'
 import { obstacleDodged, type GameObstacleKind, type PlayerAction } from '@/lib/gameMode'
+import { gameSound } from '@/lib/gameSound'
 import { Badge, Button, Card, Icon } from '@/components/ui'
 
 const GameWorld3D = lazy(() => import('@/components/GameWorld3D'))
@@ -40,6 +41,7 @@ export default function GameModePage() {
   const [timeLeft, setTimeLeft] = useState(QUESTION_SECONDS)
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null)
   const [answerResult, setAnswerResult] = useState<'correct' | 'wrong' | null>(null)
+  const [soundOn, setSoundOn] = useState(gameSound.isEnabled)
   const [loading, setLoading] = useState(true)
   const [gameMessage, setGameMessage] = useState('')
   const timerRef = useRef<number | null>(null)
@@ -99,11 +101,17 @@ export default function GameModePage() {
     if (status !== 'running') return
     if (actionTimerRef.current) window.clearTimeout(actionTimerRef.current)
     setPlayerAction(action)
+    if (action === 'jump') gameSound.playJump()
+    else if (action === 'slide') gameSound.playSlide()
     actionTimerRef.current = window.setTimeout(() => {
       setPlayerAction('run')
       actionTimerRef.current = null
     }, 680)
   }, [status])
+
+  const toggleSound = () => {
+    setSoundOn(gameSound.toggle())
+  }
 
   const handleSwipe = useCallback((direction: 'left' | 'right' | 'up' | 'down') => {
     if (direction === 'left') moveLane(lane - 1)
@@ -116,7 +124,9 @@ export default function GameModePage() {
     if (timerRef.current) window.clearInterval(timerRef.current)
   }, [])
 
-  const startGame = () => {
+  const startGame = async () => {
+    await gameSound.boot()
+    gameSound.playStart()
     setStatus('running')
     setLane(1)
     obstaclesRef.current = []
@@ -184,14 +194,19 @@ export default function GameModePage() {
       )
       if (collision) {
         if (obstacleDodged(collision.kind, playerAction)) {
+          gameSound.playDodge()
           setScore(previousScore => previousScore + 25)
           setGameMessage('Great move! +25 points')
         } else {
+          gameSound.playHit()
           const nextLives = Math.max(0, livesRef.current - 1)
           livesRef.current = nextLives
           setLives(nextLives)
           setGameMessage('Ouch! Lilo hit an obstacle.')
-          if (nextLives === 0) setStatus('gameover')
+          if (nextLives === 0) {
+            gameSound.playGameOver()
+            setStatus('gameover')
+          }
         }
         nextObstacles = nextObstacles.filter(obstacle => obstacle.id !== collision.id)
       }
@@ -207,6 +222,9 @@ export default function GameModePage() {
         item.lane === lane && item.progress > 76 && item.progress < 91,
       )
       if (collected.length) {
+        const hasGold = collected.some(item => item.kind === 'gold')
+        if (hasGold) gameSound.playCollectGold()
+        else gameSound.playCollectCapsule()
         setScore(previousScore => previousScore + collected.reduce((sum, item) => sum + (item.kind === 'gold' ? 100 : 20), 0))
         setGameMessage(collected.some(item => item.kind === 'gold') ? 'Golden Rx collected!' : 'Capsules collected!')
         nextCollectibles = nextCollectibles.filter(item => !collected.some(pickup => pickup.id === item.id))
@@ -228,10 +246,14 @@ export default function GameModePage() {
         window.clearInterval(timerRef.current!)
         timerRef.current = null
         setAnswerResult('wrong')
+        gameSound.playCheckpointWrong()
         const nextLives = Math.max(0, livesRef.current - 1)
         livesRef.current = nextLives
         setLives(nextLives)
-        if (nextLives === 0) setStatus('gameover')
+        if (nextLives === 0) {
+          gameSound.playGameOver()
+          setStatus('gameover')
+        }
       }
     }, 1000)
     return () => {
@@ -294,11 +316,16 @@ export default function GameModePage() {
     setSelectedAnswer(index)
     const correct = index === mcqAnswer.correctIndex
     setAnswerResult(correct ? 'correct' : 'wrong')
+    if (correct) gameSound.playCheckpointCorrect()
+    else gameSound.playCheckpointWrong()
     if (!correct) {
       const nextLives = Math.max(0, livesRef.current - 1)
       livesRef.current = nextLives
       setLives(nextLives)
-      if (nextLives === 0) setStatus('gameover')
+      if (nextLives === 0) {
+        gameSound.playGameOver()
+        setStatus('gameover')
+      }
     }
   }
 
@@ -335,6 +362,15 @@ export default function GameModePage() {
                 </select>
               </label>
             )}
+            <button
+              type="button"
+              className="game-sound-toggle"
+              aria-label="Toggle game sound"
+              aria-pressed={soundOn}
+              onClick={toggleSound}
+            >
+              <Icon name={soundOn ? 'volume-2' : 'x'} size={17} />
+            </button>
             <Button variant="ghost" leftIcon="arrow-left" onClick={() => navigate('/dashboard')}>Exit game</Button>
           </div>
 
