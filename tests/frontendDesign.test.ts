@@ -6,7 +6,7 @@ const projectFile = (relativePath: string) =>
   readFileSync(resolve(process.cwd(), relativePath), 'utf8')
 
 describe('authenticated frontend hierarchy', () => {
-  it('shows card-free study metrics first, followed by progress and the study plan', () => {
+  it('shows study metric cards first, followed by progress and the study plan', () => {
     const dashboard = projectFile('src/pages/DashboardPage.tsx')
     const css = projectFile('src/design.css')
 
@@ -23,7 +23,8 @@ describe('authenticated frontend hierarchy', () => {
     expect(readinessIndex).toBeLessThan(studyPlanIndex)
     expect(dashboard).not.toContain('momentum-card')
     expect(css).toContain('.dashboard-page .dashboard-stats-strip')
-    expect(css).toMatch(/\.dashboard-page \.dashboard-stat\s*\{[^}]*background:\s*transparent/s)
+    expect(css).toMatch(/\.dashboard-page \.dashboard-stat\s*\{[^}]*background:\s*var\(--panel\)/s)
+    expect(css).toMatch(/\.dashboard-page \.dashboard-stat\s*\{[^}]*border:\s*1px solid var\(--border\)/s)
     expect(css).toMatch(/\.dashboard-page \.study-plan-section\s*\{[^}]*margin-top:\s*40px/s)
     expect(css).toMatch(/\.study-plan-step[^{]*\{[^}]*box-shadow:/s)
   })
