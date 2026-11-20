@@ -12,6 +12,7 @@ import '@fontsource/dm-serif-display/latin-400.css'
 import '@fontsource/dm-serif-display/latin-400-italic.css'
 import './index.css'
 import './design.css'
+import './reference-theme.css'
 
 // Restore the workspace preference on public pages too, before the first render.
 try {

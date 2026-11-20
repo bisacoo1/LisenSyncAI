@@ -1,0 +1,105 @@
+/* A quiet, violet-led study workspace, inspired by the supplied product reference. */
+:root {
+  --font-display: 'DM Sans', system-ui, sans-serif;
+  --primary: #6742d9;
+  --primary-2: #5531c4;
+  --primary-3: #42259a;
+  --primary-bg: #f0ecff;
+  --primary-border: #dcd2ff;
+  --accent: #7655df;
+  --accent-2: #6742d9;
+  --accent-bg: #f2eeff;
+  --accent-border: #ded5ff;
+  --focus-ring: 0 0 0 3px rgba(103, 66, 217, .28);
+}
+:root.light {
+  color-scheme: light;
+  --bg: #f8f7fc;
+  --bg-elevated: #fff;
+  --panel: #fff;
+  --panel-2: #f3f0fa;
+  --panel-3: #ebe7f5;
+  --text: #242039;
+  --text-dim: #625e73;
+  --muted: #777287;
+  --muted-strong: #625e73;
+  --border: #e9e6f0;
+  --border-strong: #d8d2e5;
+  --divider: rgba(41, 31, 69, .1);
+  --shadow-sm: 0 3px 16px rgba(57, 39, 100, .035);
+  --shadow-md: 0 12px 32px rgba(57, 39, 100, .07);
+  --shadow-lg: 0 20px 48px rgba(57, 39, 100, .11);
+}
+button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline-color: #7655df; }
+.brand-lockup-mark { background: linear-gradient(145deg, #5730c4, #8869ed); box-shadow: 0 5px 15px rgba(103,66,217,.2); }
+.brand-lockup-name > span { color: #6742d9; }
+.ui-button--primary, .landing-nav-button, .landing-primary-button, .workspace-primary-link { background: #6742d9; border-color: #6742d9; }
+.ui-button--primary:hover:not(:disabled), .landing-nav-button:hover, .landing-primary-button:hover, .workspace-primary-link:hover { background: #5531c4; border-color: #5531c4; box-shadow: 0 8px 20px rgba(103,66,217,.2); }
+.section-kicker { color: #777087; letter-spacing: .1em; }
+.eyebrow-dot { background: #7655df; box-shadow: 0 0 0 4px #eee9ff; }
+.workspace-page-header h1, .dashboard-heading h1, .landing-hero h1, .auth-form-heading h1 { font-weight: 700 !important; letter-spacing: -.045em; }
+.workspace-page-header h1 em, .dashboard-heading h1 em, .landing-hero h1 em { font-style: normal; color: #7655df; }
+
+/* The navigation stays light like the reference, while dark mode retains its own palette. */
+:root.light .sidebar { background: #fff; border-right: 1px solid #ece9f3; color: #777287; box-shadow: none; }
+:root.light .sidebar .brand-lockup--inverse { color: #28213e; }
+:root.light .sidebar .brand-lockup-name small { color: #8a829a; }
+:root.light .sidebar .brand-lockup-name > span { color: #7655df; }
+:root.light .sidebar-brand { border-bottom: 1px solid #f0edf5; }
+:root.light .sidebar-nav-heading, :root.light .sidebar-section { color: #a09aad; }
+:root.light .sidebar-toggle { border-color: #e9e5f1; color: #817a91; }
+:root.light .sidebar-toggle:hover { background: #f3efff; color: #6742d9; }
+:root.light .sidebar-item { color: #777185; font-weight: 600; }
+:root.light .sidebar-item:hover { background: #f7f5fc; color: #6742d9; }
+:root.light .sidebar-item.active { background: #eee9ff; color: #6040cc; }
+:root.light .sidebar-active-dot { background: #7655df; }
+:root.light .sidebar-note { background: #f3efff; border-color: #e8e0ff; }
+:root.light .sidebar-note-rx { background: #e3d9ff; color: #6742d9; }
+:root.light .sidebar-note strong { color: #41365f; }
+:root.light .sidebar-note small { color: #777087; }
+:root.light .sidebar-profile { border-color: #eeeaf4; }
+:root.light .sidebar-profile-name { color: #302a40; }
+:root.light .sidebar-profile-program, :root.light .sidebar-signout { color: #827a91; }
+:root.light .sidebar-signout:hover { background: #f3efff; color: #6742d9; }
+:root.light .workspace-topbar { background: rgba(255,255,255,.88); border-color: #edeaf3; }
+:root.light .workspace-breadcrumb, :root.light .workspace-date { color: #898296; }
+:root.light .workspace-breadcrumb strong { color: #332c43; }
+:root.light .workspace-program { background: #f2eeff; border-color: #e5dcff; color: #6742d9; }
+:root.light .workspace-content { background: #f8f7fc; }
+:root.light .dashboard-heading { border-color: #eae6f1; }
+:root.light .dashboard-page .dashboard-stat { border-color: #ece8f3; border-radius: 14px; box-shadow: 0 4px 18px rgba(52,37,87,.035); }
+:root.light .dashboard-page .dashboard-stat:nth-child(1) { background: #f0ebff; border-color: #e7ddff; }
+:root.light .dashboard-page .dashboard-stat:nth-child(2) { background: #fff1f4; border-color: #f9e3e9; }
+:root.light .dashboard-page .dashboard-stat:nth-child(3) { background: #eef8f5; border-color: #deefe9; }
+:root.light .dashboard-page .dashboard-stat:nth-child(4) { background: #fff7e9; border-color: #f5e9d5; }
+:root.light .dashboard-page .dashboard-stat-icon { background: rgba(255,255,255,.7); color: #6742d9; }
+:root.light .dashboard-page .dashboard-stat:nth-child(2) .dashboard-stat-icon { color: #c65f7b; }
+:root.light .dashboard-page .dashboard-stat:nth-child(3) .dashboard-stat-icon { color: #318b72; }
+:root.light .dashboard-page .dashboard-stat:nth-child(4) .dashboard-stat-icon { color: #ad7b35; }
+:root.light .dashboard-section-heading h2, :root.light .study-plan-step-copy strong { color: #29233a; }
+:root.light .study-plan-step, :root.light .ui-card, :root.light .card { border-color: #ece8f3; box-shadow: 0 4px 18px rgba(52,37,87,.035); }
+:root.light .study-plan-step:hover { border-color: #c9b9f5; box-shadow: 0 10px 24px rgba(103,66,217,.09); }
+:root.light .study-plan-step-icon { background: #f0ebff; color: #6742d9; }
+:root.light .study-plan-step-action, :root.light .section-link { color: #6742d9; }
+
+/* Public and authentication screens share the same visual language. */
+.landing-header { background: rgba(255,255,255,.92); border-color: #ede9f4; }
+.landing { background: #faf9fd; }
+.landing-hero { position: relative; }
+.landing-hero::before { content: ''; position: absolute; width: 460px; height: 460px; top: -180px; left: -200px; background: radial-gradient(circle, rgba(192,174,255,.25), transparent 70%); pointer-events: none; }
+.landing-hero-copy { position: relative; }
+.landing-hero h1 { color: #28213c; }
+.landing-route, .landing-activity { background: #f2effa; border-color: #e8e2f1; }
+.hero-note-card { border-top-color: #7655df; }
+.auth-visual::before { background: linear-gradient(145deg, rgba(50,28,112,.94), rgba(103,66,217,.78)); }
+.auth-module-pills li { background: rgba(48,28,107,.35); border-color: rgba(255,255,255,.25); }
+.auth-module-pills li span { color: #e0d6ff; }
+.auth-visual-copy h2 em { color: #ddd2ff; }
+.auth-card { border-color: var(--border); }
+@media (max-width: 680px) {
+  .dashboard-heading h1, .workspace-page-header h1 { font-size: 32px; }
+  .dashboard-page .dashboard-stat { padding: 14px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .landing-nav-button:hover, .landing-primary-button:hover, .workspace-primary-link:hover, .dashboard-page .dashboard-stat--link:hover { transform: none; }
+}
