@@ -8,11 +8,16 @@ const ALLOWED_TYPES = new Set([
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   'application/vnd.openxmlformats-officedocument.presentationml.presentation',
   'application/vnd.ms-powerpoint',
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/heic',
+  'image/heif',
 ])
 
 export function assertReviewFile(file: File) {
   if (!ALLOWED_TYPES.has(file.type)) {
-    throw new Error('Only PDF, DOCX, and PPT/PPTX files are supported.')
+    throw new Error('Only PDF, DOCX, PPT/PPTX, JPEG, PNG, WebP, HEIC, and HEIF files are supported.')
   }
   if (file.size > MAX_REVIEW_FILE_BYTES) {
     throw new Error('File must be 10MB or smaller.')
@@ -32,5 +37,6 @@ export async function uploadReviewFile(userId: string, file: File): Promise<stri
 }
 
 export async function removeReviewFile(path: string) {
-  await supabase.storage.from(REVIEW_BUCKET).remove([path])
+  const { error } = await supabase.storage.from(REVIEW_BUCKET).remove([path])
+  if (error) throw new Error(error.message)
 }

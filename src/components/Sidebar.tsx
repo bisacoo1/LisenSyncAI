@@ -1,21 +1,23 @@
-import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { Brand } from '@/components/Brand'
 import { PHARMACY_PROGRAM } from '@/lib/syllabus'
-import { Icon, Tooltip, useToast, type IconName } from '@/components/ui'
+import { Icon, Tooltip, type IconName } from '@/components/ui'
+import { ProfileAvatar } from '@/components/ProfileAvatar'
 
 const navItems: { path: string; label: string; icon: IconName }[] = [
   { path: '/dashboard', label: 'Overview', icon: 'dashboard' },
   { path: '/reviewers', label: 'My reviewers', icon: 'reviewer' },
-  { path: '/side-by-side', label: 'Side by side', icon: 'move' },
-  { path: '/practice', label: 'Practice', icon: 'practice' },
   { path: '/mock', label: 'Mock exam', icon: 'mock' },
   { path: '/game', label: 'Game mode', icon: 'zap' },
+  { path: '/leaderboard', label: 'Leaderboards', icon: 'podium' },
+  { path: '/friends', label: 'Friends', icon: 'users' },
+  { path: '/achievements', label: 'Achievements', icon: 'trophy' },
   { path: '/analytics', label: 'Analytics', icon: 'analytics' }
 ]
 
 const uploadItems: { path: string; label: string; icon: IconName; tab: string }[] = [
-  { path: '/reviewer?tab=upload', label: 'Upload & materials', icon: 'upload', tab: 'upload' }
+  { path: '/reviewer?tab=upload', label: 'Upload materials', icon: 'upload', tab: 'upload' }
 ]
 
 export function Sidebar({
@@ -29,10 +31,8 @@ export function Sidebar({
   onNavigate?: () => void
   collapsed?: boolean
 }) {
-  const { profile, user, signOut } = useAuth()
-  const { addToast } = useToast()
+  const { profile, user } = useAuth()
   const location = useLocation()
-  const navigate = useNavigate()
   const isCompact = collapsed && !open
   const initials = (profile?.full_name || 'Pharmora Candidate')
     .split(' ')
@@ -69,8 +69,8 @@ export function Sidebar({
       <nav className="sidebar-nav" aria-label="Workspace navigation">
         <ul className="sidebar-list">
           {navItems.filter((item) => item.path !== '/mock' || profile?.track !== 'course').map((item) => {
-            const active = item.path === '/side-by-side'
-              ? location.pathname.startsWith('/side-by-side')
+            const active = item.path === '/reviewers'
+              ? location.pathname === item.path || location.pathname.startsWith('/side-by-side')
               : location.pathname === item.path
             const link = (
               <Link
@@ -143,29 +143,18 @@ export function Sidebar({
         </div>
         {user && (
           <div className="sidebar-profile">
-            <span className="sidebar-avatar">{initials}</span>
+            <ProfileAvatar
+              className="sidebar-avatar"
+              avatarId={profile?.avatar_id}
+              avatarPath={profile?.avatar_path}
+              avatarBorderId={profile?.avatar_border}
+              initials={initials}
+            />
             <div className="sidebar-profile-text">
-              <span className="sidebar-profile-name">{profile?.full_name || 'Pharmacy candidate'}</span>
               <span className="sidebar-profile-program">
                 {profile ? (profile.track === 'course' ? 'Course mode' : PHARMACY_PROGRAM.shortName) : 'Set up your profile'}
               </span>
             </div>
-            <Tooltip content="Sign out" position="right">
-              <button
-                className="sidebar-signout"
-                aria-label="Sign out"
-                onClick={async () => {
-                  try {
-                    await signOut()
-                    navigate('/login')
-                  } catch (error: any) {
-                    addToast({ type: 'error', title: 'Could not sign out', message: error?.message || 'Please try again.' })
-                  }
-                }}
-              >
-                <Icon name="logout" size={17} />
-              </button>
-            </Tooltip>
           </div>
         )}
       </div>

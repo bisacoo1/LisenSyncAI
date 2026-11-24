@@ -4,31 +4,58 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { getProgram, getSubjectDetail } from '@/lib/syllabus'
 import { supabase } from '@/lib/supabase'
-import { computeSubjectStats, overallPercent, readinessLabel } from '@/lib/analytics'
-import { PASSING_RATE, type Attempt, type MockExam, type PracticeItem, type UserSubject } from '@/types'
-import { AnimatedNumber, Card, CardHeader, CardContent, Badge, Icon, ProgressBar, Reveal, EmptyState, Skeleton } from '@/components/ui'
+import { buildCoursePracticePaths, computeSubjectStats, overallPercent, readinessLabel } from '@/lib/analytics'
+import { PASSING_RATE, type Attempt, type Flashcard, type MockExam, type PracticeItem, type ReviewMaterial, type UserSubject } from '@/types'
+import { AnimatedNumber, Button, Card, CardHeader, CardContent, Badge, Icon, ProgressBar, Reveal, EmptyState, Skeleton, useToast } from '@/components/ui'
+import type { IconName } from '@/components/ui/Icon'
 
 export default function AnalyticsPage() {
   const { profile, user } = useAuth()
   const navigate = useNavigate()
+  const { addToast } = useToast()
   const program = profile ? getProgram(profile.board_program) : null
   const [attempts, setAttempts] = useState<Attempt[]>([])
+  const [flashcards, setFlashcards] = useState<Flashcard[]>([])
   const [exams, setExams] = useState<MockExam[]>([])
   const [weakDrills, setWeakDrills] = useState<PracticeItem[]>([])
+  const [coursePracticePaths, setCoursePracticePaths] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(true)
   const isCourse = profile?.track === 'course'
   const [userSubjects, setUserSubjects] = useState<UserSubject[]>([])
 
   useEffect(() => {
     if (!profile) return
+    setCoursePracticePaths({})
     ;(async () => {
       const { data: a } = await supabase.from('attempts').select('*').eq('user_id', profile.id).order('created_at', { ascending: false }).limit(1000)
       const atts = (a as Attempt[]) || []
       setAttempts(atts)
+      const { data: cards } = await supabase.from('flashcards').select('*').eq('user_id', profile.id)
+      setFlashcards((cards as Flashcard[]) || [])
       if (isCourse) {
         setExams([])
-        const { data: subs } = await supabase.from('user_subjects').select('*').eq('user_id', profile.id).order('name')
-        setUserSubjects((subs as UserSubject[]) || [])
+        const [subjectsResult, materialsResult, practiceItemsResult] = await Promise.all([
+          supabase.from('user_subjects').select('*').eq('user_id', profile.id).order('name'),
+          supabase.from('review_materials').select('id,subject,subject_folder_id').eq('user_id', profile.id).order('created_at', { ascending: false }),
+          supabase.from('practice_items').select('material_id,type').eq('user_id', profile.id),
+        ])
+        const subjects = (subjectsResult.data as UserSubject[] | null) || []
+        setUserSubjects(subjects)
+        const practicePathError = materialsResult.error || practiceItemsResult.error
+        if (practicePathError) {
+          addToast({
+            type: 'error',
+            title: 'Could not prepare subject practice',
+            message: practicePathError.message,
+          })
+        } else {
+          setCoursePracticePaths(buildCoursePracticePaths(
+            (materialsResult.data as Pick<ReviewMaterial, 'id' | 'subject' | 'subject_folder_id'>[] | null) || [],
+            (practiceItemsResult.data as Pick<PracticeItem, 'material_id' | 'type'>[] | null) || [],
+            (cards as Flashcard[] | null) || [],
+            subjects
+          ))
+        }
       } else {
         const { data: e } = await supabase.from('mock_exams').select('*').eq('user_id', profile.id).order('started_at', { ascending: false }).limit(20)
         setExams((e as MockExam[]) || [])
@@ -45,7 +72,7 @@ export default function AnalyticsPage() {
   const overall = useMemo(() => overallPercent(attempts), [attempts])
   const readiness = readinessLabel(overall)
   const weakSubjects = isCourse
-    ? stats.filter(s => s.total > 0 && s.percent < overall).sort((a, b) => a.percent - b.percent)
+    ? stats.filter(s => s.total > 0 && s.weak).sort((a, b) => a.percent - b.percent)
     : stats.filter(s => s.weak && s.total > 0)
   const recentPractice = useMemo(() => {
     const now = Date.now()
@@ -93,19 +120,61 @@ export default function AnalyticsPage() {
       .map(([date, v]) => ({ date, percent: Math.round((v.correct / v.total) * 100), total: v.total }))
   }, [attempts])
 
+  const studyModeStats = useMemo(() => {
+    const modeLabels: Record<string, { label: string; icon: IconName }> = {
+      flashcards: { label: 'Flashcards', icon: 'bookmark' },
+      mcq: { label: 'Multiple Choice', icon: 'check-circle' },
+      enumeration: { label: 'Enumeration', icon: 'list-checks' },
+      identification: { label: 'Identification', icon: 'search' },
+    }
+    const types = ['flashcards', 'mcq', 'enumeration', 'identification']
+
+    return types.map(type => {
+      if (type === 'flashcards') {
+        const ratedCards = flashcards.filter(card => card.last_quality != null)
+        const reviewedCards = flashcards.filter(card => card.last_reviewed_at)
+        const attemptsCount = flashcards.reduce((sum, card) => sum + (card.repetitions || 0), 0)
+        const correct = ratedCards.filter(card => (card.last_quality || 0) >= 4).length
+        const accuracy = ratedCards.length ? Math.round((correct / ratedCards.length) * 1000) / 10 : null
+        return {
+          type,
+          label: modeLabels[type].label,
+          icon: modeLabels[type].icon,
+          attempts: attemptsCount,
+          studied: reviewedCards.length,
+          correct,
+          accuracy,
+        }
+      }
+
+      const modeAttempts = attempts.filter(attempt => attempt.type === type)
+      const correct = modeAttempts.filter(attempt => attempt.is_correct).length
+      const accuracy = modeAttempts.length ? Math.round((correct / modeAttempts.length) * 1000) / 10 : null
+      return {
+        type,
+        label: modeLabels[type].label,
+        icon: modeLabels[type].icon,
+        attempts: modeAttempts.length,
+        studied: modeAttempts.length,
+        correct,
+        accuracy,
+      }
+    })
+  }, [attempts, flashcards])
+
   useEffect(() => {
-    if (!profile || !weakSubjects.length) { setWeakDrills([]); return }
+    if (!profile || isCourse || !weakSubjects.length) { setWeakDrills([]); return }
     ;(async () => {
       const names = weakSubjects.map(s => s.subject)
       const { data } = await supabase.from('practice_items').select('*').eq('user_id', profile!.id).in('subject', names).in('type', ['mcq', 'diagnosis', 'sequence', 'enumeration', 'identification']).limit(12)
       setWeakDrills((data as PracticeItem[]) || [])
     })()
-  }, [profile, weakSubjects.map(s => s.subject).join('|')])
+  }, [profile, isCourse, weakSubjects.map(s => s.subject).join('|')])
 
   if (!profile || (!isCourse && !program)) return null
 
   return (
-    <div className="container workspace-page">
+    <div className="container workspace-page analytics-page">
       <WorkspacePageHeader
         eyebrow={isCourse ? 'STUDY PROGRESS' : 'PHARMACY READINESS'} index="05" title={<>Your {isCourse ? 'study' : 'PhLE'} progress, <em>in focus.</em></>}
         description={isCourse ? 'Track your accuracy across your own study subjects and spot where to focus next.' : `Track your accuracy across all 6 BS Pharmacy modules and spot where to focus next to clear the ${PASSING_RATE}% PRC passing mark.`}
@@ -151,14 +220,19 @@ export default function AnalyticsPage() {
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 4, fontWeight: 500 }}>{isCourse ? 'SUBJECTS TO REVISIT' : 'WEAK MODULES'}</div>
               <div style={{ fontSize: 36, fontWeight: 700, letterSpacing: '-0.02em', color: attempts.length === 0 ? 'var(--muted)' : weakSubjects.length > 0 ? isCourse ? 'var(--warning)' : 'var(--danger)' : 'var(--success)' }}>{loading || attempts.length === 0 ? '—' : <AnimatedNumber value={weakSubjects.length} duration={1000} delay={160} />}</div>
-              <p className="muted" style={{ marginTop: 4, fontSize: 13 }}>{loading ? 'Loading focus areas' : attempts.length === 0 ? 'Start practicing to see your focus areas' : isCourse ? weakSubjects.length > 0 ? 'Below your overall practice average' : 'No attempted subjects below your average' : weakSubjects.length > 0 ? 'PhLE modules below 75%' : 'No attempted modules below 75%'}</p>
+              <p className="muted" style={{ marginTop: 4, fontSize: 13 }}>{loading ? 'Loading focus areas' : attempts.length === 0 ? 'Start practicing to see your focus areas' : isCourse ? weakSubjects.length > 0 ? `Below the ${PASSING_RATE}% target` : `No attempted subjects below ${PASSING_RATE}%` : weakSubjects.length > 0 ? `PhLE modules below ${PASSING_RATE}%` : `No attempted modules below ${PASSING_RATE}%`}</p>
             </div>
           </CardContent>
         </Card>
       </Reveal>
 
       <Card variant="outlined" style={{ marginBottom: 24 }}>
-        <CardHeader title={isCourse ? 'Study insights' : 'Progress insights'} icon="activity" subtitle={isCourse ? 'A closer look at recent practice, subject strengths, and where to focus next.' : 'A closer look at your recent practice, module strengths, and PhLE mock exams'} />
+        <CardHeader
+          className={isCourse ? 'analytics-course-section-header' : undefined}
+          title={isCourse ? 'Study insights' : 'Progress insights'}
+          icon="activity"
+          subtitle={isCourse ? undefined : 'A closer look at your recent practice, module strengths, and PhLE mock exams'}
+        />
         <CardContent>
           <Reveal className="progress-insights-grid motion-stagger">
             <article className="progress-insight">
@@ -182,7 +256,7 @@ export default function AnalyticsPage() {
               <strong>{lowestSubject ? <AnimatedNumber value={lowestSubject.percent} suffix="%" duration={1000} delay={180} /> : '—'}</strong>
               <p>
                 {lowestSubject
-                  ? `${lowestSubject.subject} · ${lowestSubject.total} attempts${isCourse ? lowestSubject.percent < overall ? ', below your overall practice average' : ', at or above your overall practice average' : lowestSubject.weak ? `, below the ${PASSING_RATE}% target` : ', currently on track'}`
+                  ? `${lowestSubject.subject} · ${lowestSubject.total} attempts${isCourse ? lowestSubject.weak ? `, below the ${PASSING_RATE}% target` : `, at or above the ${PASSING_RATE}% target` : lowestSubject.weak ? `, below the ${PASSING_RATE}% target` : ', currently on track'}`
                   : 'Complete practice to identify a focus area.'}
               </p>
             </article>
@@ -201,9 +275,96 @@ export default function AnalyticsPage() {
         </CardContent>
       </Card>
 
+      {/* Study Mode Performance */}
+      <Card variant="outlined" style={{ marginBottom: 24 }}>
+        <CardHeader
+          className="study-mode-header"
+          title="Study Mode Performance"
+          icon="activity"
+        />
+        <CardContent>
+          <div className="table-wrapper" role="region" aria-label="Study mode performance, scrollable table" tabIndex={0} style={{ overflowX: 'auto' }}>
+            <table className="table" style={{ minWidth: 680 }}>
+              <thead>
+                <tr>
+                  <th>Study Mode</th>
+                  <th style={{ width: 110 }}>Studied</th>
+                  <th style={{ width: 90 }}>Correct</th>
+                  <th style={{ width: 230 }}>Accuracy</th>
+                  <th style={{ width: 150 }}>Practice Need</th>
+                </tr>
+              </thead>
+              <tbody>
+                {loading ? (
+                  Array.from({ length: 6 }).map((_, i) => (
+                    <tr key={`mode-skeleton-${i}`}>
+                      <td><Skeleton variant="text" width={150} /></td>
+                      <td><Skeleton variant="text" width={50} /></td>
+                      <td><Skeleton variant="text" width={50} /></td>
+                      <td><Skeleton variant="text" width={150} /></td>
+                      <td><Skeleton variant="text" width={90} /></td>
+                    </tr>
+                  ))
+                ) : (
+                  studyModeStats.map(mode => {
+                    const needsPractice = mode.accuracy == null || mode.accuracy < 75
+                    const statusVariant = mode.accuracy == null ? 'default' : needsPractice ? 'warning' : 'success'
+                    const accuracyVariant = mode.accuracy == null ? 'default' : needsPractice ? 'warning' : 'success'
+
+                    return (
+                      <tr key={mode.type}>
+                        <td>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontWeight: 500 }}>
+                            <span style={{ width: 34, height: 34, display: 'grid', placeItems: 'center', borderRadius: 9, background: 'var(--primary-bg)', color: 'var(--primary)' }} aria-hidden="true">
+                              <Icon name={mode.icon} size={16} />
+                            </span>
+                            {mode.label}
+                          </div>
+                        </td>
+                        <td style={{ fontVariantNumeric: 'tabular-nums' }}>
+                          <AnimatedNumber value={mode.studied} duration={700} />
+                          {mode.type === 'flashcards' && mode.attempts > 0 ? (
+                            <span className="muted" style={{ display: 'block', fontSize: 11, marginTop: 2 }}>{mode.attempts} reviews</span>
+                          ) : null}
+                        </td>
+                        <td style={{ fontVariantNumeric: 'tabular-nums' }}>
+                          {mode.accuracy == null ? '—' : <AnimatedNumber value={mode.correct} duration={700} delay={60} />}
+                        </td>
+                        <td>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                            {mode.accuracy != null ? (
+                              <ProgressBar value={mode.accuracy} max={100} size="sm" ariaLabel={`${mode.label} accuracy`} variant={accuracyVariant} style={{ flex: 1, minWidth: 150 }} />
+                            ) : (
+                              <div aria-hidden="true" style={{ flex: 1, minWidth: 150, height: 4, borderRadius: 999, background: 'var(--panel-2)' }} />
+                            )}
+                            <span style={{ minWidth: 45, fontSize: 12, fontWeight: 600, fontVariantNumeric: 'tabular-nums', color: mode.accuracy == null ? 'var(--muted)' : needsPractice ? 'var(--warning)' : 'var(--success)' }}>
+                              {mode.accuracy == null ? '—' : <AnimatedNumber value={mode.accuracy} suffix="%" duration={800} />}
+                            </span>
+                          </div>
+                        </td>
+                        <td>
+                          <Badge variant={statusVariant} size="sm" dot>
+                            {mode.accuracy == null ? 'Not practiced' : needsPractice ? 'Practice more' : 'On track'}
+                          </Badge>
+                        </td>
+                      </tr>
+                    )
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Per-Subject Performance */}
       <Card variant="outlined" style={{ marginBottom: 24 }}>
-        <CardHeader title={isCourse ? 'Subject Performance' : 'Per-Module PhLE Performance'} icon="bar-chart" subtitle={isCourse ? `${stats.length} course subjects tracked` : `${program!.name} • ${stats.length} PhLE modules tracked`} />
+        <CardHeader
+          className={isCourse ? 'analytics-course-section-header' : undefined}
+          title={isCourse ? 'Subject Performance' : 'Per-Module PhLE Performance'}
+          icon="bar-chart"
+          subtitle={isCourse ? undefined : `${program!.name} • ${stats.length} PhLE modules tracked`}
+        />
         <CardContent>
           <div className="table-wrapper" role="region" aria-label={isCourse ? 'Course subject performance, scrollable table' : 'PhLE module performance, scrollable table'} tabIndex={0} style={{ overflowX: 'auto' }}>
             <table className="table" style={{ minWidth: isCourse ? 620 : 740 }}>
@@ -238,7 +399,7 @@ export default function AnalyticsPage() {
                 ) : (
                   stats.map(s => {
                     const detail = isCourse ? null : getSubjectDetail(s.subject)
-                    const needsReview = isCourse ? s.percent < overall : s.weak
+                    const needsReview = s.weak
                     const scoreVariant = isCourse ? needsReview ? 'warning' : 'success' : s.percent >= PASSING_RATE ? 'success' : s.percent >= 60 ? 'warning' : 'danger'
                     const scoreColor = s.total === 0 ? 'var(--muted)' : isCourse ? needsReview ? 'var(--warning)' : 'var(--success)' : s.percent >= PASSING_RATE ? 'var(--success)' : s.percent >= 60 ? 'var(--warning)' : 'var(--danger)'
                     return (
@@ -270,7 +431,7 @@ export default function AnalyticsPage() {
                             <Badge variant="default" size="sm">No data</Badge>
                           ) : (
                             <Badge variant={isCourse ? needsReview ? 'warning' : 'success' : s.weak ? 'danger' : 'success'} size="sm" dot>
-                              {isCourse ? needsReview ? 'Below average' : 'At or above average' : s.weak ? 'Needs remediation' : 'On track'}
+                              {isCourse ? needsReview ? `Below ${PASSING_RATE}% target` : `At or above ${PASSING_RATE}% target` : s.weak ? 'Needs remediation' : 'On track'}
                             </Badge>
                           )}
                         </td>
@@ -289,22 +450,48 @@ export default function AnalyticsPage() {
         {/* Targeted Remediation */}
         <Card variant="elevated">
           <CardHeader
+            className={isCourse ? 'analytics-course-section-header' : undefined}
             title={isCourse ? 'Subjects to Revisit' : 'Targeted Remediation Drills'}
             icon="brain"
-            subtitle={isCourse ? 'Course subjects below your overall practice average' : 'Focus on these subjects to reach 75%'}
+            subtitle={isCourse ? undefined : 'Focus on these subjects to reach 75%'}
           />
           <CardContent>
             {weakSubjects.length === 0 ? (
               <EmptyState
                 icon="check-circle"
-                title={attempts.length === 0 ? 'Your focus areas will appear here' : isCourse ? 'No subjects below your average' : 'No weak subjects flagged'}
-                description={attempts.length === 0 ? 'Complete a practice session to see where to focus next.' : isCourse ? 'Keep practicing across your subjects to make this comparison more useful.' : 'Keep building on your progress with practice and mock simulations.'}
+                title={attempts.length === 0 ? 'Your focus areas will appear here' : isCourse ? `No subjects below ${PASSING_RATE}%` : 'No weak subjects flagged'}
+                description={attempts.length === 0 ? 'Complete a practice session to see where to focus next.' : isCourse ? `Attempted subjects below ${PASSING_RATE}% will appear here.` : 'Keep building on your progress with practice and mock simulations.'}
               />
+            ) : isCourse ? (
+              <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {weakSubjects.map(s => {
+                  const practicePath = coursePracticePaths[s.subject]
+                  return (
+                    <li key={s.subject} className="remediation-drill">
+                      <Badge variant="warning" size="sm" dot>{s.subject}</Badge>
+                      <span className="remediation-drill-copy">{s.percent}% accuracy · Below {PASSING_RATE}% target</span>
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        rightIcon="arrow-right"
+                        style={{ minHeight: 44 }}
+                        disabled={!practicePath}
+                        aria-label={practicePath ? `Practice ${s.subject}` : `No practice set for ${s.subject}`}
+                        onClick={() => {
+                          if (practicePath) navigate(practicePath)
+                        }}
+                      >
+                        {practicePath ? 'Practice' : 'No practice set'}
+                      </Button>
+                    </li>
+                  )
+                })}
+              </ul>
             ) : (
               <>
                 <div className="pill-list" style={{ marginBottom: 16, flexWrap: 'wrap' }}>
                   {weakSubjects.map(s => (
-                    <Badge key={s.subject} variant={isCourse ? 'warning' : 'danger'} size="sm" dot>
+                    <Badge key={s.subject} variant="danger" size="sm" dot>
                       {s.subject} — {s.percent}%
                     </Badge>
                   ))}
@@ -312,7 +499,7 @@ export default function AnalyticsPage() {
                 {weakDrills.length === 0 ? (
                   <div style={{ padding: 20, background: 'var(--warning-bg)', border: '1px solid var(--warning-border)', borderRadius: 10, color: 'var(--warning)' }}>
                     <Icon name="alert-triangle" size={20} style={{ marginBottom: 8 }} />
-                    <div style={{ fontWeight: 500, marginBottom: 4 }}>{isCourse ? 'No practice items found yet' : 'No remediation drills found yet'}</div>
+                    <div style={{ fontWeight: 500, marginBottom: 4 }}>No remediation drills found yet</div>
                     <div style={{ fontSize: 13, color: 'var(--text-dim)' }}>Generate more items in <strong>Reviewer &amp; Generate</strong> for these subjects.</div>
                   </div>
                 ) : (
@@ -384,27 +571,29 @@ export default function AnalyticsPage() {
         )}
       </div>
 
-      <Card variant="outlined">
-        <CardHeader title={isCourse ? 'Course Practice Trend' : 'Readiness Trend'} icon="trending-up" subtitle={isCourse ? 'Daily accuracy across your course practice attempts.' : 'Daily accuracy across practice attempts.'} />
-        <CardContent>
-          {trend.length === 0 ? (
-            <EmptyState
-              icon="trending-up"
-              title="No activity yet"
-              description={isCourse ? 'Complete practice questions to start tracking your study progress over time.' : 'Complete practice questions to start tracking your readiness over time.'}
-            />
-          ) : trend.length === 1 ? (
-            <div style={{ padding: 40, textAlign: 'center' }}>
-              <Icon name="trending-up" size={40} style={{ color: 'var(--muted)', margin: '0 auto 12px', opacity: 0.6 }} />
-              <p style={{ margin: 0, color: 'var(--muted)' }}>
-                {trend[0].percent}% on {new Date(trend[0].date).toLocaleDateString()} ({trend[0].total} items) — keep practicing to see your trend.
-              </p>
-            </div>
-          ) : (
-            <TrendChart data={trend} isCourse={isCourse} />
-          )}
-        </CardContent>
-      </Card>
+      {!isCourse && (
+        <Card variant="outlined">
+          <CardHeader title={isCourse ? 'Course Practice Trend' : 'Readiness Trend'} icon="trending-up" subtitle={isCourse ? 'Daily accuracy across your course practice attempts.' : 'Daily accuracy across practice attempts.'} />
+          <CardContent>
+            {trend.length === 0 ? (
+              <EmptyState
+                icon="trending-up"
+                title="No activity yet"
+                description={isCourse ? 'Complete practice questions to start tracking your study progress over time.' : 'Complete practice questions to start tracking your readiness over time.'}
+              />
+            ) : trend.length === 1 ? (
+              <div style={{ padding: 40, textAlign: 'center' }}>
+                <Icon name="trending-up" size={40} style={{ color: 'var(--muted)', margin: '0 auto 12px', opacity: 0.6 }} />
+                <p style={{ margin: 0, color: 'var(--muted)' }}>
+                  {trend[0].percent}% on {new Date(trend[0].date).toLocaleDateString()} ({trend[0].total} items) — keep practicing to see your trend.
+                </p>
+              </div>
+            ) : (
+              <TrendChart data={trend} isCourse={isCourse} />
+            )}
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }

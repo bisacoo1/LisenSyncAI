@@ -12,7 +12,7 @@ export function NavBar() {
   const navItems = [
     { path: '/dashboard', label: 'Dashboard', icon: 'dashboard' },
     { path: '/reviewer', label: 'Reviewer', icon: 'reviewer' },
-    { path: '/practice', label: 'Practice', icon: 'practice' },
+    { path: '/practice', label: 'Study mode', icon: 'practice' },
     { path: '/mock', label: 'Mock Exam', icon: 'mock' },
     { path: '/analytics', label: 'Analytics', icon: 'analytics' },
   ]

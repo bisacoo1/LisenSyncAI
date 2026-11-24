@@ -4,21 +4,18 @@ import { BrowserRouter } from 'react-router-dom'
 import App from './App'
 import { AuthProvider } from './context/AuthContext'
 import { ToastProvider } from './components/ui'
-import '@fontsource/dm-sans/latin-400.css'
-import '@fontsource/dm-sans/latin-500.css'
-import '@fontsource/dm-sans/latin-600.css'
-import '@fontsource/dm-sans/latin-700.css'
-import '@fontsource/dm-serif-display/latin-400.css'
-import '@fontsource/dm-serif-display/latin-400-italic.css'
+import '@fontsource-variable/figtree/wght.css'
+import '@fontsource-variable/jetbrains-mono/wght.css'
 import './index.css'
 import './design.css'
 
-// Restore the workspace preference on public pages too, before the first render.
+// Apply the workspace theme before the first render; navy dark is the new default.
 try {
-  const theme = localStorage.getItem('theme')
-  if (theme === 'light' || theme === 'dark') document.documentElement.classList.add(theme)
+  const theme = localStorage.getItem('workspace-theme')
+  document.documentElement.classList.remove('light', 'dark')
+  document.documentElement.classList.add(theme === 'light' ? 'light' : 'dark')
 } catch {
-  // If storage is unavailable, the stylesheet follows the system preference.
+  document.documentElement.classList.add('dark')
 }
 
 ReactDOM.createRoot(document.getElementById('root')!).render(

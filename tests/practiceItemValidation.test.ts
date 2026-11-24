@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { validateGeneratedPracticeItems } from '../src/lib/practiceItemValidation'
+import { getEnumerationPromptCount, validateGeneratedPracticeItems } from '../src/lib/practiceItemValidation'
 
 describe('validateGeneratedPracticeItems', () => {
   it('accepts a complete MCQ and attaches trusted request metadata', () => {
@@ -43,5 +43,14 @@ describe('validateGeneratedPracticeItems', () => {
       question: { prompt: 'List the examples.' },
       answer: { items: ['Example A', 'Example A'] },
     }], 'enumeration', 'Pharmacy', 'pharmacy')).toThrow(/invalid enumeration item/)
+  })
+
+  it('keeps explicit enumeration counts consistent with the answer key', () => {
+    expect(getEnumerationPromptCount('Enumerate the five rate-limiting steps.')).toBe(5)
+    expect(getEnumerationPromptCount('List the relevant examples.')).toBeNull()
+    expect(() => validateGeneratedPracticeItems([{
+      question: { prompt: 'Enumerate the five rate-limiting steps.' },
+      answer: { items: ['Step A', 'Step B'] },
+    }], 'enumeration', 'Pharmacy', 'pharmacy')).toThrow(/prompt requests 5 items but answer contains 2/)
   })
 })

@@ -214,6 +214,7 @@ export default function MockExamPage() {
 
       const score = Number(submission.score)
       const passed = Boolean(submission.passed)
+      const pointsAwarded = Number(submission.points_awarded) || 0
       if (submission.level > submission.previous_level) setLevelUp(submission.level)
       try {
         await refreshProfile()
@@ -259,7 +260,11 @@ export default function MockExamPage() {
         setItems((submittedItems as MockExamItem[]) || [])
       }
       setShowResults(true)
-      addToast({ type: passed ? 'success' : 'warning', title: auto ? 'Time expired' : 'Exam submitted', message: `Score: ${score}% — ${passed ? 'PASSED (≥75% overall, no subject <50%)' : 'Below passing rule'}` })
+      addToast({
+        type: passed ? 'success' : 'warning',
+        title: auto ? 'Time expired' : 'Exam submitted',
+        message: `Score: ${score}% — ${passed ? 'PASSED (≥75% overall, no subject <50%)' : 'Below passing rule'}${pointsAwarded ? ` · +${pointsAwarded} leaderboard points` : ''}`,
+      })
     } catch (e: any) { setErr(e.message); submittedRef.current = false } finally { setBusy(false) }
   }
 

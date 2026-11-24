@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { Fragment, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { Brand } from '@/components/Brand'
@@ -6,7 +6,6 @@ import { AnimatedNumber, Icon, Reveal, type IconName } from '@/components/ui'
 import { PHARMACY_PROGRAM } from '@/lib/syllabus'
 import { PASSING_RATE, type StudyTrack } from '@/types'
 import { supabase, supabaseConfigured } from '@/lib/supabase'
-import pharmacyHero from '@/assets/pharmacy-hero.jpg'
 
 interface MethodStep {
   number: string
@@ -21,7 +20,7 @@ interface TrackContent {
   switchLabel: string
   switchHint: string
   eyebrow: string
-  headline: ReactNode
+  headline: { before: string; accent: string }
   description: string
   primaryCta: string
   secondaryCta: string
@@ -29,10 +28,6 @@ interface TrackContent {
   footnote: ReactNode
   announcement: string
   announcementRight: string
-  stamp: { top: string; value: number; suffix?: string; bottom: string }
-  imageTop: [string, string]
-  caption: [string, string]
-  note: { title: string; meta: string; rows: { tag: string; label: string; meta: string }[] }
   routeIntro: [string, string]
   routeSteps: string[]
   steps: MethodStep[]
@@ -43,15 +38,11 @@ const TRACKS: Record<StudyTrack, TrackContent> = {
     switchLabel: 'Board exam',
     switchHint: 'PhLE candidate',
     eyebrow: 'BS PHARMACY · PRC PhLE COMPANION',
-    headline: (
-      <>
-        Your RPh chapter starts with a <em>good study day.</em>
-      </>
-    ),
+    headline: { before: 'Your RPh chapter starts with a', accent: 'good study day.' },
     description:
-      'Turn your BS Pharmacy handouts into active-recall flashcards, clinical case drills, and timed PhLE mock exams—aligned across all 6 PRC board modules.',
-    primaryCta: 'Start Pharmacy review',
-    secondaryCta: 'Explore the 6 PhLE modules',
+      'Turn pharmacy handouts into active-recall flashcards, clinical case drills, and timed mock exams mapped to all 6 PRC board modules.',
+    primaryCta: 'Start PhLE review',
+    secondaryCta: 'See all 6 modules',
     secondaryHref: '#syllabus',
     footnote: (
       <>
@@ -62,18 +53,6 @@ const TRACKS: Record<StudyTrack, TrackContent> = {
     ),
     announcement: 'THE BS PHARMACY STUDY SPACE · BUILT FOR THE PRC PhLE',
     announcementRight: 'ALL 06 BOARD MODULES IN ONE PLACE',
-    stamp: { top: 'PhLE GOAL', value: PASSING_RATE, suffix: '%', bottom: 'PASSING BENCHMARK' },
-    imageTop: ['BS PHARMACY · PhLE', '06 MODULES / CLINICAL REVIEW'],
-    caption: ['CLINICAL MASTERY', 'BUILT FOR FUTURE RPh.'],
-    note: {
-      title: 'PhLE STUDY PLAN',
-      meta: '06 MODULES',
-      rows: [
-        { tag: 'M1', label: 'Pharmaceutical Chemistry', meta: '20%' },
-        { tag: 'M3', label: 'Practice of Pharmacy', meta: '17%' },
-        { tag: 'M4', label: 'Pharmacology & PK', meta: '15%' },
-      ],
-    },
     routeIntro: ['FROM NOTES', 'TO LICENSED RPh'],
     routeSteps: ['UPLOAD PHARMACY NOTES', 'DRILL CLINICAL CASES', 'TRACK ALL 6 MODULES'],
     steps: [
@@ -107,13 +86,9 @@ const TRACKS: Record<StudyTrack, TrackContent> = {
     switchLabel: 'Course mode',
     switchHint: 'BS Pharmacy student',
     eyebrow: 'BS PHARMACY · COURSE MODE COMPANION',
-    headline: (
-      <>
-        Every course subject, <em>ready before the exam.</em>
-      </>
-    ),
+    headline: { before: 'Every course subject,', accent: 'ready before the exam.' },
     description:
-      'Still taking BS Pharmacy? Upload your lecture notes and reviewers, and Pharmora builds flashcards, multiple-choice, identification, and enumeration sets for each of your own subjects.',
+      'Upload lecture notes and reviewers. Pharmora turns each BS Pharmacy subject into flashcards, MCQs, identification, and enumeration practice.',
     primaryCta: 'Start course mode',
     secondaryCta: 'See the course study tools',
     secondaryHref: '#study-tracks',
@@ -126,18 +101,6 @@ const TRACKS: Record<StudyTrack, TrackContent> = {
     ),
     announcement: 'THE BS PHARMACY STUDY SPACE · BUILT FOR COURSEWORK TOO',
     announcementRight: 'YOUR OWN SUBJECTS, YOUR OWN STUDY SETS',
-    stamp: { top: 'COURSE TOOLS', value: 4, bottom: 'STUDY MODES' },
-    imageTop: ['BS PHARMACY · COURSE', 'ANY SUBJECT / ANY SEMESTER'],
-    caption: ['SEMESTER READY', 'BUILT FOR BS PHARMACY.'],
-    note: {
-      title: 'COURSE STUDY SET',
-      meta: '04 MODES',
-      rows: [
-        { tag: '01', label: 'Study mode · flashcards', meta: 'RECALL' },
-        { tag: '02', label: 'Exam mode · MCQ', meta: 'SCORE' },
-        { tag: '03', label: 'Identification & enumeration', meta: 'DRILL' },
-      ],
-    },
     routeIntro: ['FROM LECTURE', 'TO EXAM READY'],
     routeSteps: ['UPLOAD LECTURE NOTES', 'AUTO-BUILD 4 STUDY SETS', 'TRACK SUBJECT ACCURACY'],
     steps: [
@@ -287,6 +250,25 @@ const examSpecs: { value: number; suffix?: string; pad?: boolean; label: string 
   { value: PASSING_RATE, suffix: '%', label: 'PRC pass mark' },
 ]
 
+function HeadlineWords({ text, offset = 0 }: { text: string; offset?: number }) {
+  const words = text.split(' ')
+  return (
+    <>
+      {words.map((word, index) => (
+        <Fragment key={`${offset}-${index}`}>
+          <span
+            className="hero-headline-word"
+            style={{ animationDelay: `${260 + (offset + index) * 42}ms` }}
+          >
+            {word}
+          </span>
+          {index < words.length - 1 ? ' ' : null}
+        </Fragment>
+      ))}
+    </>
+  )
+}
+
 export default function LandingPage() {
   const { profile, loading } = useAuth()
   const navigate = useNavigate()
@@ -348,7 +330,7 @@ export default function LandingPage() {
         </div>
       </div>
 
-      <header className="landing-header">
+      <header className="landing-header liquid-glass-strong">
         <div className="landing-wrap landing-nav">
           <Brand />
           <nav className="landing-nav-links" aria-label="Page navigation">
@@ -371,7 +353,7 @@ export default function LandingPage() {
       <main aria-label="Pharmora AI study platform" tabIndex={-1} data-route-main>
         <section className="landing-hero landing-wrap">
           <div className="landing-hero-copy">
-            <div className="landing-mode-switch" role="group" aria-label="Choose your study mode">
+            <div className="landing-mode-switch liquid-glass" role="group" aria-label="Choose your study mode">
               <span className="landing-mode-switch-label">STUDY MODE</span>
               {(Object.keys(TRACKS) as StudyTrack[]).map((key) => (
                 <button
@@ -393,10 +375,16 @@ export default function LandingPage() {
             <div className="landing-eyebrow">
               <span className="eyebrow-dot" /> {copy.eyebrow} <span className="eyebrow-index">/ 01</span>
             </div>
-            <h1>{copy.headline}</h1>
+            <h1>
+              <HeadlineWords text={copy.headline.before} />
+              {' '}
+              <em>
+                <HeadlineWords text={copy.headline.accent} offset={copy.headline.before.split(' ').length} />
+              </em>
+            </h1>
             <p>{copy.description}</p>
             <div className="landing-hero-actions">
-              <Link to={registerHref} className="landing-primary-button">
+              <Link to={registerHref} className="landing-primary-button liquid-glass-strong">
                 {copy.primaryCta} <Icon name="arrow-right" size={19} />
               </Link>
               <a href={copy.secondaryHref} className="landing-text-link">
@@ -411,58 +399,6 @@ export default function LandingPage() {
             </div>
           </div>
 
-          <div className="landing-hero-visual">
-            <img
-              src={pharmacyHero}
-              alt="A clinical pharmacy study desk with porcelain mortar and pestle, laboratory flasks, amber bottle, navy reference books, and open notebook"
-            />
-            <div className="hero-image-overlay" />
-            <div className="hero-image-top">
-              <span>
-                <Icon name="flask" size={15} /> {copy.imageTop[0]}
-              </span>
-              <span>{copy.imageTop[1]}</span>
-            </div>
-            <div
-              className="hero-stamp"
-              aria-label={`${copy.stamp.top}: ${copy.stamp.value}${copy.stamp.suffix ?? ''} ${copy.stamp.bottom}`}
-            >
-              <span>{copy.stamp.top}</span>
-              <strong>
-                <AnimatedNumber
-                  key={`stamp-${track}`}
-                  value={copy.stamp.value}
-                  duration={1400}
-                  delay={420}
-                  startOnView
-                />
-                {copy.stamp.suffix && <small>{copy.stamp.suffix}</small>}
-              </strong>
-              <span>{copy.stamp.bottom}</span>
-            </div>
-            <div className="hero-note-card">
-              <div className="hero-note-header">
-                <span>
-                  <span className="rx-pill-tag" aria-hidden="true">
-                    Rx
-                  </span>{' '}
-                  {copy.note.title}
-                </span>
-                <span>{copy.note.meta}</span>
-              </div>
-              {copy.note.rows.map((row) => (
-                <div className="hero-note-row" key={row.label}>
-                  <span>{row.tag}</span>
-                  <strong>{row.label}</strong>
-                  <span className="hero-note-weight">{row.meta}</span>
-                </div>
-              ))}
-            </div>
-            <div className="hero-photo-caption">
-              <span>{copy.caption[0]}</span>
-              <span>{copy.caption[1]}</span>
-            </div>
-          </div>
         </section>
 
         <Reveal as="section" className="landing-route" aria-label="Your Pharmacy study journey">
@@ -516,7 +452,7 @@ export default function LandingPage() {
           </div>
           <Reveal className="method-grid motion-stagger" id="study-tools">
             {copy.steps.map((step) => (
-              <article className="method-card" key={step.number}>
+              <article className="method-card liquid-glass" key={step.number}>
                 <div className="method-card-top">
                   <span className="method-icon">
                     <Icon name={step.icon} size={23} />
@@ -581,7 +517,7 @@ export default function LandingPage() {
           <Reveal className="track-grid motion-stagger">
             {STUDY_TRACKS.map((item) => (
               <article
-                className={`track-card${track === item.id ? ' is-selected' : ''}`}
+                className={`track-card liquid-glass${track === item.id ? ' is-selected' : ''}`}
                 key={item.id}
                 aria-current={track === item.id ? 'true' : undefined}
               >
@@ -711,7 +647,7 @@ export default function LandingPage() {
           </div>
           <div className="faq-list">
             {FAQS.map((item) => (
-              <details className="faq-item" key={item.question}>
+              <details className="faq-item liquid-glass" key={item.question}>
                 <summary>
                   <span>{item.question}</span>
                   <Icon name="chevron-down" size={18} />
@@ -737,7 +673,7 @@ export default function LandingPage() {
                 : 'Make today a good day to begin your BS Pharmacy review.'}
             </p>
           </div>
-          <Link to={registerHref} className="landing-primary-button">
+          <Link to={registerHref} className="landing-primary-button liquid-glass-strong">
             Create your account <Icon name="arrow-right" size={19} />
           </Link>
         </Reveal>

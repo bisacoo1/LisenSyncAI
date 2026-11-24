@@ -1,8 +1,11 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type MouseEvent, type PointerEvent } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { supabase } from '@/lib/supabase'
-import { groupReviewersByFolder } from '@/lib/reviewerFolders'
+import { groupReviewersByFolder, type ReviewerFolder } from '@/lib/reviewerFolders'
+import { ProfileAvatar } from '@/components/ProfileAvatar'
+import { removeReviewFile } from '@/lib/storage'
+import type { FriendConnection } from '@/lib/social'
 import type { ReviewMaterial, UserSubject } from '@/types'
 import { AnimatedNumber, Badge, Button, Card, CardContent, EmptyState, Icon, Input, Modal, Skeleton, type IconName, useToast } from '@/components/ui'
 import { WorkspacePageHeader } from '@/components/WorkspacePageHeader'
@@ -10,6 +13,7 @@ import { WorkspacePageHeader } from '@/components/WorkspacePageHeader'
 type ReviewerStudyMode = 'flashcards' | 'mcq' | 'diagnosis' | 'sequence' | 'enumeration' | 'identification'
 type ModeCounts = Partial<Record<ReviewerStudyMode, number>>
 type ReviewerEntry = { material: ReviewMaterial; modeCounts: ModeCounts; folderName: string }
+type ReviewerShareTarget = { title: string; materialIds: string[] }
 type StudyModeOption = {
   type: ReviewerStudyMode
   title: string
@@ -30,6 +34,16 @@ const courseStudyModes: StudyModeOption[] = [
   { type: 'identification', title: 'Identification', description: 'Type answers from memory.', icon: 'search' },
   { type: 'enumeration', title: 'Enumeration', description: 'Recall the items in a list.', icon: 'list-checks' },
 ]
+
+const SUBJECT_FOLDER_UNDO_WINDOW_MS = 8_000
+const SUBJECT_FOLDER_DELETION_CHANGE_EVENT = 'pharmora:subject-folder-deletion-change'
+const pendingSubjectFolderDeletions = new Set<string>()
+
+function setSubjectFolderDeletionPending(folderId: string, pending: boolean) {
+  if (pending) pendingSubjectFolderDeletions.add(folderId)
+  else pendingSubjectFolderDeletions.delete(folderId)
+  window.dispatchEvent(new Event(SUBJECT_FOLDER_DELETION_CHANGE_EVENT))
+}
 
 function isReviewerStudyMode(value: string): value is ReviewerStudyMode {
   return value === 'flashcards' || value === 'mcq' || value === 'diagnosis' ||
@@ -52,9 +66,26 @@ export default function MyReviewersPage() {
   const [createFolderOpen, setCreateFolderOpen] = useState(false)
   const [newFolderName, setNewFolderName] = useState('')
   const [savingFolder, setSavingFolder] = useState(false)
+  const [shareTarget, setShareTarget] = useState<ReviewerShareTarget | null>(null)
+  const [shareFriends, setShareFriends] = useState<FriendConnection[]>([])
+  const [shareFriendsLoading, setShareFriendsLoading] = useState(false)
+  const [shareFriendsError, setShareFriendsError] = useState<string | null>(null)
+  const [sharingFriendId, setSharingFriendId] = useState<string | null>(null)
+  const [sharedFriendIds, setSharedFriendIds] = useState<Set<string>>(() => new Set())
+  const [removeFolderTarget, setRemoveFolderTarget] = useState<ReviewerFolder<ReviewerEntry> | null>(null)
+  const [pendingFolderIds, setPendingFolderIds] = useState<Set<string>>(() => new Set(pendingSubjectFolderDeletions))
   const [moveTargets, setMoveTargets] = useState<Record<string, string>>({})
+  const folderClickTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const folderLongPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const folderDeletionTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>())
+  const folderLongPressTriggered = useRef(false)
+  const folderPointerType = useRef<string | null>(null)
+  const isMounted = useRef(false)
   const selectedSubject = searchParams.get('subject')
   const selectedMaterialId = searchParams.get('material')
+  const fromStudyMode = searchParams.get('from') === 'study'
+  const requestedMode = searchParams.get('mode') || ''
+  const requestedStudyMode = isReviewerStudyMode(requestedMode) ? requestedMode : null
   const { addToast } = useToast()
 
   useEffect(() => {
@@ -116,29 +147,242 @@ export default function MyReviewersPage() {
     return () => { cancelled = true }
   }, [profile?.id, retry])
 
+  useEffect(() => {
+    if (!shareTarget) return
+    let active = true
+    setShareFriendsLoading(true)
+    setShareFriendsError(null)
+    setShareFriends([])
+    setSharedFriendIds(new Set())
+    void (async () => {
+      const { data, error: resultError } = await supabase.rpc('get_friend_connections')
+      if (!active) return
+      if (resultError) {
+        setShareFriendsError(resultError.message)
+      } else {
+        setShareFriends(((data || []) as FriendConnection[]).filter(connection => connection.status === 'accepted'))
+      }
+      setShareFriendsLoading(false)
+    })()
+    return () => { active = false }
+  }, [shareTarget?.materialIds])
+
   const folders = useMemo(() => groupReviewersByFolder(reviewers, subjectFolders), [reviewers, subjectFolders])
+  const visibleFolders = useMemo(
+    () => folders.filter(folder => !folder.id || !pendingFolderIds.has(folder.id)),
+    [folders, pendingFolderIds],
+  )
+  const selectedFolder = folders.find(folder => folder.subject === selectedSubject)
+  const selectedReviewer = selectedFolder?.reviewers.find(entry => entry.material.id === selectedMaterialId)
+  const studyModes = profile?.track === 'course' ? courseStudyModes : boardStudyModes
+  const requestedModeOption = studyModes.find(option => option.type === requestedStudyMode)
+  const requestedModeCount = requestedStudyMode && selectedReviewer
+    ? selectedReviewer.modeCounts[requestedStudyMode] || 0
+    : 0
+  const hasSelectedStudyDeck = selectedReviewer
+    ? Object.values(selectedReviewer.modeCounts).some(count => (count || 0) > 0)
+    : false
+
+  useEffect(() => {
+    isMounted.current = true
+    const syncPendingFolders = () => setPendingFolderIds(new Set(pendingSubjectFolderDeletions))
+    window.addEventListener(SUBJECT_FOLDER_DELETION_CHANGE_EVENT, syncPendingFolders)
+    return () => {
+      isMounted.current = false
+      window.removeEventListener(SUBJECT_FOLDER_DELETION_CHANGE_EVENT, syncPendingFolders)
+      if (folderClickTimer.current) window.clearTimeout(folderClickTimer.current)
+      if (folderLongPressTimer.current) window.clearTimeout(folderLongPressTimer.current)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!fromStudyMode || !requestedStudyMode || !requestedModeOption || !selectedReviewer || !requestedModeCount) return
+    const params = new URLSearchParams({
+      mode: requestedStudyMode,
+      subject: selectedReviewer.material.subject,
+      material: selectedReviewer.material.id,
+      folder: selectedReviewer.folderName,
+    })
+    navigate(`/practice?${params.toString()}`, { replace: true })
+  }, [fromStudyMode, requestedStudyMode, requestedModeOption, requestedModeCount, selectedReviewer, navigate])
 
   if (!profile) return null
 
-  const selectedFolder = folders.find(folder => folder.subject === selectedSubject)
-  const selectedReviewer = selectedFolder?.reviewers.find(entry => entry.material.id === selectedMaterialId)
-  const studyModes = profile.track === 'course' ? courseStudyModes : boardStudyModes
+  function studyBrowseParams() {
+    const params = new URLSearchParams()
+    if (fromStudyMode) {
+      params.set('from', 'study')
+      if (requestedStudyMode) params.set('mode', requestedStudyMode)
+    }
+    return params
+  }
 
   function showSubjects() {
-    setSearchParams({})
+    setSearchParams(studyBrowseParams())
   }
 
   function showFolder(subject: string) {
-    setSearchParams({ subject })
+    const params = studyBrowseParams()
+    params.set('subject', subject)
+    setSearchParams(params)
   }
 
   function showReviewer(entry: ReviewerEntry) {
-    setSearchParams({ subject: entry.folderName, material: entry.material.id })
+    const params = studyBrowseParams()
+    params.set('subject', entry.folderName)
+    params.set('material', entry.material.id)
+    setSearchParams(params)
   }
 
   function showFolderReviewers() {
-    if (selectedSubject) setSearchParams({ subject: selectedSubject })
-    else showSubjects()
+    const params = studyBrowseParams()
+    if (selectedSubject) params.set('subject', selectedSubject)
+    setSearchParams(params)
+  }
+
+  function clearFolderClickTimer() {
+    if (folderClickTimer.current) window.clearTimeout(folderClickTimer.current)
+    folderClickTimer.current = null
+  }
+
+  function clearFolderLongPressTimer() {
+    if (folderLongPressTimer.current) window.clearTimeout(folderLongPressTimer.current)
+    folderLongPressTimer.current = null
+  }
+
+  function openFolderRemoval(folder: ReviewerFolder<ReviewerEntry>) {
+    if (!folder.id) return
+    clearFolderClickTimer()
+    setRemoveFolderTarget(folder)
+  }
+
+  function closeFolderRemoval() {
+    folderLongPressTriggered.current = false
+    setRemoveFolderTarget(null)
+  }
+
+  function undoFolderRemoval(folder: ReviewerFolder<ReviewerEntry>) {
+    if (!folder.id) return
+    const timer = folderDeletionTimers.current.get(folder.id)
+    if (timer === undefined) return
+    window.clearTimeout(timer)
+    folderDeletionTimers.current.delete(folder.id)
+    setSubjectFolderDeletionPending(folder.id, false)
+    addToast({
+      type: 'info',
+      title: 'Deletion undone',
+      message: `${folder.subject} is back in My Reviewers.`,
+      placement: 'center',
+    })
+  }
+
+  async function permanentlyDeleteSubjectFolder(folder: ReviewerFolder<ReviewerEntry>) {
+    if (!folder.id) return
+    const folderId = folder.id
+    try {
+      const { data, error: deleteError } = await supabase.rpc('delete_subject_folder_contents', {
+        p_folder_id: folderId,
+      })
+      if (deleteError) throw new Error(deleteError.message)
+
+      const filePaths = Array.isArray(data)
+        ? data.filter((path): path is string => typeof path === 'string' && path.length > 0 && !path.startsWith('data:'))
+        : []
+      if (isMounted.current) {
+        setReviewers(previous => previous.filter(entry => entry.folderName !== folder.subject))
+        setSubjectFolders(previous => previous.filter(subject => subject.id !== folderId))
+      }
+      setSubjectFolderDeletionPending(folderId, false)
+
+      try {
+        await Promise.all(filePaths.map(removeReviewFile))
+      } catch (storageError) {
+        addToast({
+          type: 'error',
+          title: 'Folder deleted, but some uploaded files remain',
+          message: getErrorMessage(storageError),
+        })
+      }
+    } catch (deleteError) {
+      setSubjectFolderDeletionPending(folderId, false)
+      addToast({
+        type: 'error',
+        title: 'Could not remove subject folder',
+        message: getErrorMessage(deleteError),
+      })
+    }
+  }
+
+  function queueFolderRemoval(folder: ReviewerFolder<ReviewerEntry>) {
+    if (!profile || !folder.id || folderDeletionTimers.current.has(folder.id)) return
+    clearFolderClickTimer()
+    const folderId = folder.id
+    setSubjectFolderDeletionPending(folderId, true)
+    const timer = window.setTimeout(() => {
+      folderDeletionTimers.current.delete(folderId)
+      void permanentlyDeleteSubjectFolder(folder)
+    }, SUBJECT_FOLDER_UNDO_WINDOW_MS)
+    folderDeletionTimers.current.set(folderId, timer)
+    addToast({
+      type: 'success',
+      title: 'Subject deleted',
+      message: `Removed from My Reviewers. Undo within 8 seconds to keep it.`,
+      duration: SUBJECT_FOLDER_UNDO_WINDOW_MS,
+      placement: 'center',
+      action: { label: 'Undo', onClick: () => undoFolderRemoval(folder) },
+    })
+  }
+
+  function confirmFolderRemoval() {
+    if (!removeFolderTarget) return
+    queueFolderRemoval(removeFolderTarget)
+    folderLongPressTriggered.current = false
+    setRemoveFolderTarget(null)
+  }
+
+  function handleFolderPointerDown(folder: ReviewerFolder<ReviewerEntry>, event: PointerEvent<HTMLButtonElement>) {
+    folderPointerType.current = event.pointerType
+    folderLongPressTriggered.current = false
+    if (!folder.id || (event.pointerType !== 'touch' && event.pointerType !== 'pen')) return
+    clearFolderLongPressTimer()
+    folderLongPressTimer.current = window.setTimeout(() => {
+      folderLongPressTriggered.current = true
+      openFolderRemoval(folder)
+    }, 600)
+  }
+
+  function handleFolderPointerEnd() {
+    clearFolderLongPressTimer()
+  }
+
+  function handleFolderContextMenu(folder: ReviewerFolder<ReviewerEntry>, event: MouseEvent<HTMLButtonElement>) {
+    if (folderPointerType.current !== 'touch' && folderPointerType.current !== 'pen') return
+    event.preventDefault()
+    folderLongPressTriggered.current = true
+    clearFolderLongPressTimer()
+    openFolderRemoval(folder)
+  }
+
+  function handleFolderClick(folder: ReviewerFolder<ReviewerEntry>, event: MouseEvent<HTMLButtonElement>) {
+    if (folderLongPressTriggered.current) {
+      folderLongPressTriggered.current = false
+      event.preventDefault()
+      return
+    }
+    if (event.detail === 0 || folderPointerType.current === 'touch' || folderPointerType.current === 'pen') {
+      showFolder(folder.subject)
+      return
+    }
+    if (event.detail >= 2) {
+      clearFolderClickTimer()
+      if (!folder.id) showFolder(folder.subject)
+      return
+    }
+    clearFolderClickTimer()
+    folderClickTimer.current = window.setTimeout(() => {
+      showFolder(folder.subject)
+      folderClickTimer.current = null
+    }, 500)
   }
 
   async function createSubjectFolder() {
@@ -189,6 +433,36 @@ export default function MyReviewersPage() {
     addToast({ type: 'success', title: 'Reviewer moved', message: `${entry.material.title} → ${target.name}` })
   }
 
+  async function shareReviewer(friend: FriendConnection) {
+    if (!shareTarget) return
+    setSharingFriendId(friend.user_id)
+    try {
+      const { data, error: shareError } = await supabase.rpc('share_reviewers_with_friend', {
+        p_material_ids: shareTarget.materialIds,
+        p_friend_id: friend.user_id,
+      })
+      if (shareError) throw new Error(shareError.message)
+      const sharedCount = Number(data)
+      if (!Number.isInteger(sharedCount) || sharedCount !== shareTarget.materialIds.length) {
+        throw new Error('The generated reviewer copy was not completed.')
+      }
+      setSharedFriendIds(previous => new Set(previous).add(friend.user_id))
+      addToast({
+        type: 'success',
+        title: 'Study content shared',
+        message: `${sharedCount} reviewer ${sharedCount === 1 ? 'deck is' : 'decks are'} now in ${friend.display_name}’s My Reviewers.`,
+      })
+    } catch (shareError) {
+      addToast({
+        type: 'error',
+        title: 'Could not share reviewer',
+        message: getErrorMessage(shareError),
+      })
+    } finally {
+      setSharingFriendId(null)
+    }
+  }
+
   return (
     <div className="container workspace-page my-reviewers-page">
       {selectedMaterialId && selectedReviewer ? (
@@ -203,11 +477,24 @@ export default function MyReviewersPage() {
             index="SET"
             title={<>{selectedReviewer.material.title}</>}
             description={`${selectedReviewer.folderName}${selectedReviewer.folderName !== selectedReviewer.material.subject ? ` · Content subject: ${selectedReviewer.material.subject}` : ''}${selectedReviewer.material.source_filename ? ` · ${selectedReviewer.material.source_filename}` : ''}`}
-            action={selectedReviewer.material.file_uri || selectedReviewer.material.extracted_text ? (
-              <Button variant="secondary" leftIcon="file-text" onClick={() => navigate(`/side-by-side/${selectedReviewer.material.id}`)}>
-                Open reviewer
-              </Button>
-            ) : undefined}
+            action={(
+              <div className="reviewer-header-actions">
+                <Button
+                  variant="secondary"
+                  leftIcon="share"
+                  disabled={!hasSelectedStudyDeck}
+                  title={!hasSelectedStudyDeck ? 'Generate at least one study set before sharing this reviewer.' : undefined}
+                  onClick={() => setShareTarget({ title: selectedReviewer.material.title, materialIds: [selectedReviewer.material.id] })}
+                >
+                  Share reviewer
+                </Button>
+                {(selectedReviewer.material.file_uri || selectedReviewer.material.extracted_text) && (
+                  <Button variant="outline" leftIcon="file-text" onClick={() => navigate(`/side-by-side/${selectedReviewer.material.id}`)}>
+                    Read with AI
+                  </Button>
+                )}
+              </div>
+            )}
           />
 
           <section className="reviewer-mode-section" aria-labelledby="reviewer-mode-title">
@@ -215,7 +502,11 @@ export default function MyReviewersPage() {
               <span className="reviewer-mode-heading-icon"><Icon name="book-open" size={20} /></span>
               <div>
                 <h2 id="reviewer-mode-title">How do you want to study?</h2>
-                <p>{studyModes.filter(mode => (selectedReviewer.modeCounts[mode.type] || 0) > 0).length} study modes ready · choose one to begin.</p>
+                <p>
+                  {fromStudyMode && requestedModeOption && !requestedModeCount
+                    ? `${requestedModeOption.title} is not available for this reviewer. Choose another available set or go back to change your mode.`
+                    : `${studyModes.filter(mode => (selectedReviewer.modeCounts[mode.type] || 0) > 0).length} study modes ready · choose one to begin.`}
+                </p>
               </div>
             </div>
             <div className="reviewer-mode-grid">
@@ -231,7 +522,7 @@ export default function MyReviewersPage() {
                     type="button"
                     className={`reviewer-mode-card${count ? '' : ' is-disabled'}`}
                     disabled={!count}
-                    onClick={() => navigate(`/practice?mode=${mode.type}&subject=${encodeURIComponent(selectedReviewer.material.subject)}&material=${encodeURIComponent(selectedReviewer.material.id)}`)}
+                    onClick={() => navigate(`/practice?mode=${mode.type}&subject=${encodeURIComponent(selectedReviewer.material.subject)}&material=${encodeURIComponent(selectedReviewer.material.id)}&folder=${encodeURIComponent(selectedReviewer.folderName)}`)}
                     aria-label={`${mode.title}. ${countLabel}`}
                   >
                     <span className="reviewer-mode-icon"><Icon name={mode.icon} size={21} /></span>
@@ -279,8 +570,27 @@ export default function MyReviewersPage() {
             eyebrow="MY REVIEWERS"
             index="SUBJECT FOLDER"
             title={<>{selectedFolder.subject}</>}
-            description={`${selectedFolder.reviewers.length} reviewer ${selectedFolder.reviewers.length === 1 ? 'set' : 'sets'} in this subject folder.`}
-            action={<Button variant="primary" leftIcon="upload" onClick={() => navigate('/reviewer?tab=upload')}>Upload reviewer</Button>}
+            description={fromStudyMode && requestedModeOption
+              ? `Choose a reviewer to start ${requestedModeOption.title}.`
+              : `${selectedFolder.reviewers.length} reviewer ${selectedFolder.reviewers.length === 1 ? 'set' : 'sets'} in this subject folder.`}
+            action={(
+              <div className="reviewer-header-actions">
+                <Button
+                  variant="secondary"
+                  leftIcon="share"
+                  disabled={!selectedFolder.reviewers.some(entry => Object.values(entry.modeCounts).some(count => (count || 0) > 0))}
+                  onClick={() => setShareTarget({
+                    title: selectedFolder.subject,
+                    materialIds: selectedFolder.reviewers
+                      .filter(entry => Object.values(entry.modeCounts).some(count => (count || 0) > 0))
+                      .map(entry => entry.material.id),
+                  })}
+                >
+                  Share subject
+                </Button>
+                <Button variant="primary" leftIcon="upload" onClick={() => navigate('/reviewer?tab=upload')}>Upload materials</Button>
+              </div>
+            )}
           />
           {selectedFolder.reviewers.length ? (
             <div className="reviewer-set-list">
@@ -309,9 +619,19 @@ export default function MyReviewersPage() {
                     <Button variant="outline" size="sm" leftIcon="book-open" onClick={() => showReviewer(entry)}>
                       Choose study mode
                     </Button>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      leftIcon="share"
+                      disabled={!modeCount}
+                      title={!modeCount ? 'Generate at least one study set before sharing this reviewer.' : undefined}
+                      onClick={() => setShareTarget({ title: entry.material.title, materialIds: [entry.material.id] })}
+                    >
+                      Share reviewer
+                    </Button>
                     {(entry.material.file_uri || entry.material.extracted_text) && (
                       <Button variant="ghost" size="sm" leftIcon="file-text" onClick={() => navigate(`/side-by-side/${entry.material.id}`)}>
-                        Open reviewer
+                        Read with AI
                       </Button>
                     )}
                     {subjectFolders.length > 0 && (
@@ -361,11 +681,13 @@ export default function MyReviewersPage() {
             eyebrow="STUDY LIBRARY"
             index="MY REVIEWERS"
             title={<>My <em>reviewers.</em></>}
-            description="Browse your saved reviewers by subject. Open a reviewer to choose from the study sets generated from it."
+            description={fromStudyMode && requestedModeOption
+              ? `Choose a subject and reviewer. We’ll open it directly in ${requestedModeOption.title} when that set is available.`
+              : 'Browse your saved reviewers by subject. Open a reviewer to choose from the study sets generated from it.'}
             action={(
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 <Button variant="secondary" leftIcon="plus" onClick={() => setCreateFolderOpen(true)}>Add subject</Button>
-                <Button variant="primary" leftIcon="upload" onClick={() => navigate('/reviewer?tab=upload')}>Upload reviewer</Button>
+                <Button variant="primary" leftIcon="upload" onClick={() => navigate('/reviewer?tab=upload')}>Upload materials</Button>
               </div>
             )}
           />
@@ -392,26 +714,40 @@ export default function MyReviewersPage() {
                 />
               </CardContent>
             </Card>
-          ) : folders.length === 0 ? (
+          ) : visibleFolders.length === 0 ? (
             <Card variant="outlined">
               <CardContent>
                 <EmptyState
                   icon="folder"
                   title="No reviewers yet"
-                  description="Upload a reviewer to create your first subject folder and study set."
-                  action={{ label: 'Upload reviewer', variant: 'primary', onClick: () => navigate('/reviewer?tab=upload') }}
+                  description="Upload study materials to create your first subject folder and study set."
+                  action={{ label: 'Upload materials', variant: 'primary', onClick: () => navigate('/reviewer?tab=upload') }}
                 />
               </CardContent>
             </Card>
           ) : (
             <div className="reviewer-folder-grid">
-              {folders.map(folder => (
+              {visibleFolders.map(folder => (
                 <button
                   type="button"
                   className="reviewer-folder-card"
                   key={folder.subject}
-                  onClick={() => showFolder(folder.subject)}
-                  aria-label={`${folder.subject}, ${folder.reviewers.length} reviewer ${folder.reviewers.length === 1 ? 'set' : 'sets'}`}
+                  onClick={event => handleFolderClick(folder, event)}
+                  onDoubleClick={() => openFolderRemoval(folder)}
+                  onPointerDown={event => handleFolderPointerDown(folder, event)}
+                  onPointerUp={handleFolderPointerEnd}
+                  onPointerLeave={handleFolderPointerEnd}
+                  onPointerCancel={handleFolderPointerEnd}
+                  onContextMenu={event => handleFolderContextMenu(folder, event)}
+                  onKeyDown={event => {
+                    if (event.key === 'Delete' && folder.id) {
+                      event.preventDefault()
+                      openFolderRemoval(folder)
+                    }
+                  }}
+                  aria-keyshortcuts={folder.id ? 'Delete' : undefined}
+                  aria-label={`${folder.subject}, ${folder.reviewers.length} reviewer ${folder.reviewers.length === 1 ? 'set' : 'sets'}${folder.id ? '. Double-click or long-press to delete this subject; press Delete when focused.' : ''}`}
+                  title={folder.id ? 'Double-click or long-press to delete this subject' : undefined}
                 >
                   <span className="reviewer-folder-icon"><Icon name="folder" size={23} /></span>
                   <span className="reviewer-folder-copy">
@@ -426,6 +762,85 @@ export default function MyReviewersPage() {
           )}
         </>
       )}
+      <Modal
+        open={Boolean(shareTarget)}
+        onClose={() => { if (!sharingFriendId) setShareTarget(null) }}
+        title={shareTarget ? `Share ${shareTarget.title}` : 'Share reviewer'}
+        description={`Generated questions and flashcards from ${shareTarget?.materialIds.length || 0} reviewer set${shareTarget?.materialIds.length === 1 ? '' : 's'} will be copied into your friend’s My Reviewers. Uploaded files and extracted source text are not shared.`}
+        size="md"
+        closeOnOverlayClick={!sharingFriendId}
+        closeOnEscape={!sharingFriendId}
+        footer={<Button variant="secondary" onClick={() => setShareTarget(null)} disabled={sharingFriendId !== null}>Done</Button>}
+      >
+        {shareFriendsLoading ? (
+          <div className="social-status" role="status">Loading your friends…</div>
+        ) : shareFriendsError ? (
+          <div className="social-status social-error" role="alert">
+            <span>Could not load friends: {shareFriendsError}</span>
+          </div>
+        ) : shareFriends.length === 0 ? (
+          <div className="social-empty-state">
+            <Icon name="users" size={28} aria-hidden="true" />
+            <strong>No accepted friends to share with yet.</strong>
+            <span>Add a learner from the leaderboard and wait for them to accept.</span>
+            <Button
+              variant="outline"
+              onClick={() => { setShareTarget(null); navigate('/friends') }}
+            >
+              Open friends
+            </Button>
+          </div>
+        ) : (
+          <ul className="social-person-list">
+            {shareFriends.map(friend => {
+              const initials = friend.display_name.split(/\s+/).slice(0, 2).map(part => part[0] || '').join('').toUpperCase()
+              const alreadyShared = sharedFriendIds.has(friend.user_id)
+              return (
+                <li className="social-person-row" key={friend.friendship_id}>
+                  <ProfileAvatar
+                    className="social-person-avatar"
+                    avatarId={friend.avatar_id}
+                    avatarPath={friend.avatar_path}
+                    avatarBorderId={friend.avatar_border}
+                    initials={initials}
+                  />
+                  <div className="social-person-copy">
+                    <strong>{friend.display_name}</strong>
+                    <span>Level {friend.level}</span>
+                  </div>
+                  <Button
+                    variant={alreadyShared ? 'outline' : 'primary'}
+                    size="sm"
+                    leftIcon={alreadyShared ? 'check' : 'share'}
+                    disabled={alreadyShared || sharingFriendId !== null}
+                    loading={sharingFriendId === friend.user_id}
+                    onClick={() => void shareReviewer(friend)}
+                  >
+                    {alreadyShared ? 'Shared' : 'Share'}
+                  </Button>
+                </li>
+              )
+            })}
+          </ul>
+        )}
+      </Modal>
+      <Modal
+        open={Boolean(removeFolderTarget)}
+        onClose={closeFolderRemoval}
+        title={removeFolderTarget ? `Delete ${removeFolderTarget.subject}?` : 'Delete subject folder'}
+        description={removeFolderTarget
+          ? `This deletes the folder, ${removeFolderTarget.reviewers.length} reviewer ${removeFolderTarget.reviewers.length === 1 ? 'set' : 'sets'}, uploaded files, generated study content, and related practice history. You’ll have 8 seconds to undo after confirming.`
+          : undefined}
+        size="sm"
+        footer={(
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+            <Button variant="secondary" onClick={closeFolderRemoval}>Cancel</Button>
+            <Button variant="danger" leftIcon="trash" onClick={confirmFolderRemoval}>Delete folder</Button>
+          </div>
+        )}
+      >
+        <p>The folder will disappear immediately. Use Undo in the toast within 8 seconds to keep it.</p>
+      </Modal>
       <Modal
         open={createFolderOpen}
         onClose={() => { if (!savingFolder) setCreateFolderOpen(false) }}

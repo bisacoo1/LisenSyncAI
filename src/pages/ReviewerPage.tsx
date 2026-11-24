@@ -1,16 +1,18 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type DragEvent } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { WorkspacePageHeader } from '@/components/WorkspacePageHeader'
 import { useAuth } from '@/context/AuthContext'
 import { getProgram } from '@/lib/syllabus'
-import { aiConfigured, generateFlashcardsFromFile, generatePracticeItemsFromFile, extractTextFromFile, type MaterialSource } from '@/lib/ai'
+import { aiConfigured, generateFlashcardsFromFile, generatePracticeItemsFromFile, extractTextFromFile, generateMaterialTitle, type MaterialSource } from '@/lib/ai'
 import { removeReviewFile, uploadReviewFile, assertReviewFile } from '@/lib/storage'
 import { supabase } from '@/lib/supabase'
-import type { Flashcard, PracticeType, ReviewMaterial, UserSubject } from '@/types'
-import { Card, CardHeader, CardContent, Button, Badge, Icon, Input, Select, EmptyState, Skeleton, useToast, Modal } from '@/components/ui'
+import type { PracticeType, ReviewMaterial } from '@/types'
+import { Card, CardContent, Button, Badge, Icon, Select, useToast } from '@/components/ui'
 
 type GeneratedStudySet = 'flashcards' | Exclude<PracticeType, 'flashcard_drill'>
 type UploadStage = 'uploading' | 'extracting' | 'saving' | 'generating'
+type UploadMode = 'file' | 'text'
+const MAX_PASTED_TEXT_CHARS = 30_000
 const DEFAULT_COURSE_SUBJECT = 'General'
 const COURSE_STUDY_SETS: { type: GeneratedStudySet; label: string }[] = [
   { type: 'flashcards', label: 'flashcards' },
@@ -21,6 +23,7 @@ const COURSE_STUDY_SETS: { type: GeneratedStudySet; label: string }[] = [
 
 function fileIcon(mimeType: string | null | undefined) {
   if (!mimeType) return 'file-text'
+  if (mimeType.startsWith('image/')) return 'image'
   if (mimeType.includes('pdf')) return 'file-pdf'
   if (mimeType.includes('word') || mimeType.includes('document')) return 'file-text'
   if (mimeType.includes('powerpoint') || mimeType.includes('presentation')) return 'file-text'
@@ -29,6 +32,7 @@ function fileIcon(mimeType: string | null | undefined) {
 
 function fileIconColor(mimeType: string | null | undefined) {
   if (!mimeType) return 'var(--muted)'
+  if (mimeType.startsWith('image/')) return 'var(--primary)'
   if (mimeType.includes('pdf')) return 'var(--danger)'
   if (mimeType.includes('word') || mimeType.includes('document')) return 'var(--primary)'
   if (mimeType.includes('powerpoint') || mimeType.includes('presentation')) return 'var(--warning)'
@@ -44,9 +48,13 @@ function getErrorMessage(error: unknown) {
   return 'An unexpected error occurred.'
 }
 
-function flashcardPracticePath(card: Flashcard) {
-  const path = `/practice?mode=flashcards&subject=${encodeURIComponent(card.subject)}`
-  return card.material_id ? `${path}&material=${encodeURIComponent(card.material_id)}` : path
+function filenameMaterialTitle(filename: string) {
+  return filename.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim() || 'Uploaded reviewer'
+}
+
+function pastedTextMaterialTitle(text: string) {
+  const firstLine = text.split(/\r?\n/).map(line => line.trim()).find(Boolean) || ''
+  return firstLine.replace(/^[#*_-\s]+/, '').slice(0, 120) || 'Pasted study notes'
 }
 
 export default function ReviewerPage() {
@@ -54,36 +62,32 @@ export default function ReviewerPage() {
   const navigate = useNavigate()
   const program = profile ? getProgram(profile.board_program) : null
   const [materials, setMaterials] = useState<ReviewMaterial[]>([])
-  const [title, setTitle] = useState('')
   const [subject, setSubject] = useState('')
   const [file, setFile] = useState<File | null>(null)
+  const [uploadMode, setUploadMode] = useState<UploadMode>('file')
+  const [pastedText, setPastedText] = useState('')
   const [fileReady, setFileReady] = useState(false)
   const [uploadStage, setUploadStage] = useState<UploadStage | null>(null)
   const [generationStep, setGenerationStep] = useState(0)
   const [busy, setBusy] = useState<string | null>(null)
   const [msg, setMsg] = useState<string | null>(null)
   const [err, setErr] = useState<string | null>(null)
-  const [flashcards, setFlashcards] = useState<Flashcard[]>([])
   const [selectedMaterial, setSelectedMaterial] = useState<string>('')
   const [generationType, setGenerationType] = useState<GeneratedStudySet>('flashcards')
-  const [selectedCard, setSelectedCard] = useState<Flashcard | null>(null)
   const uploadCardRef = useRef<HTMLDivElement>(null)
+  const documentInputRef = useRef<HTMLInputElement>(null)
+  const cameraInputRef = useRef<HTMLInputElement>(null)
+  const galleryInputRef = useRef<HTMLInputElement>(null)
   const generateCardRef = useRef<HTMLDivElement>(null)
   const [searchParams] = useSearchParams()
-  /* Saved materials discoverability */
-  const [searchQuery, setSearchQuery] = useState('')
-  const [subjectFilter, setSubjectFilter] = useState('')
-  const [sortOrder, setSortOrder] = useState<'newest' | 'oldest' | 'title'>('newest')
-  const [materialsLoading, setMaterialsLoading] = useState(true)
   const { addToast } = useToast()
   const isCourse = profile?.track === 'course'
   const aiIsConfigured = aiConfigured()
-  const [customSubjects, setCustomSubjects] = useState<UserSubject[]>([])
   const uploadSteps: { stage: UploadStage; label: string }[] = [
-    { stage: 'uploading', label: 'Uploading file' },
-    ...(aiIsConfigured ? [{ stage: 'extracting' as const, label: 'Extracting document text' }] : []),
+    ...(uploadMode === 'file' ? [{ stage: 'uploading' as const, label: file?.type.startsWith('image/') ? 'Uploading photo' : 'Uploading file' }] : []),
+    ...(aiIsConfigured ? [{ stage: 'extracting' as const, label: uploadMode === 'text' ? 'Analyzing pasted text' : 'Analyzing material' }] : []),
     { stage: 'saving', label: 'Saving reviewer' },
-    ...(isCourse && aiIsConfigured ? [{ stage: 'generating' as const, label: 'Creating study sets' }] : []),
+    ...(aiIsConfigured ? [{ stage: 'generating' as const, label: isCourse ? 'Creating study sets' : 'Generating flashcards' }] : []),
   ]
   const currentUploadStep = uploadStage
     ? uploadSteps.findIndex(step => step.stage === uploadStage)
@@ -113,12 +117,6 @@ export default function ReviewerPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams])
 
-  const subjectOptions = useMemo(() => {
-    if (!isCourse) return program?.subjects || []
-    const names = new Set(customSubjects.map(s => s.name))
-    materials.forEach(m => names.add(m.subject))
-    return [...names].sort((a, b) => a.localeCompare(b))
-  }, [isCourse, customSubjects, materials, program])
   const generationOptions = isCourse
     ? [
         { value: 'flashcards', label: 'Flashcards' },
@@ -135,19 +133,10 @@ export default function ReviewerPage() {
 
   async function loadMaterials() {
     if (!profile) return
-    setMaterialsLoading(true)
     const { data } = await supabase.from('review_materials').select('*').eq('user_id', profile.id).order('created_at', { ascending: false })
     const list = (data as ReviewMaterial[]) || []
     setMaterials(list)
     if (list.length && !selectedMaterial) setSelectedMaterial(searchParams.get('material') || list[0].id)
-    const { data: fc } = await supabase.from('flashcards').select('*').eq('user_id', profile.id).order('created_at', { ascending: false }).limit(30)
-    setFlashcards((fc as Flashcard[]) || [])
-    if (isCourse) {
-      const { data: subs } = await supabase.from('user_subjects').select('*').eq('user_id', profile.id).order('name')
-      const subList = (subs as UserSubject[]) || []
-      setCustomSubjects(subList)
-    }
-    setMaterialsLoading(false)
   }
 
   function sourceForMaterial(mat: ReviewMaterial): MaterialSource {
@@ -160,51 +149,76 @@ export default function ReviewerPage() {
     return { storagePath: mat.file_uri, mimeType: mat.mime_type || 'application/pdf' }
   }
 
-  async function handleUpload() {
-    if (!file) return
+  function selectUploadFile(selectedFile: File | null) {
     setErr(null); setMsg(null)
+    setUploadMode('file')
+    setFile(selectedFile)
+    setFileReady(false)
+    if (!selectedFile) return
     try {
-      assertReviewFile(file)
+      assertReviewFile(selectedFile)
       setFileReady(true)
-      setMsg(`File ready (${(file.size / 1024 / 1024).toFixed(2)} MB). Save to upload it.`)
+      setMsg(`${selectedFile.name} is ready (${(selectedFile.size / 1024 / 1024).toFixed(2)} MB).`)
     } catch (e: any) {
-      setFileReady(false)
       setErr(e.message)
     }
   }
 
+  function handleFileDrop(event: DragEvent<HTMLButtonElement>) {
+    event.preventDefault()
+    if (event.dataTransfer.files[0]) selectUploadFile(event.dataTransfer.files[0])
+  }
+
   async function saveMaterial() {
-    if (!profile || !user || !program || !file) return
+    const selectedFile = uploadMode === 'file' ? file : null
+    const materialText = uploadMode === 'text' ? pastedText.trim() : ''
+    if (!profile || !user || !program || (!selectedFile && !materialText)) return
     const materialSubject = isCourse ? DEFAULT_COURSE_SUBJECT : subject
-    if (!title || !materialSubject) { setErr('Title and subject are required.'); return }
+    if (!materialSubject) { setErr('Subject is required.'); return }
+    if (materialText.length > MAX_PASTED_TEXT_CHARS) {
+      setErr(`Pasted text must be ${MAX_PASTED_TEXT_CHARS.toLocaleString()} characters or fewer.`)
+      return
+    }
     setErr(null); setMsg(null)
-    setUploadStage('uploading')
+    setUploadStage(selectedFile ? 'uploading' : aiIsConfigured ? 'extracting' : 'saving')
     setGenerationStep(0)
     let storagePath = ''
+    let extractedText = materialText
+    let materialTitle = selectedFile ? filenameMaterialTitle(selectedFile.name) : pastedTextMaterialTitle(materialText)
+    let extractError: string | null = null
     try {
-      assertReviewFile(file)
-      setBusy('Uploading file...')
-      storagePath = await uploadReviewFile(user.id, file)
-      let extractedText = ''
-      let extractError: string | null = null
+      if (selectedFile) {
+        assertReviewFile(selectedFile)
+        setBusy('Uploading file...')
+        storagePath = await uploadReviewFile(user.id, selectedFile)
+      }
+
       if (aiIsConfigured) {
         setUploadStage('extracting')
-        setBusy('Extracting text from document...')
-        try {
-          extractedText = await extractTextFromFile({ storagePath, mimeType: file.type })
-        } catch (e: any) {
-          extractError = e.message
+        if (selectedFile) {
+          setBusy('Extracting text from material...')
+          try {
+            extractedText = await extractTextFromFile({ storagePath, mimeType: selectedFile.type })
+          } catch (e: any) {
+            extractError = e.message
+          }
         }
+        setBusy('Generating reviewer title...')
+        materialTitle = await generateMaterialTitle(
+          extractedText.trim()
+            ? { documentText: extractedText }
+            : { storagePath, mimeType: selectedFile?.type },
+        )
       }
 
       setUploadStage('saving')
       setBusy('Saving reviewer...')
       const { data, error } = await supabase.from('review_materials').insert({
-        user_id: user.id, title, board_program: program.key, subject: materialSubject,
-        source_filename: file.name,
-        file_uri: storagePath,
-        mime_type: file.type,
-        file_size: file.size,
+        user_id: user.id, title: materialTitle, board_program: program.key, subject: materialSubject,
+        source_filename: selectedFile?.name || 'Pasted text',
+        file_uri: storagePath || null,
+        mime_type: selectedFile?.type || 'text/plain',
+        file_size: selectedFile?.size ?? new Blob([materialText]).size,
         extracted_text: extractedText || null
       }).select('*').single()
       if (error) throw error
@@ -214,16 +228,15 @@ export default function ReviewerPage() {
           { user_id: user.id, name: materialSubject },
           { onConflict: 'user_id,name', ignoreDuplicates: true }
         )
-        setCustomSubjects(prev => prev.some(s => s.name === materialSubject) ? prev : [...prev, { id: '', user_id: user.id, name: materialSubject } as UserSubject])
       }
       storagePath = ''
-      setTitle(''); setFile(null); setFileReady(false)
+      setFile(null); setFileReady(false); setPastedText('')
 
       if (isCourse) {
         if (!aiIsConfigured) {
-          setMsg('Reviewer saved under General.')
-          setErr('Automatic generation did not run. Configure VITE_GEMINI_API_KEY, then upload the reviewer again.')
-          addToast({ type: 'error', title: 'AI is not configured', message: 'The reviewer was saved, but study sets were not generated.' })
+          setMsg(`Reviewer "${materialTitle}" saved under General. ${selectedFile ? 'The file name' : 'The first line of your text'} was used because AI is not configured.`)
+          setErr('Automatic generation did not run. Configure AI, then generate study sets from this saved reviewer.')
+          addToast({ type: 'error', title: 'AI is not configured', message: 'Study sets were not generated. Configure AI to generate them from this saved reviewer.' })
         } else {
           const generated: string[] = []
           const failures: string[] = []
@@ -241,25 +254,46 @@ export default function ReviewerPage() {
           }
 
           if (failures.length) {
-            setMsg(`Reviewer saved. Generated ${generated.join(', ') || 'no study sets'}.`)
+            setMsg(`Reviewer "${materialTitle}" saved. Generated ${generated.join(', ') || 'no study sets'}.`)
             setErr(`Some study sets could not be generated: ${failures.join(' | ')}`)
             addToast({ type: 'error', title: 'Some study sets were not generated', message: failures.join('; ') })
           } else {
             const extractionNote = extractError ? ' Text extraction failed, so generation used the saved file.' : ''
-            setMsg(`Reviewer saved. Automatically generated ${generated.join(', ')}.${extractionNote}`)
-            addToast({ type: 'success', title: 'Study sets ready', message: `${title}: flashcards, multiple choice, enumeration, and identification.` })
+            setMsg(`Reviewer "${materialTitle}" saved. Automatically generated ${generated.join(', ')}.${extractionNote}`)
+            addToast({ type: 'success', title: 'Study sets ready', message: `${materialTitle}: flashcards, multiple choice, enumeration, and identification.` })
           }
         }
       } else {
-        setMsg(extractedText ? 'Material saved and text extracted.' : extractError ? 'Material saved. Text extraction failed, so generation will read the stored file.' : aiIsConfigured ? 'Material saved, but no text was extracted. Generation can use the stored file.' : 'Material saved. Configure AI to extract text and generate study items.')
+        if (aiIsConfigured) {
+          setUploadStage('generating')
+          setBusy('Generating flashcards...')
+          try {
+            const count = await generateStudySet('flashcards', savedMaterial)
+            setMsg(`Material "${materialTitle}" saved. Generated ${count} flashcards.`)
+            addToast({ type: 'success', title: 'Flashcards ready', message: materialTitle })
+          } catch (generationError) {
+            setMsg(`Material "${materialTitle}" was saved.`)
+            setErr(`Flashcards could not be generated: ${getErrorMessage(generationError)}`)
+            addToast({ type: 'error', title: 'Flashcards were not generated', message: getErrorMessage(generationError) })
+          }
+        } else {
+          setMsg(`Material "${materialTitle}" saved. Configure AI to generate flashcards from it.`)
+          addToast({ type: 'success', title: 'Material saved', message: materialTitle })
+        }
         if (extractError) setErr(extractError)
-        addToast({ type: 'success', title: 'Material saved', message: title })
       }
 
       await loadMaterials()
-    } catch (e: any) {
-      if (storagePath) await removeReviewFile(storagePath)
-      setErr(getErrorMessage(e))
+    } catch (e: unknown) {
+      let errorMessage = getErrorMessage(e)
+      if (storagePath) {
+        try {
+          await removeReviewFile(storagePath)
+        } catch (cleanupError) {
+          errorMessage += ` The uploaded file could not be removed: ${getErrorMessage(cleanupError)}`
+        }
+      }
+      setErr(errorMessage)
     } finally {
       setBusy(null)
       setUploadStage(null)
@@ -321,21 +355,7 @@ export default function ReviewerPage() {
     } catch (e) { setErr(getErrorMessage(e)) } finally { setBusy(null) }
   }
 
-  /* Materials with search / subject filter / sort applied */
-  const filteredMaterials = useMemo(() => {
-    const q = searchQuery.toLowerCase()
-    let list = materials.filter(m =>
-      (!subjectFilter || m.subject === subjectFilter) &&
-      (!q || m.title.toLowerCase().includes(q) || m.subject.toLowerCase().includes(q) || (m.source_filename || '').toLowerCase().includes(q))
-    )
-    list = [...list].sort((a, b) => {
-      if (sortOrder === 'title') return a.title.localeCompare(b.title)
-      if (sortOrder === 'oldest') return new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-    })
-    return list
-  }, [materials, searchQuery, subjectFilter, sortOrder])
-  const selectedMaterialRecord = filteredMaterials.find(material => material.id === selectedMaterial)
+  const selectedMaterialRecord = materials.find(material => material.id === selectedMaterial)
 
   if (!profile || !program) return null
 
@@ -376,34 +396,13 @@ export default function ReviewerPage() {
       <section className="upload-section reviewer-upload-section" style={{ marginBottom: 24 }}>
         <div className="upload-section-header reviewer-upload-heading" style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
           <Icon name="upload" size={20} style={{ color: 'var(--primary)' }} />
-          <div>
-            <p style={{ margin: 0, fontSize: 10, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--muted-strong)' }}>Upload section</p>
-            <h3 style={{ margin: '2px 0 0', fontSize: 20, fontWeight: 700, color: 'var(--text)' }}>
-              {isCourse ? 'Upload and auto-create study sets' : 'Add & generate review materials'}
-            </h3>
-          </div>
+          <h3 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: 'var(--text)' }}>Upload Study Material</h3>
         </div>
         <div className="grid grid-2">
           {/* Upload Reviewer */}
           <Card variant="elevated" className="reviewer-upload-card" ref={uploadCardRef}>
-          <CardHeader
-            title="Upload Reviewer"
-            icon="file-text"
-            subtitle={isCourse
-              ? 'PDF, DOCX, PPT/PPTX — save once to automatically generate four study sets.'
-              : 'PDF, DOCX, PPT/PPTX — processed by Gemini'}
-          />
           <CardContent className="reviewer-upload-content">
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-              <Input
-                label="Title"
-                value={title}
-                onChange={e => setTitle(e.target.value)}
-                placeholder="e.g. Pharmacology Handout - Autonomic Nervous System Drugs"
-                leftIcon="file-text"
-                fullWidth
-              />
-
+            <div className="reviewer-upload-form">
               {isCourse ? (
                 <p style={{ margin: '-4px 0 0', fontSize: 12, color: 'var(--muted)' }}>
                   Course reviewers are automatically grouped under <strong>{DEFAULT_COURSE_SUBJECT}</strong>.
@@ -419,40 +418,145 @@ export default function ReviewerPage() {
                 />
               )}
 
-              <div className="reviewer-upload-field">
-                <label htmlFor="review-file-input" className="reviewer-upload-label">REVIEWER FILE</label>
-                <div className="reviewer-upload-dropzone">
-                  <input
-                    id="review-file-input"
-                    type="file"
-                    accept="application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/vnd.ms-powerpoint"
-                    onChange={e => { setFile(e.target.files?.[0] || null); setFileReady(false) }}
-                    className="reviewer-upload-input"
-                    aria-label="Choose reviewer file"
-                  />
-                  <span className="reviewer-upload-icon" aria-hidden="true">
-                    <Icon name={fileIcon(file?.type)} size={25} style={{ color: fileIconColor(file?.type) }} />
-                  </span>
-                  <div className="reviewer-upload-copy">
-                    <div className="reviewer-upload-title">
-                      {file ? file.name : 'Choose a document to upload'}
-                    </div>
-                    <div className="reviewer-upload-hint">
-                      {file
-                        ? `${(file.size / 1024 / 1024).toFixed(2)} MB · ${fileReady ? 'File checked' : 'Selected'}`
-                        : 'Up to 10 MB · PDF, DOCX, PPT or PPTX'}
-                    </div>
-                  </div>
-                  <span className="reviewer-upload-action">Browse files</span>
-                </div>
+              <div className="reviewer-upload-tabs" role="group" aria-label="Choose a material input method">
+                <button
+                  type="button"
+                  aria-pressed={uploadMode === 'file'}
+                  className={`reviewer-upload-tab${uploadMode === 'file' ? ' is-active' : ''}`}
+                  onClick={() => { setUploadMode('file'); setErr(null); setMsg(null) }}
+                  disabled={!!busy}
+                >
+                  <Icon name="file-text" size={17} /> Files & Photos
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={uploadMode === 'text'}
+                  className={`reviewer-upload-tab${uploadMode === 'text' ? ' is-active' : ''}`}
+                  onClick={() => { setUploadMode('text'); setErr(null); setMsg(null) }}
+                  disabled={!!busy}
+                >
+                  <Icon name="edit" size={17} /> Paste Text
+                </button>
               </div>
 
-              <div className="reviewer-upload-actions" style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                <Button variant="secondary" size="lg" leftIcon="upload" onClick={handleUpload} disabled={!file || !!busy} fullWidth style={{ maxWidth: 200 }}>
-                  {fileReady ? 'File ready' : 'Check file'}
-                </Button>
-                <Button variant="primary" size="lg" leftIcon="save" onClick={saveMaterial} disabled={!!busy || !title || !file} fullWidth style={{ maxWidth: 240 }}>
-                  {isCourse && aiIsConfigured ? 'Save & generate study sets' : 'Save Material'}
+              {uploadMode === 'file' ? (
+                <div className="reviewer-upload-field">
+                  <input
+                    id="review-file-input"
+                    ref={documentInputRef}
+                    type="file"
+                    accept=".pdf,.docx,.ppt,.pptx,.jpg,.jpeg,.png,.webp,.heic,.heif,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/vnd.ms-powerpoint,image/jpeg,image/png,image/webp,image/heic,image/heif"
+                    onChange={event => {
+                      const selectedFile = event.currentTarget.files?.[0] || null
+                      event.currentTarget.value = ''
+                      selectUploadFile(selectedFile)
+                    }}
+                    className="reviewer-upload-hidden-input"
+                    aria-label="Choose a document or photo"
+                  />
+                  <input
+                    ref={cameraInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
+                    capture="environment"
+                    onChange={event => {
+                      const selectedFile = event.currentTarget.files?.[0] || null
+                      event.currentTarget.value = ''
+                      selectUploadFile(selectedFile)
+                    }}
+                    className="reviewer-upload-hidden-input"
+                    aria-label="Take a photo of study material"
+                    tabIndex={-1}
+                  />
+                  <input
+                    ref={galleryInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
+                    onChange={event => {
+                      const selectedFile = event.currentTarget.files?.[0] || null
+                      event.currentTarget.value = ''
+                      selectUploadFile(selectedFile)
+                    }}
+                    className="reviewer-upload-hidden-input"
+                    aria-label="Choose a photo from your device"
+                    tabIndex={-1}
+                  />
+                  <button
+                    type="button"
+                    className="reviewer-upload-dropzone"
+                    onClick={() => documentInputRef.current?.click()}
+                    onDragOver={event => event.preventDefault()}
+                    onDrop={handleFileDrop}
+                    disabled={!!busy}
+                  >
+                    <span className="reviewer-upload-icon" aria-hidden="true">
+                      <Icon name={file ? fileIcon(file.type) : 'folder'} size={27} style={{ color: file ? fileIconColor(file.type) : 'var(--primary)' }} />
+                    </span>
+                    <span className="reviewer-upload-copy">
+                      <span className="reviewer-upload-title">{file ? file.name : 'Tap to upload or drag & drop'}</span>
+                      <span className="reviewer-upload-hint">
+                        {file
+                          ? `${(file.size / 1024 / 1024).toFixed(2)} MB · ${fileReady ? 'Ready to save' : 'Selected'}`
+                          : 'PDF, Word, PowerPoint, JPG, PNG or WebP · Up to 10 MB'}
+                      </span>
+                    </span>
+                    <span className="reviewer-upload-action">{file ? 'Choose another' : 'Choose files'}</span>
+                  </button>
+                  <div className="reviewer-upload-photo-actions">
+                    <button type="button" className="reviewer-upload-photo-button" onClick={() => cameraInputRef.current?.click()} disabled={!!busy}>
+                      <Icon name="camera" size={17} /> Camera
+                    </button>
+                    <button type="button" className="reviewer-upload-photo-button" onClick={() => galleryInputRef.current?.click()} disabled={!!busy}>
+                      <Icon name="image" size={17} /> Gallery / Photos
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="reviewer-upload-field">
+                  <label htmlFor="review-pasted-text" className="reviewer-upload-label">PASTE YOUR STUDY NOTES</label>
+                  <textarea
+                    id="review-pasted-text"
+                    className="reviewer-paste-input"
+                    value={pastedText}
+                    onChange={event => setPastedText(event.target.value)}
+                    placeholder="Paste text from your notes, lecture slides, or study guide..."
+                    maxLength={MAX_PASTED_TEXT_CHARS}
+                    disabled={!!busy}
+                    rows={8}
+                  />
+                  <div className="reviewer-paste-meta">
+                    <span>Your text will be saved as a reviewer.</span>
+                    <span>{pastedText.length.toLocaleString()} / {MAX_PASTED_TEXT_CHARS.toLocaleString()}</span>
+                  </div>
+                </div>
+              )}
+
+              <p className="reviewer-upload-ai-note">
+                {aiIsConfigured
+                  ? file?.type.startsWith('image/')
+                    ? `AI will scan text in your photo, create a title, and ${isCourse ? 'generate study sets' : 'generate flashcards'}.`
+                    : `AI will create a title from your material and ${isCourse ? 'generate study sets' : 'generate flashcards'}.`
+                  : uploadMode === 'text'
+                    ? 'AI is not configured; the first line of your text will be used as the title.'
+                    : file?.type.startsWith('image/')
+                      ? 'AI is not configured; the photo file name will be used as its title. Configure AI for photo text scanning.'
+                      : 'AI is not configured; the uploaded file name will be used as the title.'}
+              </p>
+
+              <div className="reviewer-upload-actions">
+                <Button
+                  variant="primary"
+                  size="lg"
+                  leftIcon={aiIsConfigured ? 'sparkles' : 'save'}
+                  onClick={saveMaterial}
+                  disabled={!!busy || (uploadMode === 'file' ? !file || !fileReady : !pastedText.trim())}
+                  fullWidth
+                >
+                  {isCourse && aiIsConfigured
+                    ? 'Save & generate study sets'
+                    : aiIsConfigured
+                      ? 'Generate flashcards with AI'
+                      : 'Save Material'}
                 </Button>
               </div>
 
@@ -477,7 +581,7 @@ export default function ReviewerPage() {
                     </strong>
                     <span style={{ display: 'block', marginTop: 4, color: 'var(--muted)', fontSize: 12 }}>
                       Step {currentUploadStep + 1} of {uploadSteps.length}
-                      {uploadStage === 'generating' ? ` · Study set ${generationStep} of ${COURSE_STUDY_SETS.length}` : ''}
+                      {uploadStage === 'generating' ? ` · Study set ${generationStep || 1} of ${isCourse ? COURSE_STUDY_SETS.length : 1}` : ''}
                     </span>
                   </div>
                 </div>
@@ -491,7 +595,7 @@ export default function ReviewerPage() {
                     label="Material"
                     value={selectedMaterial}
                     onChange={e => setSelectedMaterial(e.target.value)}
-                    options={[{ value: '', label: 'Select material...' }, ...filteredMaterials.map(m => ({ value: m.id, label: `${m.title} — ${m.subject}` }))]}
+                    options={[{ value: '', label: 'Select material...' }, ...materials.map(m => ({ value: m.id, label: `${m.title} — ${m.subject}` }))]}
                     leftIcon="book-open"
                     fullWidth
                     hint={materials.length ? 'Choose a saved reviewer and a study format.' : 'Save a reviewer above before generating a study set.'}
@@ -524,202 +628,6 @@ export default function ReviewerPage() {
         </div>
       </section>
 
-      {/* Dedicated Recent Flashcards section */}
-      <Card variant="elevated">
-        <CardHeader
-          title="Recent Flashcards"
-          icon="book-open"
-          subtitle={`Your ${flashcards.length} most recently generated cards. Open a card to view its prompt and answer, or practice the full set.`}
-          action={flashcards.length > 0 ? (
-            <Button
-              variant="secondary"
-              size="sm"
-              leftIcon="book-open"
-              onClick={() => navigate(flashcardPracticePath(flashcards[0]))}
-            >
-              Practice flashcards
-            </Button>
-          ) : null}
-        />
-        <CardContent>
-          {flashcards.length === 0 ? (
-            <EmptyState
-              icon="book-open"
-              title="No flashcards yet"
-              description={isCourse
-                ? 'Save a course reviewer to automatically generate flashcards and practice sets.'
-                : 'Generate flashcards from a saved material, then review them here.'}
-              action={!isCourse && filteredMaterials[0] ? { label: 'Generate your first cards', variant: 'primary', onClick: () => { setSelectedMaterial(filteredMaterials[0].id); generateCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }) } } : undefined}
-            />
-          ) : (
-            <div className="reviewer-flashcard-list" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {flashcards.slice(0, 10).map(f => (
-                <button type="button" key={f.id} className="reviewer-flashcard" onClick={() => setSelectedCard(f)}>
-                  <Badge variant="primary" size="sm">{f.subject}</Badge>
-                  <span title={f.front}>{f.front}</span>
-                  <Icon name="arrow-up-right" size={16} />
-                </button>
-              ))}
-              {flashcards.length > 10 && (
-                <p style={{ margin: '8px 0 0', fontSize: 12, color: 'var(--muted)', textAlign: 'center' }}>
-                  + {flashcards.length - 10} more cards — open Flashcards practice to review the full set.
-                </p>
-              )}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Saved Review Materials — generation happens per material row */}
-      <Card variant="outlined">
-        <CardHeader
-          title="Saved Review Materials"
-          icon="file-text"
-          subtitle={`${filteredMaterials.length} material${filteredMaterials.length !== 1 ? 's' : ''} saved`}
-        />
-        <CardContent>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-              <Input
-                label="Search materials"
-                placeholder="Title, subject, or file name"
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                leftIcon="search"
-                fullWidth
-                style={{ maxWidth: 420 }}
-              />
-              <Select
-                label={isCourse ? 'Subject' : 'PhLE Module'}
-                value={subjectFilter}
-                onChange={e => setSubjectFilter(e.target.value)}
-                options={isCourse
-                  ? [{ value: '', label: 'All subjects' }, ...subjectOptions.map(s => ({ value: s, label: s }))]
-                  : [{ value: '', label: 'All Pharmacy modules' }, ...program.subjectDetails.map(m => ({ value: m.name, label: `${m.moduleCode} — ${m.name}` }))]}
-                leftIcon={isCourse ? 'book-open' : 'pill'}
-                fullWidth
-                style={{ maxWidth: 280 }}
-              />
-              <Select
-                label="Sort by"
-                value={sortOrder}
-                onChange={e => setSortOrder(e.target.value as 'newest' | 'oldest' | 'title')}
-                options={[
-                  { value: 'newest', label: 'Newest first' },
-                  { value: 'oldest', label: 'Oldest first' },
-                  { value: 'title', label: 'A to Z' },
-                ]}
-                leftIcon="chevron-up-down"
-                fullWidth
-                style={{ maxWidth: 200 }}
-              />
-            </div>
-
-            {materialsLoading ? (
-              <div className="table-wrapper" role="region" aria-label="Saved review materials, scrollable table" tabIndex={0} style={{ overflowX: 'auto' }}>
-                <table className="table" style={{ minWidth: 700 }}>
-                  <thead>
-                    <tr>
-                      <th>Title</th>
-                      <th style={{ width: 160 }}>Subject</th>
-                      <th style={{ width: 200 }}>Source</th>
-                      <th style={{ width: 100 }}>Size</th>
-                      <th style={{ width: 160 }}>Created</th>
-                      <th style={{ width: 200 }}>Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {Array.from({ length: 5 }).map((_, i) => (
-                      <tr key={`skeleton-${i}`}>
-                        <td><Skeleton variant="text" width={180} /></td>
-                        <td><Skeleton variant="text" width={80} /></td>
-                        <td><Skeleton variant="text" width={120} /></td>
-                        <td><Skeleton variant="text" width={60} /></td>
-                        <td><Skeleton variant="text" width={100} /></td>
-                        <td><Skeleton variant="text" width={80} /></td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : filteredMaterials.length === 0 ? (
-              <EmptyState
-                icon="file-text"
-                title={searchQuery || subjectFilter ? "No materials match your filters" : "No materials saved yet"}
-                description={searchQuery || subjectFilter
-                  ? "Try clearing the search or subject filter to see your saved reviewers."
-                  : "Upload a reviewer above to get started."}
-                action={{
-                  label: 'Clear filters',
-                  variant: 'outline',
-                  onClick: () => { setSearchQuery(''); setSubjectFilter(''); setSortOrder('newest') }
-                }}
-              />
-            ) : (
-              <div className="table-wrapper" role="region" aria-label="Saved review materials, scrollable table" tabIndex={0} style={{ overflowX: 'auto' }}>
-                <table className="table" style={{ minWidth: 700 }}>
-                  <thead>
-                    <tr>
-                      <th>Title</th>
-                      <th style={{ width: 160 }}>Subject</th>
-                      <th style={{ width: 200 }}>Source</th>
-                      <th style={{ width: 100 }}>Size</th>
-                      <th style={{ width: 160 }}>Created</th>
-                      <th style={{ width: 200 }}>Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredMaterials.map(m => (
-                      <tr key={m.id}>
-                        <td style={{ fontWeight: 500 }}>{m.title}</td>
-                        <td><Badge variant="primary" size="sm">{m.subject}</Badge></td>
-                        <td className="muted" style={{ fontSize: 13 }}>{m.source_filename || '—'}</td>
-                        <td className="muted" style={{ fontSize: 13 }}>{m.file_size ? `${(m.file_size / 1024 / 1024).toFixed(2)} MB` : '—'}</td>
-                        <td className="muted" style={{ fontSize: 13 }}>{new Date(m.created_at).toLocaleString()}</td>
-                        <td>
-                          <Button variant="outline" size="sm" onClick={() => navigate(`/side-by-side/${m.id}`)} leftIcon="file-text">
-                            Open Reader
-                          </Button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Flashcard Detail Modal */}
-      {selectedCard && (
-        <Modal open={!!selectedCard} onClose={() => setSelectedCard(null)} title="Flashcard" size="md">
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-            <div style={{ background: 'var(--panel-2)', border: '1px solid var(--border)', borderRadius: 12, padding: 16 }}>
-              <div style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>Prompt</div>
-              <div style={{ fontSize: 16, lineHeight: 1.6 }}>{selectedCard.front}</div>
-            </div>
-            <div style={{ background: 'var(--success-bg)', border: '1px solid var(--success-border)', borderRadius: 12, padding: 16 }}>
-              <div style={{ fontSize: 12, color: 'var(--success)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>Answer</div>
-              <div style={{ fontSize: 16, lineHeight: 1.6 }}>{selectedCard.back}</div>
-            </div>
-            <p style={{ fontSize: 13, color: 'var(--muted)', margin: 0 }}>
-              <Badge variant="primary" size="sm" style={{ marginRight: 8 }}>{selectedCard.subject}</Badge>
-              Generated from: {selectedCard.material_id ? 'Saved material' : 'AI generation'}
-            </p>
-          </div>
-          <div className="ui-card-footer">
-            <div style={{ display: 'flex', gap: 8, width: '100%' }}>
-              <Button variant="secondary" onClick={() => setSelectedCard(null)} style={{ flex: 1 }}>
-                Close
-              </Button>
-              <Button variant="primary" onClick={() => { setSelectedCard(null); navigate(flashcardPracticePath(selectedCard)) }} style={{ flex: 1 }}>
-                Practice this set
-              </Button>
-            </div>
-          </div>
-        </Modal>
-      )}
     </div>
   )
 }

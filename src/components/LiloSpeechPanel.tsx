@@ -13,18 +13,13 @@ interface LiloSpeechPanelProps {
   answerCorrect?: boolean
   answerText?: string
   answerExplanation?: string
+  muted: boolean
+  onMutedChange: (muted: boolean) => void
   readyPromptOpen: boolean
   announceReadyPrompt: boolean
   onReadyPromptAnnounced: () => void
   onReadyPromptResponse: () => void
 }
-
-const LILO_LINES = [
-  "Okay, let's take this one step at a time.",
-  "Ready ka na? We can go through this slowly.",
-  "Let's gently focus on the key details.",
-  "Take your time. Kaya mo 'yan.",
-]
 
 export default function LiloSpeechPanel({
   text,
@@ -32,6 +27,8 @@ export default function LiloSpeechPanel({
   answerCorrect,
   answerText,
   answerExplanation,
+  muted,
+  onMutedChange,
   readyPromptOpen,
   announceReadyPrompt,
   onReadyPromptAnnounced,
@@ -48,11 +45,12 @@ export default function LiloSpeechPanel({
   })
   const [isSpeaking, setIsSpeaking] = useState(false)
   const [spokenText, setSpokenText] = useState('')
-  const nextLine = useRef(0)
   const speechVersion = useRef(0)
   const voices = useRef<SpeechSynthesisVoice[]>([])
   const readyPromptSpoken = useRef(false)
+  const mutedRef = useRef(muted)
   const motionEnabled = motionOverride ?? !prefersReducedMotion
+  mutedRef.current = muted
 
   useEffect(() => {
     if (typeof window === 'undefined' || !('speechSynthesis' in window)) return
@@ -93,7 +91,7 @@ export default function LiloSpeechPanel({
 
   const speakMessage = useCallback((message: string) => {
     const cleanMessage = message.trim()
-    if (!cleanMessage) return
+    if (!cleanMessage || mutedRef.current) return
     if (!('speechSynthesis' in window) || typeof SpeechSynthesisUtterance === 'undefined') {
       addToast({
         type: 'error',
@@ -162,12 +160,10 @@ export default function LiloSpeechPanel({
     return () => window.clearTimeout(timeout)
   }, [answerCorrect, answerExplanation, answerText, speakMessage])
 
-  function speak() {
-    const message = text.trim()
-    if (!message) return
-    const line = LILO_LINES[nextLine.current % LILO_LINES.length]
-    nextLine.current += 1
-    speakMessage(`${line} ${message}`)
+  function toggleMuted() {
+    const nextMuted = !muted
+    onMutedChange(nextMuted)
+    if (nextMuted) stopSpeaking()
   }
 
   function respondToReady(ready: boolean) {
@@ -179,7 +175,9 @@ export default function LiloSpeechPanel({
   return (
     <div className="lilo-speech-widget">
       <div className="lilo-speech-stage">
-        <TtsMascot size={240} variant="idle" speaking={isSpeaking} reaction={reaction} motionEnabled={motionEnabled} />
+        <div className={`lilo-cage${isSpeaking ? ' is-speaking' : ''}${motionEnabled ? ' is-motion-enabled' : ''}`}>
+          <TtsMascot size={240} variant="idle" speaking={isSpeaking} reaction={reaction} motionEnabled={motionEnabled} />
+        </div>
         {readyPromptOpen && (
           <section className="lilo-ready-prompt" role="group" aria-labelledby="lilo-ready-prompt-title">
             <p id="lilo-ready-prompt-title">Are you ready?</p>
@@ -197,14 +195,14 @@ export default function LiloSpeechPanel({
       <div className="lilo-speech-actions">
         <Button
           className="lilo-speech-launcher"
-          variant="outline"
+          variant={muted ? 'danger' : 'outline'}
           size="sm"
-          leftIcon={isSpeaking ? 'x' : 'volume-2'}
-          aria-pressed={isSpeaking}
-          onClick={isSpeaking ? stopSpeaking : speak}
-          disabled={!text.trim()}
+          leftIcon={muted ? 'volume-x' : 'volume-2'}
+          aria-label={muted ? 'Unmute Lilo' : 'Mute Lilo'}
+          aria-pressed={muted}
+          onClick={toggleMuted}
         >
-          {isSpeaking ? 'Stop speaking' : 'Listen with Lilo'}
+          {muted ? 'Unmute' : 'Mute'}
         </Button>
         <Button
           className="lilo-motion-toggle"

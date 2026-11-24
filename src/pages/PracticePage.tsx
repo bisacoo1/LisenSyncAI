@@ -6,6 +6,8 @@ import { supabase } from '@/lib/supabase'
 import { generateStudyHint } from '@/lib/ai'
 import { isCardDue, scheduleReview, type ReviewQuality } from '@/lib/srs'
 import { buildPracticeReviewQueue, updatePracticeReviewQueue, type PracticeReviewAttempt, type PracticeReviewQueueItem } from '@/lib/practiceReview'
+import { getStudyModeProgress, isStudyMode, parseCompletedStudyModes, studyModeProgressKey } from '@/lib/studyModeProgress'
+import { getEnumerationPromptCount } from '@/lib/practiceItemValidation'
 import type { Flashcard, McqAnswer, McqQuestion, PracticeItem, PracticeType, SequenceAnswer, SequenceQuestion, DiagnosisAnswer, DiagnosisQuestion, EnumerationAnswer } from '@/types'
 import { AnimatedNumber, Card, CardHeader, CardContent, Button, Badge, Icon, EmptyState, Tabs, useToast, type TabItem } from '@/components/ui'
 import LevelUpCelebration from '@/components/LevelUpCelebration'
@@ -19,13 +21,19 @@ export default function PracticePage() {
   const program = profile ? getProgram(profile.board_program) : null
   const [mode, setMode] = useState<'flashcards' | PracticeType>('mcq')
   const [subject, setSubject] = useState<string>('')
+  const [folderSubject, setFolderSubject] = useState('')
   const [materialId, setMaterialId] = useState('')
+  const [materialInfo, setMaterialInfo] = useState<{ id: string; title: string } | null>(null)
+  const [availableStudyModes, setAvailableStudyModes] = useState<string[] | null>(null)
+  const [completedStudyModes, setCompletedStudyModes] = useState<string[]>([])
+  const [studyModesUnavailable, setStudyModesUnavailable] = useState(false)
   const [items, setItems] = useState<PracticeItem[]>([])
   const [flashcards, setFlashcards] = useState<Flashcard[]>([])
   const [idx, setIdx] = useState(0)
   const [reveal, setReveal] = useState(false)
   const [selected, setSelected] = useState<number | null>(null)
   const [diagInput, setDiagInput] = useState('')
+  const [liloMuted, setLiloMuted] = useState(false)
   const [seqOrder, setSeqOrder] = useState<string[]>([])
   const [feedback, setFeedback] = useState<{ correct: boolean; text: string } | null>(null)
   const [readyPromptOpen, setReadyPromptOpen] = useState(false)
@@ -35,10 +43,18 @@ export default function PracticePage() {
   const [reviewQueueUnavailable, setReviewQueueUnavailable] = useState(false)
   const [sessionResults, setSessionResults] = useState<Record<string, boolean>>({})
   const [sessionCardRatings, setSessionCardRatings] = useState<Record<string, ReviewQuality>>({})
+  const [leaderboardSessionId, setLeaderboardSessionId] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [reviewGate, setReviewGate] = useState<
+    | { status: 'checking' | 'clear'; mode: 'flashcards' | PracticeType }
+    | { status: 'blocked'; mode: PracticeType; subject: string }
+    | { status: 'error'; mode: PracticeType; message: string }
+  >({ status: 'checking', mode: 'mcq' })
+  const [reviewGateRetry, setReviewGateRetry] = useState(0)
   const loadRequest = useRef(0)
   const hintRequest = useRef(0)
   const attemptSubmitting = useRef(false)
+  const leaderboardCompletionSubmitted = useRef<string | null>(null)
   const readyPromptScheduled = useRef(false)
   const practicePanelRef = useRef<HTMLDivElement>(null)
   const focusPanelAfterAdvance = useRef(false)
@@ -47,12 +63,14 @@ export default function PracticePage() {
   const [levelUp, setLevelUp] = useState<number | null>(null)
   const { addToast } = useToast()
   const isCourse = profile?.track === 'course'
+  const folderLabelParam = searchParams.get('folder') || ''
   const markReadyPromptAnnounced = useCallback(() => setReadyPromptAnnounced(true), [])
   const closeReadyPrompt = useCallback(() => setReadyPromptOpen(false), [])
 
   useEffect(() => {
     const qpMode = searchParams.get('mode')
     const qpSubject = searchParams.get('subject')
+    if (qpSubject) setLoading(true)
     if (qpMode && ['flashcards', 'mcq', 'diagnosis', 'sequence', 'enumeration', 'identification'].includes(qpMode)) {
       setMode(qpMode as 'flashcards' | PracticeType)
     } else {
@@ -65,16 +83,225 @@ export default function PracticePage() {
   }, [searchParams])
 
   useEffect(() => {
-    if (!profile || !subject) return
+    if (!profile || mode === 'flashcards') {
+      setReviewGate({ status: 'clear', mode })
+      return
+    }
+
+    let active = true
+    setReviewGate({ status: 'checking', mode })
+    void supabase.from('flashcards').select('subject')
+      .eq('user_id', profile.id)
+      .lte('next_review_at', new Date().toISOString())
+      .limit(1)
+      .maybeSingle()
+      .then(({ data, error }) => {
+        if (!active) return
+        if (error) {
+          setLoading(false)
+          setReviewGate({ status: 'error', mode, message: error.message })
+          return
+        }
+        if (data?.subject) setLoading(false)
+        setReviewGate(data?.subject
+          ? { status: 'blocked', mode, subject: data.subject }
+          : { status: 'clear', mode })
+      })
+
+    return () => { active = false }
+  }, [profile?.id, mode, reviewGateRetry])
+
+  useEffect(() => {
+    let cancelled = false
+    setFolderSubject(folderLabelParam)
+    const profileId = profile?.id
+    if (!profileId || !materialId) {
+      setMaterialInfo(null)
+      return
+    }
+
+    async function loadMaterialInfo() {
+      const { data: material, error: materialError } = await supabase
+        .from('review_materials')
+        .select('title,subject_folder_id')
+        .eq('user_id', profileId)
+        .eq('id', materialId)
+        .maybeSingle()
+      if (cancelled) return
+      if (materialError) {
+        addToast({ type: 'error', title: 'Could not load reviewer details', message: materialError.message })
+        return
+      }
+      setMaterialInfo(material ? { id: materialId, title: material.title } : null)
+      if (folderLabelParam || !material?.subject_folder_id) return
+
+      const { data: folder, error: folderError } = await supabase
+        .from('user_subjects')
+        .select('name')
+        .eq('user_id', profileId)
+        .eq('id', material.subject_folder_id)
+        .maybeSingle()
+      if (cancelled) return
+      if (folderError) {
+        addToast({ type: 'error', title: 'Could not load reviewer folder', message: folderError.message })
+        return
+      }
+      if (folder?.name) setFolderSubject(folder.name)
+    }
+
+    void loadMaterialInfo()
+    return () => { cancelled = true }
+  }, [profile?.id, materialId, folderLabelParam, addToast])
+
+  useEffect(() => {
+    const profileId = profile?.id
+    const resumeSubject = searchParams.get('subject')?.trim()
+    if (!profileId || !resumeSubject) return
+
+    const params = new URLSearchParams(searchParams)
+    const requestedMode = params.get('mode') || 'mcq'
+    const allowedModes = ['flashcards', 'mcq', 'diagnosis', 'sequence', 'enumeration', 'identification']
+    const resumeStudy = {
+      to: `/practice?${params.toString()}`,
+      subject: resumeSubject,
+      mode: allowedModes.includes(requestedMode) ? requestedMode : 'mcq',
+      folder: params.get('folder') || '',
+      setTitle: materialInfo?.id === params.get('material') ? materialInfo.title : '',
+    }
+
+    try {
+      localStorage.setItem(`pharmora-resume-study:${profileId}`, JSON.stringify(resumeStudy))
+    } catch (error) {
+      addToast({
+        type: 'error',
+        title: 'Could not save your study session',
+        message: error instanceof Error ? error.message : 'Local storage is unavailable.',
+      })
+    }
+  }, [profile?.id, searchParams, materialInfo, addToast])
+
+  useEffect(() => {
+    const profileId = profile?.id
+    if (!profileId || !subject) {
+      setCompletedStudyModes([])
+      return
+    }
+
+    try {
+      const key = studyModeProgressKey(profileId, materialId, subject)
+      setCompletedStudyModes(parseCompletedStudyModes(localStorage.getItem(key)))
+    } catch (error) {
+      addToast({
+        type: 'error',
+        title: 'Could not load study mode progress',
+        message: error instanceof Error ? error.message : 'Local storage is unavailable.',
+      })
+      setCompletedStudyModes([])
+    }
+  }, [profile?.id, materialId, subject, addToast])
+
+  useEffect(() => {
+    const profileId = profile?.id
+    if (!profileId || !subject) {
+      setAvailableStudyModes(null)
+      setStudyModesUnavailable(false)
+      return
+    }
+
+    let active = true
+    setAvailableStudyModes(null)
+    setStudyModesUnavailable(false)
+
+    async function loadAvailableStudyModes() {
+      try {
+        let flashcardQuery = supabase.from('flashcards')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', profileId)
+        let practiceItemQuery = supabase.from('practice_items')
+          .select('type')
+          .eq('user_id', profileId)
+        if (materialId) {
+          flashcardQuery = flashcardQuery.eq('material_id', materialId)
+          practiceItemQuery = practiceItemQuery.eq('material_id', materialId)
+        } else {
+          flashcardQuery = flashcardQuery.eq('subject', subject)
+          practiceItemQuery = practiceItemQuery.eq('subject', subject)
+        }
+
+        const [flashcardResult, practiceItemResult] = await Promise.all([flashcardQuery, practiceItemQuery])
+        if (!active) return
+        const error = flashcardResult.error || practiceItemResult.error
+        if (error) throw new Error(error.message)
+
+        const available = new Set<string>()
+        if ((flashcardResult.count || 0) > 0) available.add('flashcards')
+        for (const item of practiceItemResult.data || []) {
+          if (isStudyMode(item.type)) available.add(item.type)
+        }
+        setAvailableStudyModes([...available])
+      } catch (error) {
+        if (!active) return
+        setStudyModesUnavailable(true)
+        addToast({
+          type: 'error',
+          title: 'Could not check available study modes',
+          message: error instanceof Error ? error.message : 'Please try again.',
+        })
+      }
+    }
+
+    void loadAvailableStudyModes()
+    return () => { active = false }
+  }, [profile?.id, materialId, subject, addToast])
+
+  useEffect(() => {
+    const profileId = profile?.id
+    const sessionLength = mode === 'flashcards' ? flashcards.length : items.length
+    const unansweredCount = mode === 'flashcards'
+      ? Math.max(flashcards.length - Object.keys(sessionCardRatings).length, 0)
+      : Math.max(items.length - Object.keys(sessionResults).length, 0)
+    const dataMatchesMode = mode === 'flashcards'
+      ? flashcards.length > 0 && flashcards.every(card =>
+        card.subject === subject && (!materialId || card.material_id === materialId)
+      )
+      : items.length > 0 && items.every(item =>
+        item.type === mode && item.subject === subject && (!materialId || item.material_id === materialId)
+      )
+    if (!profileId || !subject || loading || reviewFilter || !dataMatchesMode
+      || (mode !== 'flashcards' && (reviewGate.status !== 'clear' || reviewGate.mode !== mode))
+      || !sessionLength || idx < sessionLength || unansweredCount > 0) return
+
+    try {
+      const key = studyModeProgressKey(profileId, materialId, subject)
+      const completed = parseCompletedStudyModes(localStorage.getItem(key))
+      if (completed.includes(mode)) return
+      const updated = [...new Set([...completed, mode])]
+      localStorage.setItem(key, JSON.stringify(updated))
+      setCompletedStudyModes(updated)
+    } catch (error) {
+      addToast({
+        type: 'error',
+        title: 'Could not save study mode progress',
+        message: error instanceof Error ? error.message : 'Local storage is unavailable.',
+      })
+    }
+  }, [
+    profile?.id, subject, materialId, mode, idx, loading, reviewFilter, reviewGate.status, reviewGate.mode,
+    flashcards, items, sessionCardRatings, sessionResults, addToast,
+  ])
+
+  useEffect(() => {
+    if (!profile || !subject || (mode !== 'flashcards' && (reviewGate.status !== 'clear' || reviewGate.mode !== mode))) return
     load()
     return () => { loadRequest.current += 1 }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [profile?.id, subject, mode, materialId, reviewFilter])
+  }, [profile?.id, subject, mode, materialId, reviewFilter, reviewGate.status])
 
   async function load() {
-    if (!profile) return
+    if (!profile || (mode !== 'flashcards' && (reviewGate.status !== 'clear' || reviewGate.mode !== mode))) return
     const request = ++loadRequest.current
     setLoading(true); setIdx(0); setReveal(false); setFeedback(null); setSelected(null); setDiagInput('')
+    setLeaderboardSessionId(null)
     setReviewQueue([]); setSessionResults({}); setSessionCardRatings({})
     setReviewQueueUnavailable(false)
     if (mode === 'flashcards') {
@@ -166,6 +393,19 @@ export default function PracticePage() {
       }
       setItems(list)
       setFlashcards([])
+      if (['mcq', 'identification', 'enumeration'].includes(mode) && list.length > 0) {
+        const { data: sessionId, error: sessionError } = await supabase.rpc('start_practice_session', {
+          p_practice_item_ids: list.map(item => item.id),
+        })
+        if (request !== loadRequest.current) return
+        if (sessionError) {
+          addToast({ type: 'warning', title: 'Set bonus unavailable', message: sessionError.message })
+        } else if (typeof sessionId === 'string') {
+          setLeaderboardSessionId(sessionId)
+        } else {
+          addToast({ type: 'warning', title: 'Set bonus unavailable', message: 'The practice session could not be initialized.' })
+        }
+      }
       if (mode === 'sequence' && list[0]) {
         const q = list[0].question as SequenceQuestion
         setSeqOrder([...(q.items || [])].sort(() => Math.random() - 0.5))
@@ -188,12 +428,59 @@ export default function PracticePage() {
     practicePanelRef.current?.focus()
   }, [idx])
 
+  useEffect(() => {
+    if (
+      !leaderboardSessionId
+      || loading
+      || idx < items.length
+      || items.length === 0
+      || !['mcq', 'identification', 'enumeration'].includes(mode)
+      || !items.every(item => sessionResults[item.id] !== undefined)
+      || leaderboardCompletionSubmitted.current === leaderboardSessionId
+    ) return
+
+    leaderboardCompletionSubmitted.current = leaderboardSessionId
+    void (async () => {
+      const { data, error } = await supabase.rpc('complete_practice_session', {
+        p_session_id: leaderboardSessionId,
+      })
+      if (error) {
+        if (leaderboardCompletionSubmitted.current === leaderboardSessionId) {
+          leaderboardCompletionSubmitted.current = null
+        }
+        addToast({ type: 'error', title: 'Could not complete practice set', message: error.message })
+        return
+      }
+      const result = Array.isArray(data) ? data[0] : data
+      if (!result) {
+        if (leaderboardCompletionSubmitted.current === leaderboardSessionId) {
+          leaderboardCompletionSubmitted.current = null
+        }
+        addToast({ type: 'error', title: 'Could not complete practice set', message: 'The set completion returned no result.' })
+        return
+      }
+      if (result.bonus_awarded) {
+        addToast({
+          type: 'success',
+          title: '+20 leaderboard points',
+          message: `Set completed with ${result.score}% accuracy.`,
+        })
+      }
+    })()
+  }, [leaderboardSessionId, loading, idx, items, mode, sessionResults, addToast])
+
   // The selected mode can change before its new items finish loading. Never
   // render an item from the previous mode as if it had the new question shape.
   const current = useMemo(() => {
     const item = items[idx]
     return item?.type === mode && item.subject === subject && (!materialId || item.material_id === materialId) ? item : undefined
   }, [items, idx, mode, subject, materialId])
+  const enumerationItems = current?.type === 'enumeration' ? (current.answer as EnumerationAnswer).items || [] : []
+  const enumerationPrompt = current?.type === 'enumeration' ? (current.question as DiagnosisQuestion).prompt : ''
+  const requestedEnumerationCount = enumerationPrompt
+    ? getEnumerationPromptCount(enumerationPrompt) ?? enumerationItems.length
+    : 0
+  const enumerationCountMismatch = requestedEnumerationCount !== enumerationItems.length
   const currentCard = useMemo(() => {
     const card = flashcards[idx]
     return card?.subject === subject && (!materialId || card.material_id === materialId) ? card : undefined
@@ -209,6 +496,7 @@ export default function PracticePage() {
 
   function selectMode(value: string) {
     const nextMode = value as 'flashcards' | PracticeType
+    setLoading(true)
     setMode(nextMode)
     const params = new URLSearchParams(searchParams)
     params.set('mode', nextMode)
@@ -216,6 +504,24 @@ export default function PracticePage() {
     if (subject) params.set('subject', subject)
     if (materialId) params.set('material', materialId)
     setSearchParams(params, { replace: true })
+  }
+
+  function browseReviewers() {
+    navigate(`/reviewers?from=study&mode=${encodeURIComponent(mode)}`)
+  }
+
+  function tryAnotherMode() {
+    if (!materialId) {
+      navigate('/reviewers?from=study')
+      return
+    }
+
+    const params = new URLSearchParams({
+      from: 'study',
+      subject: folderSubject || folderLabelParam || subject,
+      material: materialId,
+    })
+    navigate(`/reviewers?${params.toString()}`)
   }
 
   function openReviewQueue(filter: 'all' | 'due') {
@@ -241,12 +547,16 @@ export default function PracticePage() {
       const { data, error } = await supabase.rpc('record_practice_attempt', {
         p_practice_item_id: it.id,
         p_response: response,
+        p_session_id: leaderboardSessionId,
       })
       if (error) throw new Error(error.message)
       const result = Array.isArray(data) ? data[0] : data
       if (!result) throw new Error('Attempt recording returned no result.')
       const correct = Boolean(result.is_correct)
       setSessionResults(previous => ({ ...previous, [it.id]: correct }))
+      if (Number(result.points_awarded) > 0) {
+        addToast({ type: 'success', title: '+10 leaderboard points', message: 'Correct answer!' })
+      }
       if (result.level > result.previous_level) setLevelUp(result.level)
       setReviewQueue(previous => updatePracticeReviewQueue(previous, it.id, correct))
       await refreshProfile()
@@ -320,11 +630,18 @@ export default function PracticePage() {
   }
 
   async function submitEnumeration() {
-    if (!current) return
-    const ans = current.answer as EnumerationAnswer
+    if (!current || enumerationCountMismatch) return
     const correct = await recordAttempt({ text: diagInput })
     if (correct === null) return
-    setFeedback({ correct, text: current.rationale || `Expected items: ${(ans.items || []).join(', ')}` })
+    setFeedback({ correct, text: current.rationale || '' })
+  }
+
+  function updateEnumerationAnswer(index: number, value: string) {
+    setDiagInput(previous => {
+      const answers = previous.split('\n')
+      answers[index] = value
+      return answers.join('\n')
+    })
   }
 
   function questionContext(includeAnswer = true): string {
@@ -356,7 +673,7 @@ export default function PracticePage() {
     if (mode === 'enumeration') {
       const q = it.question as DiagnosisQuestion
       const a = it.answer as EnumerationAnswer
-      const answer = includeAnswer ? `\nExpected items: ${(a.items || []).join(', ')}\nRationale: ${it.rationale || 'none'}` : ''
+      const answer = includeAnswer ? `\nExpected items:\n${(a.items || []).join('\n')}\nRationale: ${it.rationale || 'none'}` : ''
       return `${subj}\nPrompt: ${q.prompt}${answer}`
     }
     if (mode === 'identification') {
@@ -546,20 +863,41 @@ export default function PracticePage() {
   const unansweredCount = mode === 'flashcards'
     ? Math.max(flashcards.length - ratedCardCount, 0)
     : Math.max(items.length - answeredQuestionCount, 0)
+  const modeProgress = getStudyModeProgress(
+    availableStudyModes || [],
+    completedStudyModes,
+    mode,
+    unansweredCount === 0
+  )
+  const allAvailableModesComplete = modeProgress.allComplete
+  const canTryAnotherMode = studyModesUnavailable || modeProgress.hasUncompletedAlternative
   const sessionAccuracy = answeredQuestionCount
     ? Math.round((correctQuestionCount / answeredQuestionCount) * 100)
     : 0
-  const selectedModeLabel = modeTabs.find(tab => tab.value === mode)?.label || 'Practice'
+  const selectedModeLabel = modeTabs.find(tab => tab.value === mode)?.label || 'Study mode'
+  const displaySubject = folderSubject || subject
+  const modeDescriptions: Partial<Record<'flashcards' | PracticeType, string>> = {
+    flashcards: 'Recall the answer first, then rate how well you remembered it.',
+    mcq: 'Choose the best answer and review the rationale after each question.',
+    diagnosis: 'Work through a clinical case and identify the key concept.',
+    sequence: 'Arrange clinical or procedural steps in the correct order.',
+    enumeration: 'Recall the complete list from memory.',
+    identification: 'Type the term or concept that matches each prompt.',
+  }
+  const selectedModeDescription = modeDescriptions[mode] || 'Choose a reviewer to see the practice sets available.'
+  const showCompanion = !loading && !empty && !done && Boolean(current || currentCard)
+  const practiceLocked = mode !== 'flashcards'
+    && (reviewGate.status !== 'clear' || reviewGate.mode !== mode)
   const speechContextKey = `${mode}:${subject}:${materialId}:${idx}:${current?.id ?? currentCard?.id ?? ''}:${reveal}:${Boolean(feedback)}`
   return (
     <div className="container workspace-page practice-page">
       <header className="practice-focus-header">
-        <Button className="practice-exit-button" variant="ghost" leftIcon="arrow-left" onClick={() => navigate('/reviewers')}>
-          Browse reviewers
+        <Button className="practice-exit-button" variant="ghost" leftIcon="arrow-left" onClick={browseReviewers}>
+          Change reviewer
         </Button>
         <div className="practice-focus-title">
           <span>FOCUSED STUDY</span>
-          <h1>Practice</h1>
+          <h1>Study mode</h1>
         </div>
       </header>
 
@@ -568,12 +906,12 @@ export default function PracticePage() {
           <div className="practice-controls-grid">
             <div className="practice-mode-control">
               <span className="practice-control-label">STUDY MODE</span>
-              <Tabs className="practice-mode-tabs" tabs={modeTabs} value={mode} onChange={selectMode} variant="scrollable" ariaLabel="Practice mode" fullWidth />
+              <Tabs className="practice-mode-tabs" tabs={modeTabs} value={mode} onChange={selectMode} variant="scrollable" ariaLabel="Study mode" fullWidth />
               <span className="practice-scroll-hint">Scroll for more modes <Icon name="arrow-right" size={13} /></span>
             </div>
           </div>
           <div className="practice-controls-actions">
-            {subject && (
+            {subject && !practiceLocked && (
               <Button className="practice-reload-button" variant="secondary" leftIcon="refresh-cw" onClick={load} disabled={loading}>
                 {loading ? 'Loading…' : 'Reload Items'}
               </Button>
@@ -586,11 +924,8 @@ export default function PracticePage() {
                     : `${reviewQueue.length} ${reviewQueue.length === 1 ? 'question is' : 'questions are'} scheduled for later`}
                 </span>
                 <div className="practice-review-queue-actions">
-                  <Button variant="secondary" onClick={() => openReviewQueue('due')} disabled={dueReviewCount === 0}>
+                  <Button variant="danger" onClick={() => openReviewQueue('due')} disabled={dueReviewCount === 0}>
                     Review due
-                  </Button>
-                  <Button variant="outline" onClick={() => openReviewQueue('all')}>
-                    Review now
                   </Button>
                 </div>
               </div>
@@ -628,7 +963,50 @@ export default function PracticePage() {
         </section>
       )}
 
-      <div ref={practicePanelRef} className="practice-session-panel" role="tabpanel" id={`panel-${mode}`} aria-labelledby={`tab-${mode}`} tabIndex={0}>
+      <div
+        ref={practicePanelRef}
+        className={`practice-session-panel${showCompanion ? '' : ' practice-session-panel--solo'}`}
+        role="tabpanel"
+        id={`panel-${mode}`}
+        aria-labelledby={`tab-${mode}`}
+        tabIndex={0}
+      >
+      {practiceLocked ? (
+        <Card variant="outlined">
+          <CardContent className="practice-session-complete" aria-live="polite">
+            {reviewGate.status === 'checking' || reviewGate.mode !== mode ? (
+              <>
+                <Icon name="loader" size={40} />
+                <h2>Checking your review progress</h2>
+                <p>Practice will unlock when all due flashcards have been reviewed.</p>
+              </>
+            ) : reviewGate.status === 'blocked' ? (
+              <>
+                <Icon name="lock" size={40} />
+                <h2>Review due flashcards first</h2>
+                <p>Finish reviewing your due flashcards in {reviewGate.subject} to unlock practice.</p>
+                <Button
+                  variant="primary"
+                  leftIcon="book-open"
+                  onClick={() => navigate(`/practice?mode=flashcards&subject=${encodeURIComponent(reviewGate.subject)}`)}
+                >
+                  Review flashcards
+                </Button>
+              </>
+            ) : reviewGate.status === 'error' ? (
+              <>
+                <Icon name="alert-circle" size={40} />
+                <h2>Could not check review progress</h2>
+                <p>{reviewGate.message}</p>
+                <Button variant="primary" onClick={() => setReviewGateRetry(value => value + 1)}>
+                  Try again
+                </Button>
+              </>
+            ) : null}
+          </CardContent>
+        </Card>
+      ) : (
+      <>
       <div className="practice-session-content">
       {loading && (
         <Card variant="outlined">
@@ -642,16 +1020,47 @@ export default function PracticePage() {
       )}
 
       {!loading && !subject && (
-        <Card variant="outlined">
-          <CardContent>
-            <EmptyState
-              icon="book-open"
-              title="Choose a study set"
-              description="Open a subject folder to choose from the flashcards and practice sets you have available."
-              action={{ label: 'Browse reviewers', onClick: () => navigate('/reviewers'), variant: 'primary' }}
-            />
-          </CardContent>
-        </Card>
+        <section className="practice-start-card" aria-labelledby="practice-start-title">
+          <div className="practice-start-main">
+            <div className="practice-start-heading">
+              <span className="practice-start-icon" aria-hidden="true"><Icon name="book-open" size={23} /></span>
+              <div>
+                <h2 id="practice-start-title">Choose a reviewer to start practicing</h2>
+              </div>
+            </div>
+            <p className="practice-start-description">
+              Pick a subject folder to see its available practice sets. Your progress is saved as you go.
+            </p>
+            <div className="practice-start-mode">
+              <span className="practice-start-mode-label">SELECTED MODE</span>
+              <strong>{selectedModeLabel}</strong>
+              <span>{selectedModeDescription}</span>
+            </div>
+            <Button
+              variant="primary"
+              size="lg"
+              rightIcon="arrow-right"
+              onClick={browseReviewers}
+              className="practice-start-action"
+            >
+              Choose reviewer
+            </Button>
+          </div>
+          <ol className="practice-start-steps" aria-label="How to start practicing">
+            <li>
+              <span className="practice-start-step-number">1</span>
+              <span><strong>Choose a subject</strong><small>Open a reviewer folder from your library.</small></span>
+            </li>
+            <li>
+              <span className="practice-start-step-number">2</span>
+              <span><strong>Pick a practice set</strong><small>Use the mode you selected above.</small></span>
+            </li>
+            <li>
+              <span className="practice-start-step-number">3</span>
+              <span><strong>Learn as you go</strong><small>Get feedback and keep your progress.</small></span>
+            </li>
+          </ol>
+        </section>
       )}
 
       {!loading && subject && empty && (
@@ -677,7 +1086,7 @@ export default function PracticePage() {
                   : reviewQueue.length > 0
                     ? { label: 'Review all missed now', onClick: () => openReviewQueue('all'), variant: 'primary' }
                     : { label: 'Return to practice', onClick: exitReviewQueue, variant: 'secondary' }
-                : { label: 'Browse reviewers', onClick: () => navigate('/reviewers'), variant: 'primary' }}
+                : { label: 'Choose another reviewer', onClick: browseReviewers, variant: 'primary' }}
             />
           </CardContent>
         </Card>
@@ -688,6 +1097,15 @@ export default function PracticePage() {
           <CardContent className="practice-session-complete">
             <Icon name="check-circle" size={48} style={{ color: 'var(--success)', marginBottom: 12 }} />
             <h3>{reviewFilter ? 'Review Session Complete' : 'Session Complete'}</h3>
+            {!reviewFilter && (
+              <p>
+                {allAvailableModesComplete
+                  ? 'You’ve completed all available study modes for this reviewer. Nice work!'
+                  : canTryAnotherMode
+                    ? 'Great work! Try another mode with this reviewer.'
+                    : 'Great work on this study session.'}
+              </p>
+            )}
             {mode === 'flashcards' ? (
               <>
                 <p>{ratedCardCount} of {sessionLength} cards rated · {againCardCount} marked “Again” · {unansweredCount} skipped</p>
@@ -706,6 +1124,11 @@ export default function PracticePage() {
                   <div><strong>{unansweredCount}</strong><span>Unanswered</span></div>
                   <div><strong>{sessionAccuracy}%</strong><span>Accuracy</span></div>
                 </div>
+                {leaderboardSessionId && (
+                  <p className="practice-session-review-status">
+                    Earn a +20-point set bonus by answering every question with at least 75% accuracy.
+                  </p>
+                )}
               </>
             )}
             {mode !== 'flashcards' && reviewQueue.length > 0 && (
@@ -715,7 +1138,11 @@ export default function PracticePage() {
               </p>
             )}
             <div style={{ marginTop: 16, display: 'flex', gap: 8, justifyContent: 'center' }}>
-              <Button variant="primary" leftIcon="rotate-ccw" onClick={load}>Practice Again</Button>
+              {reviewFilter ? (
+                <Button variant="primary" leftIcon="rotate-ccw" onClick={load}>Practice Again</Button>
+              ) : canTryAnotherMode ? (
+                <Button variant="primary" rightIcon="arrow-right" onClick={tryAnotherMode}>Try another mode</Button>
+              ) : null}
               {mode !== 'flashcards' && reviewQueue.length > 0 && (
                 <>
                   <Button variant="secondary" onClick={() => openReviewQueue('all')}>
@@ -728,7 +1155,7 @@ export default function PracticePage() {
                   )}
                 </>
               )}
-              <Button variant="secondary" onClick={() => navigate('/reviewers')}>Browse another set</Button>
+              <Button variant="secondary" onClick={browseReviewers}>Choose another reviewer</Button>
             </div>
           </CardContent>
         </Card>
@@ -739,7 +1166,7 @@ export default function PracticePage() {
         <Card key={`${mode}-${idx}`} variant="elevated" className="practice-question-card">
           <CardContent className="practice-question-content">
             <div className="practice-question-meta">
-              <Badge variant="primary" size="sm">{currentCard.subject}</Badge>
+              <Badge variant="primary" size="md">{displaySubject}</Badge>
               {isCardDue(currentCard) ? (
                 <Badge variant="warning" size="sm" dot>Due for review</Badge>
               ) : currentCard.next_review_at ? (
@@ -786,7 +1213,7 @@ export default function PracticePage() {
         <Card key={`${mode}-${idx}`} variant="elevated" className="practice-question-card">
           <CardContent className="practice-question-content">
             <div className="practice-question-meta">
-              <Badge variant="primary" size="md">{current.subject} · Multiple choice</Badge>
+              <Badge variant="primary" size="md">{displaySubject} · Multiple choice</Badge>
             </div>
 
             <h3 className="practice-question-heading">{(current.question as McqQuestion).stem}</h3>
@@ -852,7 +1279,7 @@ export default function PracticePage() {
         <Card key={`${mode}-${idx}`} variant="elevated" className="practice-question-card">
           <CardContent className="practice-question-content">
             <div className="practice-question-meta">
-              <Badge variant="primary" size="md">{current.subject} · Clinical &amp; Concept Diagnosis</Badge>
+              <Badge variant="primary" size="md">{displaySubject} · Clinical &amp; Concept Diagnosis</Badge>
             </div>
 
             <div className="practice-content-block">
@@ -912,7 +1339,7 @@ export default function PracticePage() {
         <Card key={`${mode}-${idx}`} variant="elevated" className="practice-question-card">
           <CardContent className="practice-question-content">
             <div className="practice-question-meta">
-              <Badge variant="primary" size="md">{current.subject} · Priority &amp; Sequence Ordering</Badge>
+              <Badge variant="primary" size="md">{displaySubject} · Priority &amp; Sequence Ordering</Badge>
             </div>
 
             <h3 className="practice-question-heading">{(current.question as SequenceQuestion).prompt}</h3>
@@ -975,7 +1402,7 @@ export default function PracticePage() {
         <Card key={`${mode}-${idx}`} variant="elevated" className="practice-question-card">
           <CardContent className="practice-question-content">
             <div className="practice-question-meta">
-              <Badge variant="primary" size="md">{current.subject} · Identification</Badge>
+              <Badge variant="primary" size="md">{displaySubject} · Identification</Badge>
             </div>
 
             {(current.question as DiagnosisQuestion).scenario && (
@@ -987,9 +1414,8 @@ export default function PracticePage() {
               </div>
             )}
 
-            <div className="practice-content-block">
-              <div className="practice-field-label">Prompt</div>
-              <div className="practice-prompt">
+            <div className="practice-content-block practice-content-block--identification-prompt">
+              <div className="practice-prompt practice-prompt--identification">
                 {(current.question as DiagnosisQuestion).prompt}
               </div>
             </div>
@@ -1041,34 +1467,43 @@ export default function PracticePage() {
         <Card key={`${mode}-${idx}`} variant="elevated" className="practice-question-card">
           <CardContent className="practice-question-content">
             <div className="practice-question-meta">
-              <Badge variant="primary" size="md">{current.subject} · Enumeration</Badge>
+              <Badge variant="primary" size="md">{displaySubject} · Enumeration</Badge>
             </div>
 
-            <div className="practice-content-block">
-              <div className="practice-field-label">Prompt</div>
-              <div className="practice-prompt">
+            <div className="practice-content-block practice-content-block--enumeration-prompt">
+              <div className="practice-prompt practice-prompt--enumeration">
                 {(current.question as DiagnosisQuestion).prompt}
               </div>
             </div>
 
             <div className="practice-content-block">
-              <label htmlFor="enumeration-input" className="practice-field-label">Your List</label>
-              <textarea
-                id="enumeration-input"
-                value={diagInput}
-                onChange={e => setDiagInput(e.target.value)}
-                placeholder="List each item on a new line or separated by commas..."
-                disabled={!!feedback}
-                rows={6}
-                className="practice-answer-input practice-answer-textarea"
-                aria-describedby={feedback ? 'practice-feedback' : undefined}
-              />
-              <p className="practice-instruction">List every expected item; order doesn’t matter.</p>
+              <span className="practice-field-label">Your answers</span>
+              <div className="practice-enumeration-inputs">
+                {Array.from({ length: requestedEnumerationCount }, (_, answerIndex) => (
+                  <input
+                    key={answerIndex}
+                    type="text"
+                    value={diagInput.split('\n')[answerIndex] || ''}
+                    onChange={event => updateEnumerationAnswer(answerIndex, event.currentTarget.value)}
+                    placeholder={`Answer ${answerIndex + 1}`}
+                    aria-label={`Answer ${answerIndex + 1}`}
+                    aria-describedby={feedback ? 'practice-feedback' : undefined}
+                    disabled={!!feedback}
+                    className="practice-answer-input"
+                  />
+                ))}
+              </div>
+              <p className="practice-instruction">Enter one answer in each box; order doesn’t matter.</p>
+              {enumerationCountMismatch && (
+                <p className="practice-enumeration-warning" role="alert">
+                  This question requests {requestedEnumerationCount} items, but its saved answer key contains {enumerationItems.length}. Regenerate the enumeration study set to answer it.
+                </p>
+              )}
             </div>
 
             <div className="practice-submit-actions">
               {!feedback && (
-                <Button variant="primary" size="lg" onClick={submitEnumeration} disabled={!diagInput.trim()} fullWidth style={{ maxWidth: 240 }}>Check answers</Button>
+                <Button variant="primary" size="lg" onClick={submitEnumeration} disabled={!diagInput.trim() || enumerationCountMismatch} fullWidth style={{ maxWidth: 240 }}>Check answers</Button>
               )}
               {feedback && (
                 <Button variant="primary" size="lg" rightIcon="chevron-right" onClick={next} fullWidth style={{ maxWidth: 240 }}>Next question</Button>
@@ -1085,7 +1520,15 @@ export default function PracticePage() {
                       {feedback.correct ? 'Correct — all items listed.' : 'Incorrect — check the expected list.'}
                     </div>
                     <div className="practice-feedback-text">
-                      <strong>Rationale / Expected items:</strong> {feedback.text}
+                      <strong>Expected items:</strong>
+                      <ul className="practice-enumeration-expected-list">
+                        {enumerationItems.map((item, itemIndex) => (
+                          <li key={`${item}-${itemIndex}`}>{item}</li>
+                        ))}
+                      </ul>
+                      {current.rationale && (
+                        <p className="practice-enumeration-rationale"><strong>Rationale:</strong> {current.rationale}</p>
+                      )}
                     </div>
                 </div>
               </div>
@@ -1097,13 +1540,6 @@ export default function PracticePage() {
 
       {!loading && !empty && !done && !feedback && !reveal && (current || currentCard) && (
         <section className="practice-hint-panel" aria-label="Study hints">
-          <div className="practice-hint-copy">
-            <span className="practice-hint-icon" aria-hidden="true"><Icon name="brain" size={18} /></span>
-            <div>
-              <h3>Need a nudge?</h3>
-              <p>Get a small clue without revealing the answer.</p>
-            </div>
-          </div>
           {hints.length > 0 && (
             <ol className="practice-hint-list" aria-live="polite">
               {hints.map((hint, index) => <li key={`${index}-${hint}`}>{hint}</li>)}
@@ -1112,7 +1548,7 @@ export default function PracticePage() {
           <Button
             variant="secondary"
             size="sm"
-            leftIcon="brain"
+            leftIcon="lightbulb"
             onClick={requestHint}
             loading={hintLoading}
             disabled={hints.length >= 2}
@@ -1123,7 +1559,7 @@ export default function PracticePage() {
       )}
       {levelUp != null && <LevelUpCelebration level={levelUp} onClose={() => setLevelUp(null)} />}
       </div>
-      <aside className="practice-companion" aria-label="Study with Lilo">
+      {showCompanion && <aside className="practice-companion" aria-label="Study with Lilo">
         <LiloSpeechPanel
           key={speechContextKey}
           text={speechText}
@@ -1131,16 +1567,19 @@ export default function PracticePage() {
           answerCorrect={feedback?.correct}
           answerText={correctAnswerText}
           answerExplanation={feedback ? current?.rationale || '' : undefined}
+          muted={liloMuted}
+          onMutedChange={setLiloMuted}
           readyPromptOpen={readyPromptOpen}
           announceReadyPrompt={readyPromptOpen && !readyPromptAnnounced}
           onReadyPromptAnnounced={markReadyPromptAnnounced}
           onReadyPromptResponse={closeReadyPrompt}
         />
-      </aside>
-      </div>
+      </aside>}
+      </>)}
       {modeTabs.filter(tab => tab.value !== mode).map(tab => (
         <div key={tab.value} role="tabpanel" id={`panel-${tab.value}`} aria-labelledby={`tab-${tab.value}`} hidden />
       ))}
+    </div>
     </div>
   )
 }

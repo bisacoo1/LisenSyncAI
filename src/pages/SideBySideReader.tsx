@@ -3,6 +3,8 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { explainText } from '@/lib/ai'
+import { formatStudyText } from '@/lib/formatStudyText'
+import StudyMarkdown from '@/components/StudyMarkdown'
 import type { ReviewMaterial, DocumentHighlight } from '@/types'
 import { Card, CardContent, Button, Badge, Icon, EmptyState, useToast } from '@/components/ui'
 
@@ -75,6 +77,7 @@ export default function SideBySideReader() {
   const [messages, setMessages] = useState<{ role: 'user' | 'assistant'; content: string }[]>([])
   const [panelTab, setPanelTab] = useState<'chat' | 'highlights'>('chat')
   const [mobileView, setMobileView] = useState<'document' | 'chat'>('document')
+  const [chatCollapsed, setChatCollapsed] = useState(false)
   const chatMessagesRef = useRef<HTMLDivElement>(null)
   const requestVersion = useRef(0)
   const chatRequestPending = useRef(false)
@@ -82,10 +85,14 @@ export default function SideBySideReader() {
   const [savingHighlight, setSavingHighlight] = useState(false)
   const [loadError, setLoadError] = useState(false)
   const [currentPage, setCurrentPage] = useState(1)
-  const ITEMS_PER_PAGE = 4
+  const ITEMS_PER_PAGE = 8
 
   const textRef = useRef<HTMLDivElement>(null)
   const selectionTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    textRef.current?.scrollTo({ top: 0 })
+  }, [currentPage, materialId])
 
   useEffect(() => {
     if (!profile) return
@@ -347,20 +354,20 @@ export default function SideBySideReader() {
         <button type="button" className={mobileView === 'chat' ? 'active' : ''} aria-pressed={mobileView === 'chat'} onClick={() => setMobileView('chat')}>AI chat</button>
       </div>
       {/* Main reader area - document left, AI panel right */}
-      <div className="reader-grid">
+      <div className={`reader-grid${chatCollapsed ? ' reader-grid--chat-collapsed' : ''}`}>
         {/* Left: Document viewer */}
         <div
           className={`reader-document${mobileView !== 'document' ? ' reader-mobile-hidden' : ''}`}
           style={{
             background: 'var(--bg)',
-            overflow: 'auto',
             borderRight: '1px solid var(--border)',
             minHeight: 0,
           }}
         >
-          <Card variant="outlined" className="reader-document-card">
-            <CardContent style={{ padding: 0 }}>
+          <Card variant="outlined" padding="none" className="reader-document-card">
+            <CardContent className="reader-document-content">
               <div
+                className="reader-document-text"
                 ref={textRef}
                 onMouseUp={handleSelectionChange}
                 onTouchEnd={handleSelectionChange}
@@ -371,8 +378,6 @@ export default function SideBySideReader() {
                   color: 'var(--text)',
                   userSelect: 'text',
                   cursor: 'text',
-                  padding: 20,
-                  minHeight: '100%',
                 }}
               >
                 {paragraphs.length === 0 ? (
@@ -382,9 +387,7 @@ export default function SideBySideReader() {
                 ) : (
                   <>
                     {pageParagraphs.map((p, i) => (
-                      <p key={i} style={{ margin: '0 0 16px', whiteSpace: 'pre-wrap' }}>
-                        {p}
-                      </p>
+                      <StudyMarkdown key={i}>{p}</StudyMarkdown>
                     ))}
                     {/* Page number marker */}
                     <div style={{ textAlign: 'center', marginTop: 30, color: 'var(--muted)', fontSize: 12, fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
@@ -411,68 +414,79 @@ export default function SideBySideReader() {
         </div>
 
         {/* Right: AI panel */}
-        <aside className={`reader-side-panel${mobileView !== 'chat' ? ' reader-mobile-hidden' : ''}`} aria-label="Study assistant">
-          <div className="reader-chat-header">
-            <span className="reader-chat-avatar"><Icon name="brain" size={20} /></span>
-            <div><strong>Study assistant</strong><small>Ask questions as you read</small></div>
-          </div>
-          <div className="reader-panel-tabs" role="group" aria-label="Assistant panel">
-            <button type="button" className={panelTab === 'chat' ? 'active' : ''} aria-pressed={panelTab === 'chat'} onClick={() => setPanelTab('chat')}>Chat</button>
-            <button type="button" className={panelTab === 'highlights' ? 'active' : ''} aria-pressed={panelTab === 'highlights'} onClick={() => setPanelTab('highlights')}>Saved highlights <span>{highlights.length}</span></button>
-          </div>
-          {panelTab === 'chat' ? (
-            <>
-              <div className="reader-chat-context">
-                <Icon name="file-text" size={15} />
-                <span>{currentExplanation ? 'Discussing selected text' : `Using document section ${currentPage} of ${totalPages}`}</span>
-                {currentExplanation && <button type="button" disabled={sendingFollowUp || explaining} onClick={() => { setCurrentExplanation(null); setMessages([]) }}>Clear selection</button>}
-              </div>
-              {currentExplanation && <div className="reader-chat-selection" title={currentExplanation.text}>“{currentExplanation.text}”</div>}
-              <div ref={chatMessagesRef} className="reader-chat-messages" aria-label="Conversation" aria-live="polite" aria-busy={sendingFollowUp || explaining}>
-                {messages.length === 0 && !explaining && (
-                  <div className="reader-chat-empty">
-                    <span className="reader-chat-avatar"><Icon name="brain" size={24} /></span>
-                    <h2>Let's study together.</h2>
-                    <p>Ask a question about this section, or select a passage and choose “Explain with AI”.</p>
-                  </div>
-                )}
-                {messages.map((message, index) => (
-                  <div key={index} className={`reader-message reader-message--${message.role}`}>
-                    <span>{message.role === 'user' ? 'You' : 'Study assistant'}</span>
-                    <div>{message.content}</div>
-                  </div>
-                ))}
-                {(sendingFollowUp || explaining) && <div className="reader-chat-thinking" role="status"><Icon name="loader" size={15} className="spin" /> Thinking…</div>}
-              </div>
-              <form className="reader-chat-composer" onSubmit={event => { event.preventDefault(); void sendFollowUp() }}>
-                <div>
-                  <textarea id="reader-chat-input" aria-label="Ask a follow-up question" rows={2} placeholder="Ask a follow-up question…" value={followUpInput} onChange={event => setFollowUpInput(event.target.value)} onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); void sendFollowUp() } }} />
-                  <Button type="submit" variant="primary" size="sm" disabled={!followUpInput.trim() || sendingFollowUp || explaining || (!currentExplanation && !paragraphs.length)} aria-label="Send question" leftIcon="arrow-right">Send</Button>
-                </div>
-                <small>Enter to send · Shift + Enter for a new line. Chat is not saved.</small>
-                <small>AI can make mistakes. Verify important information.</small>
-              </form>
-            </>
-          ) : (
-            <div className="reader-saved">
-              <div className="reader-saved-heading"><div><strong>Saved highlights</strong><p>Passages you've saved from this reviewer.</p></div>
-                {highlights.length > 0 && <button type="button" disabled={explaining || savingHighlight} onClick={clearAllHighlights}>Clear all</button>}
-              </div>
-              {highlights.length === 0 ? <p className="reader-saved-empty">Select text in the document and choose “Highlight” to save it here.</p> : (
-                <ul>{highlights.map(h => <li key={h.id}>
-                  <button type="button" className="reader-highlight" disabled={sendingFollowUp || explaining} onClick={() => {
-                    setCurrentExplanation({ text: h.selected_text, explanation: h.explanation || '', model: h.ai_model || '' })
-                    setMessages(h.explanation ? [{ role: 'user', content: `Explain this passage:\n\n${h.selected_text}` }, { role: 'assistant', content: h.explanation }] : [])
-                    setPanelTab('chat')
-                  }}>
-                    <span className="reader-highlight-text">{h.selected_text}</span>
-                    <span className="reader-highlight-meta">{h.explanation ? 'View explanation' : 'Ask about this passage'} <Icon name="arrow-right" size={12} /></span>
-                  </button>
-                </li>)}</ul>
-              )}
+        {chatCollapsed ? (
+          <aside className={`reader-side-panel reader-side-panel--collapsed${mobileView !== 'chat' ? ' reader-mobile-hidden' : ''}`} aria-label="Study assistant collapsed">
+            <button type="button" className="reader-panel-collapse-toggle" aria-label="Expand study assistant" aria-expanded="false" title="Expand study assistant" onClick={() => setChatCollapsed(false)}>
+              <Icon name="chevron-left" size={18} />
+            </button>
+          </aside>
+        ) : (
+          <aside className={`reader-side-panel${mobileView !== 'chat' ? ' reader-mobile-hidden' : ''}`} aria-label="Study assistant">
+            <div className="reader-chat-header">
+              <span className="reader-chat-avatar"><Icon name="brain" size={20} /></span>
+              <div><strong>Study assistant</strong><small>Ask questions as you read</small></div>
+              <button type="button" className="reader-panel-collapse-toggle" aria-label="Collapse study assistant" aria-expanded="true" title="Collapse study assistant" onClick={() => setChatCollapsed(true)}>
+                <Icon name="chevron-right" size={18} />
+              </button>
             </div>
-          )}
-        </aside>
+            <div className="reader-panel-tabs" role="group" aria-label="Assistant panel">
+              <button type="button" className={panelTab === 'chat' ? 'active' : ''} aria-pressed={panelTab === 'chat'} onClick={() => setPanelTab('chat')}>Chat</button>
+              <button type="button" className={panelTab === 'highlights' ? 'active' : ''} aria-pressed={panelTab === 'highlights'} onClick={() => setPanelTab('highlights')}>Saved highlights <span>{highlights.length}</span></button>
+            </div>
+            {panelTab === 'chat' ? (
+              <>
+                <div className="reader-chat-context">
+                  <Icon name="file-text" size={15} />
+                  <span>{currentExplanation ? 'Discussing selected text' : `Section ${currentPage} of ${totalPages}`}</span>
+                  {currentExplanation && <button type="button" disabled={sendingFollowUp || explaining} onClick={() => { setCurrentExplanation(null); setMessages([]) }}>Clear selection</button>}
+                </div>
+                {currentExplanation && <div className="reader-chat-selection" title={formatStudyText(currentExplanation.text)}>“{formatStudyText(currentExplanation.text)}”</div>}
+                <div ref={chatMessagesRef} className="reader-chat-messages" aria-label="Conversation" aria-live="polite" aria-busy={sendingFollowUp || explaining}>
+                  {messages.length === 0 && !explaining && (
+                    <div className="reader-chat-empty">
+                      <span className="reader-chat-avatar"><Icon name="brain" size={24} /></span>
+                      <h2>Let's study together.</h2>
+                      <p>Ask a question about this section, or select a passage and choose “Explain with AI”.</p>
+                    </div>
+                  )}
+                  {messages.map((message, index) => (
+                    <div key={index} className={`reader-message reader-message--${message.role}`}>
+                      <span>{message.role === 'user' ? 'You' : 'Study assistant'}</span>
+                      <StudyMarkdown>{message.content}</StudyMarkdown>
+                    </div>
+                  ))}
+                  {(sendingFollowUp || explaining) && <div className="reader-chat-thinking" role="status"><Icon name="loader" size={15} className="spin" /> Thinking…</div>}
+                </div>
+                <form className="reader-chat-composer" onSubmit={event => { event.preventDefault(); void sendFollowUp() }}>
+                  <div>
+                    <textarea id="reader-chat-input" aria-label="Ask a follow-up question" rows={2} placeholder="Ask a follow-up question…" value={followUpInput} onChange={event => setFollowUpInput(event.target.value)} onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); void sendFollowUp() } }} />
+                    <Button type="submit" variant="primary" size="sm" disabled={!followUpInput.trim() || sendingFollowUp || explaining || (!currentExplanation && !paragraphs.length)} aria-label="Send question" leftIcon="arrow-right">Send</Button>
+                  </div>
+                  <small>Enter to send · Shift + Enter for a new line. Chat is not saved.</small>
+                  <small>AI can make mistakes. Verify important information.</small>
+                </form>
+              </>
+            ) : (
+              <div className="reader-saved">
+                <div className="reader-saved-heading"><div><strong>Saved highlights</strong><p>Passages you've saved from this reviewer.</p></div>
+                  {highlights.length > 0 && <button type="button" disabled={explaining || savingHighlight} onClick={clearAllHighlights}>Clear all</button>}
+                </div>
+                {highlights.length === 0 ? <p className="reader-saved-empty">Select text in the document and choose “Highlight” to save it here.</p> : (
+                  <ul>{highlights.map(h => <li key={h.id}>
+                    <button type="button" className="reader-highlight" disabled={sendingFollowUp || explaining} onClick={() => {
+                      setCurrentExplanation({ text: h.selected_text, explanation: h.explanation || '', model: h.ai_model || '' })
+                      setMessages(h.explanation ? [{ role: 'user', content: `Explain this passage:\n\n${h.selected_text}` }, { role: 'assistant', content: h.explanation }] : [])
+                      setPanelTab('chat')
+                    }}>
+                      <span className="reader-highlight-text">{formatStudyText(h.selected_text)}</span>
+                      <span className="reader-highlight-meta">{h.explanation ? 'View explanation' : 'Ask about this passage'} <Icon name="arrow-right" size={12} /></span>
+                    </button>
+                  </li>)}</ul>
+                )}
+              </div>
+            )}
+          </aside>
+        )}
       </div>
 
       {/* Floating explain/highlight bubble */}

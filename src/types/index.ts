@@ -1,6 +1,16 @@
 export type BoardProgramKey = 'pharmacy'
 
 export type PharmacySubjectIcon = 'flask' | 'leaf' | 'stethoscope' | 'heart-pulse' | 'pill' | 'shield-check'
+export type ProfileAvatarBorderId =
+  | 'default-circle'
+  | 'capsule-specialist'
+  | 'prescribing-expert'
+  | 'golden-graduate'
+  | 'superb-healer'
+  | 'lab-wizard'
+  | 'academic-scholar'
+  | 'master-alchemist'
+  | 'mortal-and-pestle-champion'
 
 export interface SubjectDetail {
   name: string
@@ -35,6 +45,9 @@ export interface TosAllocation {
 export interface Profile {
   id: string
   full_name: string | null
+  avatar_id?: string | null
+  avatar_path?: string | null
+  avatar_border?: ProfileAvatarBorderId | null
   board_program: BoardProgramKey
   target_exam_date: string | null
   xp?: number

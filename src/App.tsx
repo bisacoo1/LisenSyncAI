@@ -13,6 +13,9 @@ const ReviewerPage = lazy(() => import('@/pages/ReviewerPage'))
 const PracticePage = lazy(() => import('@/pages/PracticePage'))
 const MockExamPage = lazy(() => import('@/pages/MockExamPage'))
 const AnalyticsPage = lazy(() => import('@/pages/AnalyticsPage'))
+const LeaderboardPage = lazy(() => import('@/pages/LeaderboardPage'))
+const FriendsPage = lazy(() => import('@/pages/FriendsPage'))
+const AchievementsPage = lazy(() => import('@/pages/AchievementsPage'))
 const SideBySideReader = lazy(() => import('@/pages/SideBySideReader'))
 const GameModePage = lazy(() => import('@/pages/GameModePage'))
 
@@ -20,7 +23,8 @@ export default function App() {
   const location = useLocation()
 
   useEffect(() => {
-    document.querySelector<HTMLElement>('[data-route-main]')?.focus()
+    document.querySelector<HTMLElement>('[data-route-main]')?.focus({ preventScroll: true })
+    window.scrollTo(0, 0)
   }, [location.pathname])
 
   return (
@@ -117,6 +121,36 @@ export default function App() {
           <Layout>
             <ProtectedRoute>
               <AnalyticsPage />
+            </ProtectedRoute>
+          </Layout>
+        }
+      />
+      <Route
+        path="/leaderboard"
+        element={
+          <Layout>
+            <ProtectedRoute>
+              <LeaderboardPage />
+            </ProtectedRoute>
+          </Layout>
+        }
+      />
+      <Route
+        path="/friends"
+        element={
+          <Layout>
+            <ProtectedRoute>
+              <FriendsPage />
+            </ProtectedRoute>
+          </Layout>
+        }
+      />
+      <Route
+        path="/achievements"
+        element={
+          <Layout>
+            <ProtectedRoute>
+              <AchievementsPage />
             </ProtectedRoute>
           </Layout>
         }

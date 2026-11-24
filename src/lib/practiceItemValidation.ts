@@ -39,6 +39,27 @@ function invalidItem(index: number, type: PracticeType, reason: string): never {
   throw new Error(`AI returned an invalid ${type} item at position ${index + 1}: ${reason}`)
 }
 
+const enumerationCountWords: Record<string, number> = {
+  one: 1,
+  two: 2,
+  three: 3,
+  four: 4,
+  five: 5,
+  six: 6,
+  seven: 7,
+  eight: 8,
+  nine: 9,
+  ten: 10,
+}
+
+export function getEnumerationPromptCount(prompt: string): number | null {
+  const match = prompt.match(/\b(?:enumerate|list|name|provide|give)\s+(?:(?:the|all|following|top)\s+)*(one|two|three|four|five|six|seven|eight|nine|ten|\d+)\b/i)
+  if (!match) return null
+  const token = match[1].toLowerCase()
+  const count = enumerationCountWords[token] || Number(token)
+  return Number.isInteger(count) && count > 0 ? count : null
+}
+
 export function isValidMockPracticeItem(item: PracticeItem): boolean {
   if (item.type === 'mcq') {
     const question = item.question as McqQuestion
@@ -127,6 +148,12 @@ export function validateGeneratedPracticeItems(
     } else if (type === 'enumeration') {
       const q = question as DiagnosisQuestion | undefined
       const a = answer as EnumerationAnswer | undefined
+      if (isNonEmptyString(q?.prompt) && Array.isArray(a?.items)) {
+        const requestedCount = getEnumerationPromptCount(q.prompt)
+        if (requestedCount !== null && requestedCount !== a.items.length) {
+          return invalidItem(index, type, `prompt requests ${requestedCount} items but answer contains ${a.items.length}`)
+        }
+      }
       valid = isNonEmptyString(q?.prompt)
         && a !== undefined
         && isStringArray(a.items)

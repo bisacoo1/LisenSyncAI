@@ -10,6 +10,7 @@ export interface Toast {
   title: string
   message?: string
   duration?: number
+  placement?: 'center'
   action?: { label: string; onClick: () => void }
 }
 
@@ -75,17 +76,32 @@ const ToastContainer: React.FC<{ toasts: Toast[]; onRemove: (id: string) => void
   }
 
   return (
-    <div
-      className="toast-container"
-      role="region"
-      aria-label="Notifications"
-      aria-live="polite"
-      aria-atomic="true"
-    >
-      {toasts.map((toast) => (
-        <ToastItem key={toast.id} toast={toast} onRemove={onRemove} />
-      ))}
-    </div>
+    <>
+      <div
+        className="toast-container"
+        role="region"
+        aria-label="Notifications"
+        aria-live="polite"
+        aria-atomic="true"
+      >
+        {toasts.filter(toast => !toast.placement).map(toast => (
+          <ToastItem key={toast.id} toast={toast} onRemove={onRemove} />
+        ))}
+      </div>
+      {toasts.some(toast => toast.placement === 'center') && (
+        <div
+          className="toast-container toast-container--center"
+          role="region"
+          aria-label="Status message"
+          aria-live="polite"
+          aria-atomic="true"
+        >
+          {toasts.filter(toast => toast.placement === 'center').map(toast => (
+            <ToastItem key={toast.id} toast={toast} onRemove={onRemove} />
+          ))}
+        </div>
+      )}
+    </>
   )
 }
 
@@ -128,6 +144,7 @@ const ToastItem: React.FC<{ toast: Toast; onRemove: (id: string) => void }> = ({
 
   // Use role="alert" for error and success toasts to ensure they're announced
   const isAlert = toast.type === 'error' || toast.type === 'success'
+  const isCentered = toast.placement === 'center'
 
   const style: React.CSSProperties = {
     display: 'flex',
@@ -140,15 +157,19 @@ const ToastItem: React.FC<{ toast: Toast; onRemove: (id: string) => void }> = ({
     borderLeftWidth: 4,
     ...typeStyles[toast.type],
     boxShadow: 'var(--shadow-lg)',
-    transform: exiting ? 'translateX(120%)' : visible ? 'translateX(0)' : 'translateX(120%)',
+    transform: isCentered
+      ? exiting ? 'scale(.94) translateY(-4px)' : visible ? 'scale(1) translateY(0)' : 'scale(.9) translateY(12px)'
+      : exiting ? 'translateX(120%)' : visible ? 'translateX(0)' : 'translateX(120%)',
     opacity: exiting ? 0 : visible ? 1 : 0,
-    transition: 'all 200ms ease',
+    transition: isCentered
+      ? 'transform 280ms cubic-bezier(.2,.8,.2,1), opacity 200ms ease'
+      : 'all 200ms ease',
     pointerEvents: 'auto',
-    minWidth: 300,
+    minWidth: isCentered ? 'min(300px, calc(100vw - 32px))' : 300,
   }
 
   return (
-    <div style={style} role={isAlert ? 'alert' : undefined} aria-live={isAlert ? 'assertive' : undefined} aria-atomic={isAlert ? true : undefined}>
+    <div className={`toast-item${isCentered ? ' toast-item--center' : ''}`} style={style} role={isAlert ? 'alert' : undefined} aria-live={isAlert ? 'assertive' : undefined} aria-atomic={isAlert ? true : undefined}>
       <Icon name={typeIcons[toast.type] as any} size={20} style={{ color: typeTitleColors[toast.type], flexShrink: 0, marginTop: 2 }} />
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontWeight: 600, fontSize: 14, color: typeTitleColors[toast.type] }}>{toast.title}</div>

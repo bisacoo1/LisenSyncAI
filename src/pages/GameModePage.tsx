@@ -6,7 +6,7 @@ import type { McqAnswer, McqQuestion, PracticeItem } from '@/types'
 import type { GameWorldCollectible, GameWorldObstacle } from '@/components/GameWorld3D'
 import { obstacleDodged, type GameObstacleKind, type PlayerAction } from '@/lib/gameMode'
 import { gameSound } from '@/lib/gameSound'
-import { Badge, Button, Card, Icon } from '@/components/ui'
+import { Badge, Button, Card, Icon, useToast } from '@/components/ui'
 
 const GameWorld3D = lazy(() => import('@/components/GameWorld3D'))
 type Obstacle = GameWorldObstacle
@@ -66,6 +66,7 @@ export default function GameModePage() {
   const [floatingTexts, setFloatingTexts] = useState<Array<{ id: number; text: string; x: number; y: number; color: string; life: number }>>([])
   const [combo, setCombo] = useState(0)
   const floatingIdRef = useRef(0)
+  const { addToast } = useToast()
 
   useEffect(() => {
     if (!profile) return
@@ -428,16 +429,24 @@ export default function GameModePage() {
 
   const resumeAfterCheckpoint = useCallback(async (correct: boolean) => {
     stopSpeech()
+    let leaderboardPoints = 0
     if (currentQuestion && user) {
-      await supabase.from('attempts').insert({
-        user_id: user.id,
-        practice_item_id: currentQuestion.id,
-        board_program: profile?.board_program || 'pharmacy',
-        subject: currentQuestion.subject,
-        type: 'mcq',
-        user_response: { selected: selectedAnswer },
-        is_correct: correct,
-      })
+      try {
+        const { data, error } = await supabase.rpc('record_game_mcq_attempt', {
+          p_practice_item_id: currentQuestion.id,
+          p_selected: selectedAnswer,
+        })
+        if (error) throw new Error(error.message)
+        const result = Array.isArray(data) ? data[0] : data
+        if (!result) throw new Error('Game answer recording returned no result.')
+        leaderboardPoints = Number(result.points_awarded) || 0
+      } catch (error) {
+        addToast({
+          type: 'error',
+          title: 'Could not save leaderboard points',
+          message: error instanceof Error ? error.message : 'The game answer could not be recorded.',
+        })
+      }
     }
     if (correct) setScore(previous => previous + 100)
     setQuestionIndex(previous => previous + 1)
@@ -448,10 +457,12 @@ export default function GameModePage() {
     setAnswerResult(null)
     timeLeftRef.current = QUESTION_SECONDS
     setTimeLeft(QUESTION_SECONDS)
-    setGameMessage(correct ? 'Checkpoint cleared! +100 points' : 'Keep going—you will get the next one.')
+    setGameMessage(correct
+      ? `Checkpoint cleared! +100 points${leaderboardPoints ? ` · +${leaderboardPoints} leaderboard points` : ''}`
+      : 'Keep going—you will get the next one.')
     setStatus(livesRef.current > 0 ? 'running' : 'gameover')
     if (profile) await refreshProfile()
-  }, [currentQuestion, profile, refreshProfile, selectedAnswer, user])
+  }, [addToast, currentQuestion, profile, refreshProfile, selectedAnswer, user])
 
   // Auto-start the resume countdown only after Lilo has finished speaking
   // the answer result. The countdown must not cut Lilo off mid-sentence.

@@ -6,7 +6,26 @@ const projectFile = (relativePath: string) =>
   readFileSync(resolve(process.cwd(), relativePath), 'utf8')
 
 describe('authenticated frontend hierarchy', () => {
-  it('shows study metric cards first, followed by progress and the study plan', () => {
+  it('places the study summary cards between the welcome header and roadmap', () => {
+    const dashboard = projectFile('src/pages/DashboardPage.tsx')
+    const headerIndex = dashboard.indexOf('</header>')
+    const statsIndex = dashboard.indexOf('className="dashboard-stats-strip')
+    const roadmapIndex = dashboard.indexOf('className="dashboard-actions-grid"')
+
+    expect(statsIndex).toBeGreaterThan(headerIndex)
+    expect(statsIndex).toBeLessThan(roadmapIndex)
+  })
+
+  it('uses the locally bundled Figtree font throughout the system', () => {
+    const entry = projectFile('src/main.tsx')
+    const styles = projectFile('src/index.css')
+
+    expect(entry).toContain("@fontsource-variable/figtree/wght.css")
+    expect(styles).toMatch(/--font-sans:\s*'Figtree Variable'/)
+    expect(styles).toMatch(/--font-display:\s*'Figtree Variable'/)
+  })
+
+  it('shows study stats before the roadmap and quick actions before detailed module progress', () => {
     const dashboard = projectFile('src/pages/DashboardPage.tsx')
     const css = projectFile('src/design.css')
 
@@ -15,18 +34,86 @@ describe('authenticated frontend hierarchy', () => {
     const readinessIndex = dashboard.indexOf('dashboard-feature-grid')
 
     expect(statsIndex).toBeGreaterThan(dashboard.indexOf('</header>'))
-    expect(statsIndex).toBeLessThan(dashboard.indexOf('course-overview-panel'))
+    expect(statsIndex).toBeLessThan(studyPlanIndex)
+    expect(statsIndex).toBeLessThan(dashboard.indexOf('course-trends-panel'))
     expect(statsIndex).toBeLessThan(readinessIndex)
     expect(studyPlanIndex).toBeGreaterThan(0)
     expect(readinessIndex).toBeGreaterThan(0)
-    expect(dashboard.indexOf('course-overview-panel')).toBeLessThan(studyPlanIndex)
-    expect(readinessIndex).toBeLessThan(studyPlanIndex)
     expect(dashboard).not.toContain('momentum-card')
+    expect(dashboard).toContain('className="course-trends-panel" aria-labelledby="course-analytics-title"')
+    expect(dashboard).not.toContain('course-overview-copy')
+    expect(dashboard).not.toContain('View analytics')
+    expect(dashboard).not.toContain('Progress across your classes.')
+    expect(dashboard).toContain('userSubjects.map(subject => ({')
+    expect(dashboard).toContain('getSubjectDailyTrend(attempts, subject.name)')
+    expect(dashboard).toContain('<h2 id="course-analytics-title">Course subject trends</h2>')
+    expect(dashboard).toContain('className="course-analytics-heading dashboard-section-heading"')
+    expect(dashboard).toContain('>Last 14 days</span>')
+    expect(dashboard).not.toContain('course-trend-subject-picker')
+    expect(dashboard).toContain('<SubjectDailyTrendChart trends={courseSubjectTrends} />')
+    expect(dashboard).toContain('<PracticeDaysList trends={courseSubjectTrends} />')
+    expect(dashboard).toContain('summarizePracticeDays(trends)')
+    expect(dashboard).toContain('<details className="course-practice-days">')
+    expect(dashboard).toContain('<summary className="course-practice-days-heading">')
+    expect(dashboard).toContain('No practice')
+    expect(dashboard).toContain('<time dateTime={day.date}>')
+    expect(css).toContain('.course-trend-chart-scroll')
+    expect(css).toContain('.course-trend-legend')
+    expect(css).toContain('.course-practice-days-list')
+    expect(css).toMatch(/\.course-trends-panel\s*\{[^}]*display:\s*block;/s)
+    expect(dashboard).not.toContain('> Course overview')
+    expect(dashboard).toContain('className="dashboard-actions-grid"')
+    expect(dashboard).not.toContain('dashboard-stat-label">Study level')
+    expect(dashboard).toContain('className="dashboard-stat dashboard-stat--daily-goal"')
+    expect(dashboard).toContain('<CircularProgress')
+    expect(dashboard).not.toContain('dashboard-stat-progress')
+    expect(dashboard).toContain('dashboard-stat-label">Cards to study')
+    expect(dashboard).toContain("action: dueCards > 0 ? 'Review cards' : 'All caught up'")
+    expect(dashboard).toContain("const showHeaderPrimaryAction = primaryAction.label !== 'Review cards'")
+    expect(dashboard).toContain('{showHeaderPrimaryAction && (')
+    expect(dashboard).toContain('className="dashboard-actions-grid"')
+    expect(dashboard.indexOf('dashboard-actions-grid')).toBeLessThan(dashboard.indexOf('subjects-title'))
     expect(css).toContain('.dashboard-page .dashboard-stats-strip')
+    expect(css).toMatch(/\.dashboard-page \.dashboard-stats-strip\s*\{[^}]*grid-template-columns:\s*repeat\(3, minmax\(0, 1fr\)\)/s)
+    expect(css).toMatch(/\.dashboard-page \.dashboard-stats-strip\s*\{[^}]*gap:\s*16px;/s)
+    expect(css).toMatch(/@media \(max-width: 680px\)[\s\S]*?\.dashboard-page \.dashboard-stat:last-child \{ grid-column: 1 \/ -1; \}/s)
     expect(css).toMatch(/\.dashboard-page \.dashboard-stat\s*\{[^}]*background:\s*var\(--panel\)/s)
     expect(css).toMatch(/\.dashboard-page \.dashboard-stat\s*\{[^}]*border:\s*1px solid var\(--border\)/s)
-    expect(css).toMatch(/\.dashboard-page \.study-plan-section\s*\{[^}]*margin-top:\s*40px/s)
+    expect(css).toMatch(/\.dashboard-page \.dashboard-actions-grid\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\)/s)
+    expect(css).toMatch(/\.dashboard-page \.dashboard-actions-grid\s*\{[^}]*align-items:\s*stretch;[^}]*gap:\s*16px;/s)
+    expect(css).toMatch(/@media \(max-width: 900px\)[\s\S]*?\.dashboard-page \.dashboard-actions-grid \{ gap: 12px; \}/s)
+    expect(css).toMatch(/:root \.dashboard-page \.study-plan-step\s*\{[^}]*display:\s*flex;/s)
+    expect(css).toMatch(/\.dashboard-page \.study-plan-step-copy strong\s*\{[^}]*font-size:\s*15px;/s)
+    expect(css).toMatch(/\.dashboard-page \.study-plan-step-copy small\s*\{[^}]*font-size:\s*12px;/s)
+    expect(css).toMatch(/\.dashboard-page \.study-plan-step-action\s*\{[^}]*font-size:\s*12px;/s)
+    expect(css).toMatch(/@media \(max-width: 380px\)[\s\S]*?\.dashboard-page \.dashboard-stat-content > small \{ font-size: 12px; \}/s)
+    expect(css).toMatch(/\.dashboard-page \.panel-title h3\s*\{[^}]*font-size:\s*16px;/s)
+    expect(css).toMatch(/\.dashboard-page \.panel-title p\s*\{[^}]*font-size:\s*12px;/s)
+    expect(dashboard).toMatch(/className="readiness-orbit"[\s\S]*?role="img"[\s\S]*?aria-label=/)
     expect(css).toMatch(/\.study-plan-step[^{]*\{[^}]*box-shadow:/s)
+  })
+
+  it('shows study level in the top-right account menu', () => {
+    const layout = projectFile('src/components/Layout.tsx')
+    const css = projectFile('src/design.css')
+    const sidebar = projectFile('src/components/Sidebar.tsx')
+
+    expect(layout).toContain('className="workspace-account-trigger"')
+    expect(layout).not.toContain('className="workspace-program"')
+    expect(layout).toContain('aria-expanded={accountMenuOpen}')
+    expect(layout).toContain('className="workspace-account-panel"')
+    expect(layout).toContain('className="workspace-account-signout"')
+    expect(layout).toContain('Study level')
+    expect(layout).toContain('getLevelProgress(accountXp)')
+    expect(layout).toContain('accountLevelProgress.xpRemaining} XP to level up')
+    expect(layout).toContain('className="workspace-account-xp-track"')
+    expect(layout).toContain('accountLevelProgress.progressPercent')
+    expect(layout).toContain("navigate('/login')")
+    expect(sidebar).not.toContain('sidebar-profile-name')
+    expect(sidebar).not.toContain('aria-label="Sign out"')
+    expect(css).toContain('.workspace-account-panel[hidden] { display: none; }')
+    expect(css).toContain('.workspace-account-xp-track > span')
+    expect(css).toMatch(/@media \(max-width: 680px\)[\s\S]*?\.workspace-account-trigger-name \{ display: none; \}/s)
   })
 
   it('hides decorative mobile workspace metadata at the small-screen breakpoint', () => {
@@ -50,9 +137,66 @@ describe('authenticated frontend hierarchy', () => {
     expect(dashboard).toContain('/practice?subject=${encodeURIComponent(s.subject)}')
   })
 
+  it('connects roadmap steps and locks practice while flashcards are due', () => {
+    const css = projectFile('src/design.css')
+    const dashboard = projectFile('src/pages/DashboardPage.tsx')
+    const practice = projectFile('src/pages/PracticePage.tsx')
+
+    expect(dashboard).toContain('className="dashboard-roadmap-connector"')
+    expect(dashboard).toContain('data-step-kind={step.kind}')
+    expect(dashboard).toContain('strokeDasharray="4 5"')
+    expect(css).toMatch(/\.dashboard-roadmap-connector\s*\{[^}]*height:\s*24px;/s)
+    expect(css).toMatch(/\.dashboard-page \.dashboard-actions-grid > \.study-plan-section\s*\{[^}]*display:\s*flex;[^}]*flex-direction:\s*column;/s)
+    expect(css).toMatch(/\.dashboard-page \.dashboard-roadmap-list\s*\{[^}]*display:\s*grid;[^}]*grid-template-columns:\s*repeat\(3, minmax\(0, 1fr\)\)/s)
+    expect(css).toMatch(/\.dashboard-page \.dashboard-roadmap-list li\[data-step-kind="baseline"\],[\s\S]*?flex:\s*0 0 auto;/)
+    expect(css).toMatch(/\.dashboard-page \.dashboard-roadmap-list li\[data-step-kind="baseline"\] \.study-plan-step\s*\{[^}]*min-height:\s*168px;[^}]*height:\s*auto;/s)
+    expect(dashboard).not.toContain('dashboard-roadmap-feature-icon')
+    expect(css).toMatch(/\.dashboard-roadmap-list \.study-plan-step\[aria-disabled="true"\]\s*\{[^}]*background:\s*var\(--panel-2\)/s)
+    expect(dashboard).toContain('locked: dueCards > 0')
+    expect(dashboard).toContain('Review all ${dueCards} due flashcards first to unlock practice.')
+    expect(dashboard).toContain('className="study-plan-step" aria-disabled="true"')
+    expect(practice).toContain("reviewGate.mode !== mode")
+    expect(practice).toContain('Review due flashcards first')
+  })
+
+  it('explains which prerequisite must be finished before a locked roadmap step', () => {
+    const dashboard = projectFile('src/pages/DashboardPage.tsx')
+
+    expect(dashboard).toContain('Finish Step ${blockingStepIndex + 1} first')
+    expect(dashboard).toContain('Complete the prerequisite first')
+    expect(dashboard).toContain('{actionLabel}')
+  })
+
+  it('uses the roadmap for course weak spots and AI focus', () => {
+    const dashboard = projectFile('src/pages/DashboardPage.tsx')
+    const css = projectFile('src/design.css')
+
+    expect(dashboard).toContain('const focusSubject = selectDailyRoadmapSubject(')
+    expect(dashboard).toContain('await generateRoadmapFocus({')
+    expect(dashboard).toContain('Choose focus with AI')
+    expect(dashboard).toContain('onClick={makeAiStudyPlan}')
+    expect(dashboard).toContain('`Practice ${focusSubject.subject} weak spots`')
+    expect(dashboard).toMatch(/\{!isCourse && \(\s*<Reveal as="section" className="dashboard-section" aria-labelledby="subjects-title">/)
+    expect(dashboard).not.toContain("isCourse ? 'Practice weak spots' : 'Module progress'")
+    expect(css).not.toContain('.dashboard-bottom-grid--single')
+  })
+
   it('initializes the workspace theme from the stored preference', () => {
     const layout = projectFile('src/components/Layout.tsx')
-    expect(layout.indexOf("localStorage.getItem('theme')")).toBeLessThan(layout.indexOf("localStorage.setItem('theme'"))
+    expect(layout.indexOf("localStorage.getItem('workspace-theme')")).toBeLessThan(layout.indexOf("localStorage.setItem('workspace-theme'"))
+    expect(layout).toContain("if (stored === 'dark' || stored === 'light') return stored === 'dark'")
+    expect(layout).toContain("return true")
+  })
+
+  it('applies the dashboard navy theme to all dark workspace routes by default', () => {
+    const entry = projectFile('src/main.tsx')
+    const layout = projectFile('src/components/Layout.tsx')
+    const styles = projectFile('src/design.css')
+    expect(entry).toContain("localStorage.getItem('workspace-theme')")
+    expect(entry).toContain("theme === 'light' ? 'light' : 'dark'")
+    expect(layout).toContain("isDark ? ' app-shell--navy' : ''")
+    expect(styles).toContain(':root.dark .app-shell.app-shell--navy')
+    expect(styles).toContain('--workspace-canvas: #0a162b')
   })
 
 })
@@ -80,6 +224,16 @@ describe('consistent dashboard surfaces', () => {
   })
 })
 
+describe('consistent page heading sizes', () => {
+  it('uses the dashboard heading scale for Analytics at desktop and mobile widths', () => {
+    const analytics = projectFile('src/pages/AnalyticsPage.tsx')
+    const css = projectFile('src/design.css')
+    expect(analytics).toContain('className="container workspace-page analytics-page"')
+    expect(css).toMatch(/\.analytics-page \.workspace-page-header h1\s*\{\s*font-size:\s*clamp\(30px,\s*3vw,\s*42px\);/s)
+    expect(css).toMatch(/@media \(max-width: 680px\)[\s\S]*?\.analytics-page \.workspace-page-header h1\s*\{\s*font-size:\s*clamp\(30px,\s*8vw,\s*38px\);/s)
+  })
+})
+
 describe('mint workspace theme', () => {
   it('provides light and dark workspace palettes with accessible active navigation', () => {
     const theme = projectFile('src/index.css')
@@ -98,7 +252,7 @@ describe('accessible route and study controls', () => {
   it('moves focus to a named main landmark after route changes', () => {
     const app = projectFile('src/App.tsx')
     const layout = projectFile('src/components/Layout.tsx')
-    expect(app).toContain("document.querySelector<HTMLElement>('[data-route-main]')?.focus()")
+    expect(app).toContain("document.querySelector<HTMLElement>('[data-route-main]')?.focus({ preventScroll: true })")
     expect(layout).toContain('aria-label={pageName} data-route-main')
   })
 
@@ -117,11 +271,279 @@ describe('accessible route and study controls', () => {
     expect(handlers).not.toContain('addToast')
   })
 
+  it('guides learners to a reviewer and only shows Lilo during an active session', () => {
+    const practice = projectFile('src/pages/PracticePage.tsx')
+    const styles = projectFile('src/design.css')
+
+    expect(practice).toContain('Choose a reviewer to start practicing')
+    expect(practice).toContain('practice-start-steps')
+    expect(practice).toContain('selectedModeDescription')
+    expect(practice).toContain('const showCompanion = !loading && !empty && !done && Boolean(current || currentCard)')
+    expect(practice).toContain('{showCompanion && <aside')
+    expect(styles).toContain('.practice-session-panel--solo .practice-session-content')
+    expect(styles).toContain('@media (max-width: 680px)')
+    expect(styles).toContain('.practice-start-card')
+  })
+
+  it('uses a mute toggle for Lilo speech and suppresses speech while muted', () => {
+    const practice = projectFile('src/pages/PracticePage.tsx')
+    const speechPanel = projectFile('src/components/LiloSpeechPanel.tsx')
+    const icons = projectFile('src/components/ui/Icon.tsx')
+
+    expect(practice).toContain('const [liloMuted, setLiloMuted] = useState(false)')
+    expect(practice).toContain('muted={liloMuted}')
+    expect(speechPanel).toContain("if (!cleanMessage || mutedRef.current) return")
+    expect(speechPanel).toContain("variant={muted ? 'danger' : 'outline'}")
+    expect(speechPanel).toContain("aria-label={muted ? 'Unmute Lilo' : 'Mute Lilo'}")
+    expect(speechPanel).toContain("{muted ? 'Unmute' : 'Mute'}")
+    expect(speechPanel).not.toContain('Listen with Lilo')
+    expect(icons).toContain("'volume-x': VolumeX")
+  })
+
+  it('anchors Lilo in a responsive companion card', () => {
+    const styles = projectFile('src/design.css')
+    const speechPanel = projectFile('src/components/LiloSpeechPanel.tsx')
+
+    expect(styles).toMatch(/\.practice-companion\s*\{[^}]*box-sizing:\s*border-box;[^}]*padding:\s*12px;[^}]*border:\s*1px solid var\(--border\);[^}]*background:\s*var\(--panel\);/)
+    expect(styles).toMatch(/@media \(min-width: 1360px\)\s*\{\s*\.practice-companion \{[^}]*width:\s*216px;/)
+    expect(speechPanel).toContain("isSpeaking ? ' is-speaking' : ''")
+    expect(speechPanel).toContain("motionEnabled ? ' is-motion-enabled' : ''")
+    expect(styles).toMatch(/\.lilo-cage::before, \.lilo-cage::after[^}]*repeating-linear-gradient\(90deg/)
+    expect(styles).toContain('.lilo-cage.is-speaking::before')
+    expect(styles).toContain('.lilo-cage.is-speaking::after')
+  })
+
+  it('positions the Flashcards prompt card lower beneath its subject badge', () => {
+    const practice = projectFile('src/pages/PracticePage.tsx')
+    const styles = projectFile('src/design.css')
+    const flashcards = practice.slice(
+      practice.indexOf('{/* Flashcards Mode */}'),
+      practice.indexOf('{/* MCQ Mode */}'),
+    )
+
+    expect(flashcards).toContain('className="practice-question-meta"')
+    expect(flashcards).toContain('<Badge variant="primary" size="md">{displaySubject}</Badge>')
+    expect(flashcards).not.toContain('practice-question-meta--flashcard')
+    expect(styles).toMatch(/\.practice-question-meta\s*\{[^}]*margin-bottom:\s*24px;/)
+    expect(styles).toMatch(/\.practice-flashcard\s*\{[^}]*margin-top:\s*32px;/)
+    expect(styles).toMatch(/@media \(max-width: 680px\)[\s\S]*?\.practice-flashcard \{[^}]*margin-top: 26px;/)
+    expect(styles).toMatch(/\.practice-question-meta \{ justify-content: flex-start; margin-bottom: 18px; \}/)
+  })
+
+  it('labels the practice page as Study mode without the session eyebrow', () => {
+    const practice = projectFile('src/pages/PracticePage.tsx')
+    const layout = projectFile('src/components/Layout.tsx')
+    const sidebar = projectFile('src/components/Sidebar.tsx')
+
+    expect(practice).toContain('<h1>Study mode</h1>')
+    expect(practice).not.toContain('YOUR NEXT STUDY SESSION')
+    expect(practice).toContain('ariaLabel="Study mode"')
+    expect(layout).toContain("'/practice': 'Study mode'")
+    expect(sidebar).not.toContain("label: 'Study mode'")
+  })
+
+  it('guides learners without reviewers to upload materials', () => {
+    const reviewers = projectFile('src/pages/MyReviewersPage.tsx')
+
+    expect(reviewers).toContain('title="No reviewers yet"')
+    expect(reviewers).toContain('description="Upload study materials to create your first subject folder and study set."')
+    expect(reviewers).toContain("action={{ label: 'Upload materials', variant: 'primary', onClick: () => navigate('/reviewer?tab=upload') }}")
+  })
+
+  it('confirms subject-folder deletion before showing its undo toast', () => {
+    const reviewers = projectFile('src/pages/MyReviewersPage.tsx')
+    const migration = projectFile('supabase/migrations/202611230002_delete_subject_folder_contents.sql')
+
+    expect(reviewers).toContain('onDoubleClick={() => openFolderRemoval(folder)}')
+    expect(reviewers).toContain('onPointerDown={event => handleFolderPointerDown(folder, event)}')
+    expect(reviewers).toContain('folderLongPressTimer.current = window.setTimeout')
+    expect(reviewers).toContain("supabase.rpc('delete_subject_folder_contents'")
+    expect(reviewers).toContain('const SUBJECT_FOLDER_UNDO_WINDOW_MS = 8_000')
+    expect(reviewers).toContain('function confirmFolderRemoval()')
+    expect(reviewers).toContain('open={Boolean(removeFolderTarget)}')
+    expect(reviewers).toContain('onClick={confirmFolderRemoval}')
+    expect(reviewers).toContain('You’ll have 8 seconds to undo after confirming.')
+    expect(reviewers).toContain("title: 'Subject deleted'")
+    expect(reviewers).toContain("action: { label: 'Undo'")
+    expect(reviewers).toContain('duration: SUBJECT_FOLDER_UNDO_WINDOW_MS')
+    expect(reviewers).toContain("placement: 'center'")
+    expect(migration).toContain('delete from public.flashcards')
+    expect(migration).toContain('delete from public.practice_items')
+    expect(migration).toContain('delete from public.review_materials')
+    expect(migration).toContain('delete from public.user_subjects')
+  })
+
+  it('keeps the AI reader accessible from reviewers rather than the sidebar', () => {
+    const sidebar = projectFile('src/components/Sidebar.tsx')
+    const reviewers = projectFile('src/pages/MyReviewersPage.tsx')
+
+    expect(sidebar).not.toContain("label: 'Side by side'")
+    expect(sidebar).toContain("location.pathname.startsWith('/side-by-side')")
+    expect(reviewers.match(/Read with AI/g)).toHaveLength(2)
+    expect(reviewers).toContain('navigate(`/side-by-side/${selectedReviewer.material.id}`)')
+    expect(reviewers).toContain('navigate(`/side-by-side/${entry.material.id}`)')
+  })
+
+  it('shows the selected reviewer folder while keeping content queries on the material subject', () => {
+    const practice = projectFile('src/pages/PracticePage.tsx')
+    const reviewers = projectFile('src/pages/MyReviewersPage.tsx')
+
+    expect(reviewers).toContain('&folder=${encodeURIComponent(selectedReviewer.folderName)}')
+    expect(practice).toContain("searchParams.get('folder')")
+    expect(practice).toContain('const displaySubject = folderSubject || subject')
+    expect(practice).toContain('{displaySubject} · Multiple choice')
+    expect(practice).toContain(".eq('subject', subject)")
+  })
+
+  it('keeps the selected study mode while browsing reviewers and opens matching content directly', () => {
+    const practice = projectFile('src/pages/PracticePage.tsx')
+    const reviewers = projectFile('src/pages/MyReviewersPage.tsx')
+
+    expect(practice).toContain('navigate(`/reviewers?from=study&mode=${encodeURIComponent(mode)}`)')
+    expect(reviewers).toContain("searchParams.get('from') === 'study'")
+    expect(reviewers).toContain('const params = studyBrowseParams()')
+    expect(reviewers).toContain('selectedReviewer.modeCounts[requestedStudyMode] || 0')
+    expect(reviewers).toContain('navigate(`/practice?${params.toString()}`, { replace: true })')
+    expect(reviewers).toContain('Choose another available set or go back to change your mode.')
+  })
+
+  it('displays enumeration answers as a list and prompts for one item per line', () => {
+    const practice = projectFile('src/pages/PracticePage.tsx')
+    const enumeration = practice.slice(practice.indexOf('{/* Enumeration Mode'), practice.indexOf('{!loading && !empty && !done && !feedback'))
+
+    expect(practice).toContain('className="practice-enumeration-inputs"')
+    expect(enumeration).toContain('className="practice-prompt practice-prompt--enumeration"')
+    expect(enumeration).toContain('className="practice-content-block practice-content-block--enumeration-prompt"')
+    expect(enumeration).not.toContain('practice-field-label">Prompt</div>')
+    expect(practice).toContain('value={diagInput.split(\'\\n\')[answerIndex] || \'\'}')
+    expect(practice).toContain('placeholder={`Answer ${answerIndex + 1}`}')
+    expect(practice).toContain('Enter one answer in each box; order doesn’t matter.')
+    expect(practice).toContain('Array.from({ length: requestedEnumerationCount }')
+    expect(practice).toContain('Regenerate the enumeration study set to answer it.')
+    expect(practice).not.toContain('placeholder="Enter one item per line..."')
+    expect(practice).toContain('className="practice-enumeration-expected-list"')
+    expect(practice).toContain('<li key={`${item}-${itemIndex}`}>{item}</li>')
+    expect(practice).not.toContain('Expected items: ${(ans.items || []).join')
+    expect(projectFile('src/design.css')).toMatch(/\.practice-prompt--enumeration,\s*\.practice-prompt--identification\s*\{[^}]*padding:\s*0;[^}]*border:\s*0;[^}]*background:\s*transparent;[^}]*font-size:\s*clamp\(20px, 2\.6vw, 26px\)/)
+    expect(projectFile('src/design.css')).toContain('.practice-content-block--identification-prompt { margin-bottom: 24px; }')
+  })
+
+  it('matches identification prompt spacing and typography to enumeration', () => {
+    const practice = projectFile('src/pages/PracticePage.tsx')
+    const identification = practice.slice(practice.indexOf('{/* Identification Mode'), practice.indexOf('{/* Enumeration Mode'))
+    const styles = projectFile('src/design.css')
+
+    expect(identification).toContain('className="practice-content-block practice-content-block--identification-prompt"')
+    expect(identification).toContain('className="practice-prompt practice-prompt--identification"')
+    expect(identification).not.toContain('practice-field-label">Prompt</div>')
+    expect(styles).toMatch(/\.practice-context\s*\{[^}]*font-size:\s*clamp\(20px, 2\.6vw, 26px\)/)
+  })
+
+  it('keeps study controls compact and offers hints with a lightbulb button', () => {
+    const practice = projectFile('src/pages/PracticePage.tsx')
+    const styles = projectFile('src/design.css')
+    const icons = projectFile('src/components/ui/Icon.tsx')
+
+    expect(styles).toMatch(/\.practice-controls-content\s*\{[^}]*align-items:\s*start;/)
+    expect(practice).not.toContain('Need a nudge?')
+    expect(practice).toContain('leftIcon="lightbulb"')
+    expect(icons).toContain('lightbulb: Lightbulb')
+  })
+
+  it('keeps only the due-review action in the inline review queue', () => {
+    const practice = projectFile('src/pages/PracticePage.tsx')
+    const queue = practice.slice(practice.indexOf('className="practice-review-queue-actions"'), practice.indexOf('</div>', practice.indexOf('className="practice-review-queue-actions"')))
+
+    expect(queue).toContain('Review due')
+    expect(queue).toContain('variant="danger"')
+    expect(queue).not.toContain('Review now')
+  })
+
+  it('centers study modes in a compact card without affecting mobile tabs', () => {
+    const styles = projectFile('src/design.css')
+    expect(styles).toMatch(/@media \(min-width: 901px\)\s*\{\s*\.practice-mode-tabs \{ justify-content: center; \}/)
+    expect(styles).toMatch(/\.practice-mode-tabs \{ gap: 20px !important;/)
+    expect(styles).toMatch(/\.practice-mode-tabs \{ gap: 12px !important; overflow-x: auto !important;/)
+    expect(styles).toMatch(/\.practice-controls-actions \{[^}]*justify-content: flex-end;/)
+    expect(styles).toMatch(/\.practice-controls-card\s*\{[^}]*max-width:\s*900px;[^}]*margin:\s*0 auto 18px;/)
+  })
+
   it('gives the narrow analytics chart a visible scroll affordance', () => {
     const analytics = projectFile('src/pages/AnalyticsPage.tsx')
     const styles = projectFile('src/design.css')
     expect(analytics).toContain('className="table-wrapper trend-chart-scroll"')
     expect(analytics).toContain('scroll horizontally for more dates')
     expect(styles).toContain(".trend-chart-scroll::after { content: 'Swipe or scroll chart for more dates'; }")
+  })
+
+  it('removes the course insights subtitle and enlarges its heading', () => {
+    const analytics = projectFile('src/pages/AnalyticsPage.tsx')
+    const styles = projectFile('src/design.css')
+    expect(analytics).toContain("title={isCourse ? 'Study insights' : 'Progress insights'}")
+    expect(analytics).toContain("subtitle={isCourse ? undefined :")
+    expect(analytics).not.toContain('A closer look at recent practice, subject strengths, and where to focus next.')
+    expect(analytics).toContain("className={isCourse ? 'analytics-course-section-header' : undefined}")
+    expect(analytics).toContain("title={isCourse ? 'Subject Performance' : 'Per-Module PhLE Performance'}")
+    const subjectPerformance = analytics.slice(analytics.indexOf('{/* Per-Subject Performance */}'))
+    expect(subjectPerformance).toContain('subtitle={isCourse ? undefined :')
+    expect(subjectPerformance).not.toContain('course subjects tracked')
+    expect(analytics).toContain("title={isCourse ? 'Subjects to Revisit' : 'Targeted Remediation Drills'}")
+    expect(analytics).toContain("subtitle={isCourse ? undefined : 'Focus on these subjects to reach 75%'}")
+    expect(analytics).not.toContain('Course subjects below your overall practice average')
+    expect(analytics).toContain('if (!profile || isCourse || !weakSubjects.length)')
+    expect(analytics).toContain('<Badge variant="warning" size="sm" dot>{s.subject}</Badge>')
+    expect(analytics).toContain('{s.percent}% accuracy · Below {PASSING_RATE}% target')
+    expect(analytics).toContain('coursePracticePaths[s.subject]')
+    expect(analytics).toContain("{practicePath ? 'Practice' : 'No practice set'}")
+    expect(styles).toContain('.analytics-course-section-header .ui-card-header-copy h3 { font-size: 22px;')
+    expect(styles).toContain('.analytics-course-section-header .ui-card-header-main { align-items: center; }')
+    expect(styles).not.toContain('.analytics-course-section-header { justify-content: center; }')
+  })
+
+  it('hides the course practice trend that is already shown on the dashboard', () => {
+    const analytics = projectFile('src/pages/AnalyticsPage.tsx')
+    expect(analytics).toMatch(/\{!isCourse && \(\s*<Card variant="outlined">\s*<CardHeader title=\{isCourse \? 'Course Practice Trend'/s)
+  })
+
+  it('creates reviewer titles from uploaded documents instead of asking for a title', () => {
+    const reviewer = projectFile('src/pages/ReviewerPage.tsx')
+    const ai = projectFile('src/lib/ai.ts')
+
+    expect(reviewer).not.toContain('label="Title"')
+    expect(reviewer).toContain('generateMaterialTitle(')
+    expect(reviewer).toContain('title: materialTitle')
+    expect(reviewer).toContain('filenameMaterialTitle(selectedFile.name)')
+    expect(reviewer).toContain('disabled={!!busy || (uploadMode === \'file\' ? !file || !fileReady : !pastedText.trim())}')
+    expect(ai).toContain('export async function generateMaterialTitle(source: MaterialSource)')
+    expect(ai).toContain('generate one concise, descriptive title for the study material')
+  })
+
+  it('supports document, photo OCR, and pasted-text reviewer inputs without video upload', () => {
+    const reviewer = projectFile('src/pages/ReviewerPage.tsx')
+    const storage = projectFile('src/lib/storage.ts')
+    const schema = projectFile('supabase/schema.sql')
+    const ai = projectFile('src/lib/ai.ts')
+
+    expect(reviewer).toContain('Files & Photos')
+    expect(reviewer).toContain('PASTE YOUR STUDY NOTES')
+    expect(reviewer).toContain('AI will scan text in your photo')
+    expect(reviewer).toContain('extractTextFromFile({ storagePath, mimeType: selectedFile.type })')
+    expect(reviewer).not.toContain('YouTube')
+    expect(storage).toContain("'image/jpeg'")
+    expect(storage).toContain("'image/heic'")
+    expect(schema).toContain("'image/png'")
+    expect(ai).toContain('perform OCR on the visible text')
+  })
+
+  it('removes the extra reviewer collections and renames the upload destination', () => {
+    const reviewer = projectFile('src/pages/ReviewerPage.tsx')
+    const layout = projectFile('src/components/Layout.tsx')
+    const sidebar = projectFile('src/components/Sidebar.tsx')
+
+    expect(reviewer).not.toContain('Recent Flashcards')
+    expect(reviewer).not.toContain('Saved Review Materials')
+    expect(reviewer).not.toContain('Upload a document or photo, or paste your notes.')
+    expect(layout).toContain("'/reviewer': 'Upload materials'")
+    expect(sidebar).toContain("label: 'Upload materials'")
   })
 })
