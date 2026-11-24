@@ -93,6 +93,7 @@ export interface Flashcard {
   subject: string
   front: string
   back: string
+  hint?: string | null
   ease_factor?: number
   interval_minutes?: number
   repetitions?: number
@@ -133,6 +134,7 @@ export interface PracticeItem {
   question: McqQuestion | DiagnosisQuestion | SequenceQuestion | Record<string, unknown>
   answer: McqAnswer | DiagnosisAnswer | SequenceAnswer | EnumerationAnswer | Record<string, unknown>
   rationale: string | null
+  hint?: string | null
   difficulty?: string
 }
 

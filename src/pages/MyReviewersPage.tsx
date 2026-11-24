@@ -5,9 +5,10 @@ import { supabase } from '@/lib/supabase'
 import { groupReviewersByFolder, type ReviewerFolder } from '@/lib/reviewerFolders'
 import { ProfileAvatar } from '@/components/ProfileAvatar'
 import { removeReviewFile } from '@/lib/storage'
+import StudyDeckEditorModal from '@/components/StudyDeckEditorModal'
 import type { FriendConnection } from '@/lib/social'
 import type { ReviewMaterial, UserSubject } from '@/types'
-import { AnimatedNumber, Badge, Button, Card, CardContent, EmptyState, Icon, Input, Modal, Skeleton, type IconName, useToast } from '@/components/ui'
+import { AnimatedNumber, Badge, Button, Card, CardContent, CardHeader, EmptyState, Icon, Input, Modal, Select, Skeleton, type IconName, useToast } from '@/components/ui'
 import { WorkspacePageHeader } from '@/components/WorkspacePageHeader'
 
 type ReviewerStudyMode = 'flashcards' | 'mcq' | 'diagnosis' | 'sequence' | 'enumeration' | 'identification'
@@ -38,11 +39,20 @@ const courseStudyModes: StudyModeOption[] = [
 const SUBJECT_FOLDER_UNDO_WINDOW_MS = 8_000
 const SUBJECT_FOLDER_DELETION_CHANGE_EVENT = 'pharmora:subject-folder-deletion-change'
 const pendingSubjectFolderDeletions = new Set<string>()
+const REVIEWER_UNDO_WINDOW_MS = 8_000
+const REVIEWER_DELETION_CHANGE_EVENT = 'pharmora:reviewer-deletion-change'
+const pendingReviewerDeletions = new Set<string>()
 
 function setSubjectFolderDeletionPending(folderId: string, pending: boolean) {
   if (pending) pendingSubjectFolderDeletions.add(folderId)
   else pendingSubjectFolderDeletions.delete(folderId)
   window.dispatchEvent(new Event(SUBJECT_FOLDER_DELETION_CHANGE_EVENT))
+}
+
+function setReviewerDeletionPending(materialId: string, pending: boolean, deleted = false) {
+  if (pending) pendingReviewerDeletions.add(materialId)
+  else pendingReviewerDeletions.delete(materialId)
+  window.dispatchEvent(new CustomEvent(REVIEWER_DELETION_CHANGE_EVENT, { detail: { deleted } }))
 }
 
 function isReviewerStudyMode(value: string): value is ReviewerStudyMode {
@@ -73,16 +83,23 @@ export default function MyReviewersPage() {
   const [sharingFriendId, setSharingFriendId] = useState<string | null>(null)
   const [sharedFriendIds, setSharedFriendIds] = useState<Set<string>>(() => new Set())
   const [removeFolderTarget, setRemoveFolderTarget] = useState<ReviewerFolder<ReviewerEntry> | null>(null)
+  const [removeReviewerTarget, setRemoveReviewerTarget] = useState<ReviewerEntry | null>(null)
+  const [editReviewerTarget, setEditReviewerTarget] = useState<ReviewerEntry | null>(null)
   const [pendingFolderIds, setPendingFolderIds] = useState<Set<string>>(() => new Set(pendingSubjectFolderDeletions))
-  const [moveTargets, setMoveTargets] = useState<Record<string, string>>({})
-  const folderClickTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const folderLongPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const folderDeletionTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>())
+  const [pendingReviewerIds, setPendingReviewerIds] = useState<Set<string>>(() => new Set(pendingReviewerDeletions))
+  const [moveTarget, setMoveTarget] = useState<ReviewerEntry | null>(null)
+  const [moveFolderId, setMoveFolderId] = useState('')
+  const [movingReviewer, setMovingReviewer] = useState(false)
+  const folderClickTimer = useRef<number | null>(null)
+  const folderLongPressTimer = useRef<number | null>(null)
+  const folderDeletionTimers = useRef(new Map<string, number>())
+  const reviewerDeletionTimers = useRef(new Map<string, number>())
   const folderLongPressTriggered = useRef(false)
   const folderPointerType = useRef<string | null>(null)
   const isMounted = useRef(false)
   const selectedSubject = searchParams.get('subject')
   const selectedMaterialId = searchParams.get('material')
+  const libraryView = searchParams.get('view')
   const fromStudyMode = searchParams.get('from') === 'study'
   const requestedMode = searchParams.get('mode') || ''
   const requestedStudyMode = isReviewerStudyMode(requestedMode) ? requestedMode : null
@@ -167,11 +184,20 @@ export default function MyReviewersPage() {
     return () => { active = false }
   }, [shareTarget?.materialIds])
 
-  const folders = useMemo(() => groupReviewersByFolder(reviewers, subjectFolders), [reviewers, subjectFolders])
+  const visibleReviewers = useMemo(
+    () => reviewers.filter(entry => !pendingReviewerIds.has(entry.material.id)),
+    [reviewers, pendingReviewerIds],
+  )
+  const folders = useMemo(() => groupReviewersByFolder(visibleReviewers, subjectFolders), [visibleReviewers, subjectFolders])
   const visibleFolders = useMemo(
     () => folders.filter(folder => !folder.id || !pendingFolderIds.has(folder.id)),
     [folders, pendingFolderIds],
   )
+  const studyDecks = useMemo(
+    () => visibleReviewers.filter(entry => !entry.material.subject_folder_id),
+    [visibleReviewers],
+  )
+  const hasVisibleFolderReviewers = visibleReviewers.some(entry => Boolean(entry.material.subject_folder_id))
   const selectedFolder = folders.find(folder => folder.subject === selectedSubject)
   const selectedReviewer = selectedFolder?.reviewers.find(entry => entry.material.id === selectedMaterialId)
   const studyModes = profile?.track === 'course' ? courseStudyModes : boardStudyModes
@@ -186,10 +212,18 @@ export default function MyReviewersPage() {
   useEffect(() => {
     isMounted.current = true
     const syncPendingFolders = () => setPendingFolderIds(new Set(pendingSubjectFolderDeletions))
+    const syncPendingReviewers = (event: Event) => {
+      setPendingReviewerIds(new Set(pendingReviewerDeletions))
+      if ((event as CustomEvent<{ deleted?: boolean }>).detail?.deleted) {
+        setRetry(value => value + 1)
+      }
+    }
     window.addEventListener(SUBJECT_FOLDER_DELETION_CHANGE_EVENT, syncPendingFolders)
+    window.addEventListener(REVIEWER_DELETION_CHANGE_EVENT, syncPendingReviewers)
     return () => {
       isMounted.current = false
       window.removeEventListener(SUBJECT_FOLDER_DELETION_CHANGE_EVENT, syncPendingFolders)
+      window.removeEventListener(REVIEWER_DELETION_CHANGE_EVENT, syncPendingReviewers)
       if (folderClickTimer.current) window.clearTimeout(folderClickTimer.current)
       if (folderLongPressTimer.current) window.clearTimeout(folderLongPressTimer.current)
     }
@@ -219,6 +253,12 @@ export default function MyReviewersPage() {
 
   function showSubjects() {
     setSearchParams(studyBrowseParams())
+  }
+
+  function showLibraryView(view: 'decks' | 'subjects') {
+    const params = studyBrowseParams()
+    params.set('view', view)
+    setSearchParams(params)
   }
 
   function showFolder(subject: string) {
@@ -413,24 +453,113 @@ export default function MyReviewersPage() {
     }
   }
 
-  async function moveReviewer(entry: ReviewerEntry) {
-    const folderId = moveTargets[entry.material.id]
-    if (!folderId) return
-    const target = subjectFolders.find(folder => folder.id === folderId)
-    if (!target || folderId === entry.material.subject_folder_id) return
+  function openMoveReviewer(entry: ReviewerEntry) {
+    setMoveTarget(entry)
+    setMoveFolderId('')
+  }
 
-    const { error: moveError } = await supabase.rpc('move_review_material_to_folder', {
-      p_material_id: entry.material.id,
-      p_folder_id: folderId,
-    })
-    if (moveError) {
-      addToast({ type: 'error', title: 'Could not move reviewer', message: moveError.message })
-      return
+  function closeMoveReviewer() {
+    if (movingReviewer) return
+    setMoveTarget(null)
+    setMoveFolderId('')
+  }
+
+  async function confirmMoveReviewer() {
+    const entry = moveTarget
+    const target = subjectFolders.find(folder => folder.id === moveFolderId)
+    if (!entry || !target || target.id === entry.material.subject_folder_id) return
+
+    setMovingReviewer(true)
+    try {
+      const { error: moveError } = await supabase.rpc('move_review_material_to_folder', {
+        p_material_id: entry.material.id,
+        p_folder_id: target.id,
+      })
+      if (moveError) throw new Error(moveError.message)
+
+      setMoveTarget(null)
+      setMoveFolderId('')
+      setRetry(value => value + 1)
+      addToast({ type: 'success', title: 'Reviewer moved', message: `${entry.material.title} → ${target.name}` })
+    } catch (moveError) {
+      addToast({ type: 'error', title: 'Could not move reviewer', message: getErrorMessage(moveError) })
+    } finally {
+      setMovingReviewer(false)
     }
+  }
 
-    setMoveTargets(previous => ({ ...previous, [entry.material.id]: '' }))
-    setRetry(value => value + 1)
-    addToast({ type: 'success', title: 'Reviewer moved', message: `${entry.material.title} → ${target.name}` })
+  function closeReviewerRemoval() {
+    setRemoveReviewerTarget(null)
+  }
+
+  function undoReviewerDeletion(entry: ReviewerEntry) {
+    const materialId = entry.material.id
+    const timer = reviewerDeletionTimers.current.get(materialId)
+    if (timer === undefined) return
+    window.clearTimeout(timer)
+    reviewerDeletionTimers.current.delete(materialId)
+    setReviewerDeletionPending(materialId, false)
+    addToast({
+      type: 'info',
+      title: 'Deletion undone',
+      message: `${entry.material.title} is back in My Reviewers.`,
+      placement: 'center',
+    })
+  }
+
+  async function permanentlyDeleteReviewer(entry: ReviewerEntry) {
+    const materialId = entry.material.id
+    try {
+      const { data: fileUri, error: deleteError } = await supabase.rpc('delete_review_material', {
+        p_material_id: materialId,
+      })
+      if (deleteError) throw new Error(deleteError.message)
+
+      if (isMounted.current) {
+        setReviewers(previous => previous.filter(reviewer => reviewer.material.id !== materialId))
+      }
+      setReviewerDeletionPending(materialId, false, true)
+
+      if (typeof fileUri === 'string' && fileUri && !fileUri.startsWith('data:')) {
+        try {
+          await removeReviewFile(fileUri)
+        } catch (storageError) {
+          addToast({
+            type: 'error',
+            title: 'Deck deleted, but uploaded file remains',
+            message: getErrorMessage(storageError),
+          })
+        }
+      }
+    } catch (deleteError) {
+      setReviewerDeletionPending(materialId, false)
+      addToast({ type: 'error', title: 'Could not delete study deck', message: getErrorMessage(deleteError) })
+    }
+  }
+
+  function queueReviewerDeletion(entry: ReviewerEntry) {
+    if (!profile || reviewerDeletionTimers.current.has(entry.material.id)) return
+    const materialId = entry.material.id
+    setReviewerDeletionPending(materialId, true)
+    const timer = window.setTimeout(() => {
+      reviewerDeletionTimers.current.delete(materialId)
+      void permanentlyDeleteReviewer(entry)
+    }, REVIEWER_UNDO_WINDOW_MS)
+    reviewerDeletionTimers.current.set(materialId, timer)
+    addToast({
+      type: 'success',
+      title: 'Study deck deleted',
+      message: 'Removed from My Reviewers. Undo within 8 seconds to keep it.',
+      duration: REVIEWER_UNDO_WINDOW_MS,
+      placement: 'center',
+      action: { label: 'Undo', onClick: () => undoReviewerDeletion(entry) },
+    })
+  }
+
+  function confirmReviewerRemoval() {
+    if (!removeReviewerTarget) return
+    queueReviewerDeletion(removeReviewerTarget)
+    setRemoveReviewerTarget(null)
   }
 
   async function shareReviewer(friend: FriendConnection) {
@@ -461,6 +590,82 @@ export default function MyReviewersPage() {
     } finally {
       setSharingFriendId(null)
     }
+  }
+
+  function renderReviewerDecks(entries: ReviewerEntry[]) {
+    return (
+      <div className="reviewer-set-list">
+        {entries.map(entry => {
+          const modeCount = studyModes.filter(mode => (entry.modeCounts[mode.type] || 0) > 0).length
+          return (
+            <article className="reviewer-set-card" key={entry.material.id}>
+              <button type="button" className="reviewer-set-main" onClick={() => showReviewer(entry)}>
+                <span className="reviewer-set-icon"><Icon name="file-text" size={20} /></span>
+                <span className="reviewer-set-copy">
+                  <strong>{entry.material.title}</strong>
+                  <span>
+                    {entry.material.source_filename || 'Saved reviewer'}
+                    <span className="reviewer-set-separator" aria-hidden="true">·</span>
+                    {new Date(entry.material.created_at).toLocaleDateString()}
+                  </span>
+                </span>
+                <span className="reviewer-set-count">
+                  <Badge variant={modeCount ? 'primary' : 'default'} size="sm">
+                    {modeCount ? <><AnimatedNumber value={modeCount} duration={700} delay={60} /> modes ready</> : 'No study sets'}
+                  </Badge>
+                </span>
+                <Icon name="chevron-right" size={18} />
+              </button>
+              <div className="reviewer-set-actions">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  leftIcon="arrow-right"
+                  aria-label={`Choose study mode for ${entry.material.title}`}
+                  title="Choose study mode"
+                  onClick={() => showReviewer(entry)}
+                />
+                <Button
+                  variant="secondary"
+                  size="icon"
+                  leftIcon="share"
+                  disabled={!modeCount}
+                  title={!modeCount ? 'Generate at least one study set before sharing this reviewer.' : undefined}
+                  aria-label={`Share reviewer ${entry.material.title}`}
+                  onClick={() => setShareTarget({ title: entry.material.title, materialIds: [entry.material.id] })}
+                />
+                <Button
+                  variant="outline"
+                  size="icon"
+                  leftIcon="edit"
+                  aria-label={`Edit study set ${entry.material.title}`}
+                  title="Edit study set"
+                  onClick={() => setEditReviewerTarget(entry)}
+                />
+                {subjectFolders.length > 0 && (
+                  <Button
+                    variant="secondary"
+                    size="icon"
+                    leftIcon="folder-input"
+                    aria-label={`Move ${entry.material.title} to subject`}
+                    title="Move to subject"
+                    onClick={() => openMoveReviewer(entry)}
+                  />
+                )}
+                <Button
+                  variant="danger"
+                  size="icon"
+                  leftIcon="trash"
+                  aria-label={`Delete ${entry.material.title}`}
+                  title="Delete"
+                  onClick={() => setRemoveReviewerTarget(entry)}
+                />
+              </div>
+            </article>
+          )
+        })}
+      </div>
+    )
   }
 
   return (
@@ -593,75 +798,7 @@ export default function MyReviewersPage() {
             )}
           />
           {selectedFolder.reviewers.length ? (
-            <div className="reviewer-set-list">
-              {selectedFolder.reviewers.map(entry => {
-              const modeCount = studyModes.filter(mode => (entry.modeCounts[mode.type] || 0) > 0).length
-              return (
-                <article className="reviewer-set-card" key={entry.material.id}>
-                  <button type="button" className="reviewer-set-main" onClick={() => showReviewer(entry)}>
-                    <span className="reviewer-set-icon"><Icon name="file-text" size={20} /></span>
-                    <span className="reviewer-set-copy">
-                      <strong>{entry.material.title}</strong>
-                      <span>
-                        {entry.material.source_filename || 'Saved reviewer'}
-                        <span className="reviewer-set-separator" aria-hidden="true">·</span>
-                        {new Date(entry.material.created_at).toLocaleDateString()}
-                      </span>
-                    </span>
-                    <span className="reviewer-set-count">
-                      <Badge variant={modeCount ? 'primary' : 'default'} size="sm">
-                        {modeCount ? <><AnimatedNumber value={modeCount} duration={700} delay={60} /> modes ready</> : 'No study sets'}
-                      </Badge>
-                    </span>
-                    <Icon name="chevron-right" size={18} />
-                  </button>
-                  <div className="reviewer-set-actions">
-                    <Button variant="outline" size="sm" leftIcon="book-open" onClick={() => showReviewer(entry)}>
-                      Choose study mode
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      leftIcon="share"
-                      disabled={!modeCount}
-                      title={!modeCount ? 'Generate at least one study set before sharing this reviewer.' : undefined}
-                      onClick={() => setShareTarget({ title: entry.material.title, materialIds: [entry.material.id] })}
-                    >
-                      Share reviewer
-                    </Button>
-                    {(entry.material.file_uri || entry.material.extracted_text) && (
-                      <Button variant="ghost" size="sm" leftIcon="file-text" onClick={() => navigate(`/side-by-side/${entry.material.id}`)}>
-                        Read with AI
-                      </Button>
-                    )}
-                    {subjectFolders.length > 0 && (
-                      <>
-                        <select
-                          aria-label={`Move ${entry.material.title} to a subject folder`}
-                          value={moveTargets[entry.material.id] || ''}
-                          onChange={event => setMoveTargets(previous => ({ ...previous, [entry.material.id]: event.target.value }))}
-                          style={{ minHeight: 36, border: '1px solid var(--border)', borderRadius: 8, padding: '0 10px', background: 'var(--panel-2)', color: 'var(--text)' }}
-                        >
-                          <option value="">Move to subject folder…</option>
-                          {subjectFolders.map(folder => (
-                            <option key={folder.id} value={folder.id}>{folder.name}</option>
-                          ))}
-                        </select>
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          onClick={() => void moveReviewer(entry)}
-                          disabled={!moveTargets[entry.material.id] || moveTargets[entry.material.id] === entry.material.subject_folder_id}
-                        >
-                          Move
-                        </Button>
-                      </>
-                    )}
-                  </div>
-                </article>
-              )
-              })}
-            </div>
+            renderReviewerDecks(selectedFolder.reviewers)
           ) : (
             <Card variant="outlined">
               <CardContent>
@@ -677,87 +814,168 @@ export default function MyReviewersPage() {
         </>
       ) : (
         <>
+          {libraryView === 'decks' || libraryView === 'subjects' ? (
+            <div className="review-library-backrow">
+              <Button variant="ghost" leftIcon="arrow-left" onClick={showSubjects}>Back to My reviewers</Button>
+            </div>
+          ) : null}
           <WorkspacePageHeader
             eyebrow="STUDY LIBRARY"
-            index="MY REVIEWERS"
-            title={<>My <em>reviewers.</em></>}
-            description={fromStudyMode && requestedModeOption
-              ? `Choose a subject and reviewer. We’ll open it directly in ${requestedModeOption.title} when that set is available.`
-              : 'Browse your saved reviewers by subject. Open a reviewer to choose from the study sets generated from it.'}
+            index={libraryView === 'decks' ? 'STUDY DECKS' : libraryView === 'subjects' ? 'SUBJECTS' : 'MY REVIEWERS'}
+            title={libraryView === 'decks' ? 'Study Decks' : libraryView === 'subjects' ? 'Subjects' : <>My <em>reviewers.</em></>}
+            description={libraryView === 'decks'
+              ? 'Open a deck to choose a study mode, or move it into a subject folder.'
+              : libraryView === 'subjects'
+                ? 'Open a subject folder to see the study decks organized inside it.'
+                : fromStudyMode && requestedModeOption
+                  ? `Choose a subject and reviewer. We’ll open it directly in ${requestedModeOption.title} when that set is available.`
+                  : 'Choose Study Decks to browse your reviewer decks, or Subjects to organize them into folders.'}
             action={(
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                <Button variant="secondary" leftIcon="plus" onClick={() => setCreateFolderOpen(true)}>Add subject</Button>
-                <Button variant="primary" leftIcon="upload" onClick={() => navigate('/reviewer?tab=upload')}>Upload materials</Button>
+                {libraryView !== 'decks' && (
+                  <Button variant="secondary" leftIcon="plus" onClick={() => setCreateFolderOpen(true)}>Add subject</Button>
+                )}
+                {libraryView !== 'subjects' && (
+                  <Button variant="primary" leftIcon="upload" onClick={() => navigate('/reviewer?tab=upload')}>Upload materials</Button>
+                )}
               </div>
             )}
           />
 
-          {loading ? (
-            <div className="reviewer-folder-grid" aria-label="Loading reviewer folders">
-              {Array.from({ length: 3 }).map((_, index) => (
-                <Card variant="outlined" key={index}>
-                  <CardContent className="reviewer-folder-skeleton">
-                    <Skeleton variant="text" width={180} />
-                    <Skeleton variant="text" width={120} />
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          ) : error ? (
-            <Card variant="outlined">
-              <CardContent>
+          {libraryView === 'decks' ? (
+            <section aria-label="Study Decks">
+              {loading ? (
+                <div className="reviewer-set-list" role="status" aria-label="Loading study decks">
+                  {Array.from({ length: 2 }).map((_, index) => (
+                    <div className="reviewer-set-card reviewer-deck-skeleton" key={index}>
+                      <Skeleton variant="text" width={180} />
+                      <Skeleton variant="text" width={120} />
+                    </div>
+                  ))}
+                </div>
+              ) : error ? (
                 <EmptyState
                   icon="alert-circle"
                   title="Couldn’t load your reviewers"
                   description={error}
                   action={{ label: 'Try again', variant: 'primary', onClick: () => setRetry(value => value + 1) }}
                 />
-              </CardContent>
-            </Card>
-          ) : visibleFolders.length === 0 ? (
-            <Card variant="outlined">
-              <CardContent>
+              ) : studyDecks.length === 0 ? (
+                <EmptyState
+                  icon={hasVisibleFolderReviewers ? 'folder' : 'reviewer'}
+                  title={hasVisibleFolderReviewers ? 'All decks are in subject folders' : 'No study decks yet'}
+                  description={hasVisibleFolderReviewers
+                    ? 'Open Subjects to find the folders holding your decks.'
+                    : 'Upload study materials to create your first deck.'}
+                  action={hasVisibleFolderReviewers
+                    ? { label: 'Open subjects', variant: 'outline', onClick: () => showLibraryView('subjects') }
+                    : { label: 'Upload materials', variant: 'primary', onClick: () => navigate('/reviewer?tab=upload') }}
+                />
+              ) : (
+                renderReviewerDecks(studyDecks)
+              )}
+            </section>
+          ) : libraryView === 'subjects' ? (
+            <section aria-label="Subjects">
+              {loading ? (
+                <div className="reviewer-folder-grid" role="status" aria-label="Loading subjects">
+                  {Array.from({ length: 2 }).map((_, index) => (
+                    <Card variant="outlined" key={index}>
+                      <CardContent className="reviewer-folder-skeleton">
+                        <Skeleton variant="text" width={180} />
+                        <Skeleton variant="text" width={120} />
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              ) : error ? (
+                <Card variant="outlined">
+                  <CardContent>
+                    <EmptyState
+                      icon="alert-circle"
+                      title="Couldn’t load your subjects"
+                      description={error}
+                      action={{ label: 'Try again', variant: 'primary', onClick: () => setRetry(value => value + 1) }}
+                    />
+                  </CardContent>
+                </Card>
+              ) : visibleFolders.length === 0 ? (
                 <EmptyState
                   icon="folder"
-                  title="No reviewers yet"
-                  description="Upload study materials to create your first subject folder and study set."
-                  action={{ label: 'Upload materials', variant: 'primary', onClick: () => navigate('/reviewer?tab=upload') }}
+                  title="No subjects yet"
+                  description="Create a subject folder to organize your study decks."
+                  action={{ label: 'Add subject', variant: 'primary', onClick: () => setCreateFolderOpen(true) }}
                 />
-              </CardContent>
-            </Card>
+              ) : (
+                <div className="reviewer-folder-grid">
+                  {visibleFolders.map(folder => (
+                    <button
+                      type="button"
+                      className="reviewer-folder-card"
+                      key={folder.subject}
+                      onClick={event => handleFolderClick(folder, event)}
+                      onDoubleClick={() => openFolderRemoval(folder)}
+                      onPointerDown={event => handleFolderPointerDown(folder, event)}
+                      onPointerUp={handleFolderPointerEnd}
+                      onPointerLeave={handleFolderPointerEnd}
+                      onPointerCancel={handleFolderPointerEnd}
+                      onContextMenu={event => handleFolderContextMenu(folder, event)}
+                      onKeyDown={event => {
+                        if (event.key === 'Delete' && folder.id) {
+                          event.preventDefault()
+                          openFolderRemoval(folder)
+                        }
+                      }}
+                      aria-keyshortcuts={folder.id ? 'Delete' : undefined}
+                      aria-label={`${folder.subject}, ${folder.reviewers.length} reviewer ${folder.reviewers.length === 1 ? 'set' : 'sets'}${folder.id ? '. Double-click or long-press to delete this subject; press Delete when focused.' : ''}`}
+                      title={folder.id ? 'Double-click or long-press to delete this subject' : undefined}
+                    >
+                      <span className="reviewer-folder-icon"><Icon name="folder" size={23} /></span>
+                      <span className="reviewer-folder-copy">
+                        <strong>{folder.subject}</strong>
+                        <span>{folder.reviewers.length} reviewer {folder.reviewers.length === 1 ? 'set' : 'sets'}</span>
+                        <small>{folder.reviewers.slice(0, 2).map(entry => entry.material.title).join(' · ')}</small>
+                      </span>
+                      <Icon name="chevron-right" size={18} />
+                    </button>
+                  ))}
+                </div>
+              )}
+            </section>
           ) : (
-            <div className="reviewer-folder-grid">
-              {visibleFolders.map(folder => (
-                <button
-                  type="button"
-                  className="reviewer-folder-card"
-                  key={folder.subject}
-                  onClick={event => handleFolderClick(folder, event)}
-                  onDoubleClick={() => openFolderRemoval(folder)}
-                  onPointerDown={event => handleFolderPointerDown(folder, event)}
-                  onPointerUp={handleFolderPointerEnd}
-                  onPointerLeave={handleFolderPointerEnd}
-                  onPointerCancel={handleFolderPointerEnd}
-                  onContextMenu={event => handleFolderContextMenu(folder, event)}
-                  onKeyDown={event => {
-                    if (event.key === 'Delete' && folder.id) {
-                      event.preventDefault()
-                      openFolderRemoval(folder)
-                    }
-                  }}
-                  aria-keyshortcuts={folder.id ? 'Delete' : undefined}
-                  aria-label={`${folder.subject}, ${folder.reviewers.length} reviewer ${folder.reviewers.length === 1 ? 'set' : 'sets'}${folder.id ? '. Double-click or long-press to delete this subject; press Delete when focused.' : ''}`}
-                  title={folder.id ? 'Double-click or long-press to delete this subject' : undefined}
-                >
-                  <span className="reviewer-folder-icon"><Icon name="folder" size={23} /></span>
-                  <span className="reviewer-folder-copy">
-                    <strong>{folder.subject}</strong>
-                    <span>{folder.reviewers.length} reviewer {folder.reviewers.length === 1 ? 'set' : 'sets'}</span>
-                    <small>{folder.reviewers.slice(0, 2).map(entry => entry.material.title).join(' · ')}</small>
+            <div className="reviewer-library-entry-grid">
+              <button
+                type="button"
+                className="reviewer-library-entry-card"
+                aria-label="Open Study Decks"
+                onClick={() => showLibraryView('decks')}
+              >
+                <span className="reviewer-library-entry-icon"><Icon name="book-open" size={24} /></span>
+                <span className="reviewer-library-entry-copy">
+                  <strong>Study Decks</strong>
+                  <span className="reviewer-library-entry-count">
+                    {loading ? 'Loading…' : error ? 'Unavailable' : `${studyDecks.length} ${studyDecks.length === 1 ? 'deck' : 'decks'}`}
                   </span>
-                  <Icon name="chevron-right" size={18} />
-                </button>
-              ))}
+                  <span>Browse your reviewer decks and generated study modes.</span>
+                </span>
+                <Icon name="chevron-right" size={20} />
+              </button>
+              <button
+                type="button"
+                className="reviewer-library-entry-card"
+                aria-label="Open Subjects"
+                onClick={() => showLibraryView('subjects')}
+              >
+                <span className="reviewer-library-entry-icon"><Icon name="folder" size={24} /></span>
+                <span className="reviewer-library-entry-copy">
+                  <strong>Subjects</strong>
+                  <span className="reviewer-library-entry-count">
+                    {loading ? 'Loading…' : error ? 'Unavailable' : `${visibleFolders.length} ${visibleFolders.length === 1 ? 'folder' : 'folders'}`}
+                  </span>
+                  <span>Open a subject folder to see the decks organized inside it.</span>
+                </span>
+                <Icon name="chevron-right" size={20} />
+              </button>
             </div>
           )}
         </>
@@ -825,6 +1043,55 @@ export default function MyReviewersPage() {
         )}
       </Modal>
       <Modal
+        open={Boolean(removeReviewerTarget)}
+        onClose={closeReviewerRemoval}
+        title={removeReviewerTarget ? `Delete ${removeReviewerTarget.material.title}?` : 'Delete study deck'}
+        description="The deck will disappear immediately. You’ll have 8 seconds to undo before its uploaded file, generated study content, and practice history are permanently deleted."
+        size="sm"
+        footer={(
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+            <Button variant="secondary" onClick={closeReviewerRemoval}>Cancel</Button>
+            <Button variant="danger" leftIcon="trash" onClick={confirmReviewerRemoval}>
+              Delete deck
+            </Button>
+          </div>
+        )}
+      >
+        <p>Use Undo in the toast within 8 seconds to keep this deck.</p>
+      </Modal>
+      <Modal
+        open={Boolean(moveTarget)}
+        onClose={closeMoveReviewer}
+        title={moveTarget ? `Move ${moveTarget.material.title}` : 'Move study deck'}
+        description="Choose the subject folder where this study deck should live."
+        size="sm"
+        closeOnOverlayClick={!movingReviewer}
+        closeOnEscape={!movingReviewer}
+        footer={(
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+            <Button variant="secondary" onClick={closeMoveReviewer} disabled={movingReviewer}>Cancel</Button>
+            <Button
+              variant="primary"
+              onClick={() => void confirmMoveReviewer()}
+              loading={movingReviewer}
+              disabled={!moveFolderId || moveFolderId === moveTarget?.material.subject_folder_id}
+            >
+              Move deck
+            </Button>
+          </div>
+        )}
+      >
+        <Select
+          label="Subject folder"
+          value={moveFolderId}
+          onChange={event => setMoveFolderId(event.target.value)}
+          options={subjectFolders.map(folder => ({ value: folder.id, label: folder.name }))}
+          placeholder="Choose a subject folder"
+          fullWidth
+          disabled={movingReviewer}
+        />
+      </Modal>
+      <Modal
         open={Boolean(removeFolderTarget)}
         onClose={closeFolderRemoval}
         title={removeFolderTarget ? `Delete ${removeFolderTarget.subject}?` : 'Delete subject folder'}
@@ -869,6 +1136,23 @@ export default function MyReviewersPage() {
           required
         />
       </Modal>
+      {editReviewerTarget && (
+        <StudyDeckEditorModal
+          open
+          material={editReviewerTarget.material}
+          onClose={() => setEditReviewerTarget(null)}
+          onMaterialTitleChange={title => {
+            const materialId = editReviewerTarget.material.id
+            setReviewers(previous => previous.map(entry => entry.material.id === materialId
+              ? { ...entry, material: { ...entry.material, title } }
+              : entry))
+            setEditReviewerTarget(previous => previous?.material.id === materialId
+              ? { ...previous, material: { ...previous.material, title } }
+              : previous)
+          }}
+          onContentChange={() => setRetry(value => value + 1)}
+        />
+      )}
     </div>
   )
 }

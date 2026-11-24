@@ -13,6 +13,7 @@ import { AnimatedNumber, Card, CardHeader, CardContent, Button, Badge, Icon, Emp
 import LevelUpCelebration from '@/components/LevelUpCelebration'
 import AiHelper from '@/components/AiHelper'
 import LiloSpeechPanel from '@/components/LiloSpeechPanel'
+import SavedStudyHint from '@/components/SavedStudyHint'
 
 export default function PracticePage() {
   const { profile, user, refreshProfile } = useAuth()
@@ -1182,6 +1183,7 @@ export default function PracticePage() {
               <p className="practice-flashcard-text">{reveal ? currentCard.back : currentCard.front}</p>
               {!reveal && <p className="practice-flashcard-hint">Try to recall the answer, then reveal it.</p>}
             </div>
+            <SavedStudyHint hint={currentCard.hint} />
             <div className="practice-answer-actions">
               <Button variant="secondary" size="lg" leftIcon={reveal ? 'chevron-left' : 'eye'} onClick={() => setReveal(r => !r)}>
                 {reveal ? 'Show Prompt' : 'Reveal Answer'}
@@ -1217,6 +1219,7 @@ export default function PracticePage() {
             </div>
 
             <h3 className="practice-question-heading">{(current.question as McqQuestion).stem}</h3>
+            <SavedStudyHint hint={current.hint} />
 
             <fieldset className="practice-answer-fieldset">
               <legend className="practice-visually-hidden">
@@ -1291,6 +1294,7 @@ export default function PracticePage() {
               <div className="practice-field-label">Prompt</div>
               <div className="practice-prompt">{(current.question as DiagnosisQuestion).prompt}</div>
             </div>
+            <SavedStudyHint hint={current.hint} />
 
             <div className="practice-content-block">
               <label htmlFor="diagnosis-input" className="practice-field-label">Your Identification</label>
@@ -1344,6 +1348,7 @@ export default function PracticePage() {
 
             <h3 className="practice-question-heading">{(current.question as SequenceQuestion).prompt}</h3>
             <p className="practice-instruction">Arrange the clinical, dispensing, or procedural steps in the correct priority order (top = first).</p>
+            <SavedStudyHint hint={current.hint} />
 
             <div className="practice-sequence-list">
               {seqOrder.map((item, i) => (
@@ -1419,6 +1424,7 @@ export default function PracticePage() {
                 {(current.question as DiagnosisQuestion).prompt}
               </div>
             </div>
+            <SavedStudyHint hint={current.hint} />
 
             <div className="practice-content-block">
               <label htmlFor="identification-input" className="practice-field-label">Your Answer</label>
@@ -1475,6 +1481,7 @@ export default function PracticePage() {
                 {(current.question as DiagnosisQuestion).prompt}
               </div>
             </div>
+            <SavedStudyHint hint={current.hint} />
 
             <div className="practice-content-block">
               <span className="practice-field-label">Your answers</span>

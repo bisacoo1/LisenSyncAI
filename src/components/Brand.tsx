@@ -2,14 +2,22 @@ import { useId } from 'react'
 import { Link } from 'react-router-dom'
 import logoMark from '@/assets/logo-mark.png'
 
-export function Brand({ inverse = false, compact = false }: { inverse?: boolean; compact?: boolean }) {
+export function Brand({
+  inverse = false,
+  compact = false,
+  to = '/',
+}: {
+  inverse?: boolean
+  compact?: boolean
+  to?: string
+}) {
   const uid = useId().replace(/:/g, '')
   const blushId = `brand-owl-blush-${uid}`
   const smileGlowId = `brand-owl-smile-glow-${uid}`
 
   return (
     <Link
-      to="/"
+      to={to}
       className={`brand-lockup${inverse ? ' brand-lockup--inverse' : ''}${compact ? ' brand-lockup--compact' : ''}`}
       aria-label="Pharmora AI BS Pharmacy study space home"
     >

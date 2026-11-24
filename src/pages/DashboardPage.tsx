@@ -1045,7 +1045,7 @@ function SubjectDailyTrendChart({ trends }: { trends: CourseSubjectTrend[] }) {
     0
   )
   const width = 600
-  const height = 190
+  const height = 140
   const pad = { top: 12, right: 24, bottom: 30, left: 38 }
   const innerWidth = width - pad.left - pad.right
   const innerHeight = height - pad.top - pad.bottom
@@ -1109,7 +1109,7 @@ function SubjectDailyTrendChart({ trends }: { trends: CourseSubjectTrend[] }) {
                 aria-label={`Daily accuracy trends for ${activeTrends.length} subjects from ${rangeLabel}, across ${activeDays.length} practice days. Point labels show accuracy percentages.`}
                 style={{ width: '100%', minWidth: 520, display: 'block', height: 'auto' }}
               >
-              <text x={pad.left} y="8" fontSize="11" fontWeight="700" fill="var(--muted)">Accuracy (%)</text>
+              <text x={pad.left} y="8" fontSize="10" fontWeight="700" fill="var(--muted)">Accuracy (%)</text>
               {[0, 25, 50, 75, 100].map(value => (
                 <g key={value}>
                   <line
@@ -1121,7 +1121,7 @@ function SubjectDailyTrendChart({ trends }: { trends: CourseSubjectTrend[] }) {
                     strokeWidth="1"
                     strokeDasharray={value === 75 ? '5 4' : undefined}
                   />
-                  <text x={pad.left - 7} y={y(value) + 4} textAnchor="end" fontSize="12" fontWeight="700" fill="var(--muted)">
+                  <text x={pad.left - 7} y={y(value) + 4} textAnchor="end" fontSize="10" fontWeight="700" fill="var(--muted)">
                     {value}%
                   </text>
                 </g>
@@ -1132,7 +1132,7 @@ function SubjectDailyTrendChart({ trends }: { trends: CourseSubjectTrend[] }) {
                   points={points}
                   fill="none"
                   stroke={item.color}
-                  strokeWidth="2"
+                  strokeWidth="1.5"
                   strokeLinejoin="round"
                   strokeLinecap="round"
                 />
@@ -1142,10 +1142,10 @@ function SubjectDailyTrendChart({ trends }: { trends: CourseSubjectTrend[] }) {
                   <circle
                     cx={x(index)}
                     cy={y(day.percent)}
-                    r="3.5"
+                    r="3"
                     fill={item.color}
                     stroke="var(--panel)"
-                    strokeWidth="1.5"
+                    strokeWidth="1.25"
                   >
                     <title>{`${item.subject} · ${new Date(`${day.date}T00:00:00`).toLocaleDateString()}: ${day.percent}% accuracy (${day.total} questions answered)`}</title>
                   </circle>
@@ -1153,7 +1153,7 @@ function SubjectDailyTrendChart({ trends }: { trends: CourseSubjectTrend[] }) {
                     x={x(index)}
                     y={y(day.percent) + (day.percent >= 90 ? 15 : -8)}
                     textAnchor="middle"
-                    fontSize="11"
+                    fontSize="10"
                     fontWeight="700"
                     fill="var(--text)"
                   >
@@ -1167,7 +1167,7 @@ function SubjectDailyTrendChart({ trends }: { trends: CourseSubjectTrend[] }) {
                   x={x(index)}
                   y={height - 8}
                   textAnchor="middle"
-                  fontSize="12"
+                  fontSize="10"
                   fontWeight="700"
                   fill="var(--muted)"
                 >

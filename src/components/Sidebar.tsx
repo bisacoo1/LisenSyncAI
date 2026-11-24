@@ -49,7 +49,7 @@ export function Sidebar({
       aria-label="Main sidebar"
     >
       <div className="sidebar-brand">
-        <Brand inverse compact={isCompact} />
+        <Brand inverse compact={isCompact} to="/dashboard" />
       </div>
       <div className="sidebar-nav-heading">
         <span>YOUR WORKSPACE</span>

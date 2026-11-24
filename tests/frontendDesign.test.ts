@@ -342,12 +342,63 @@ describe('accessible route and study controls', () => {
     expect(sidebar).not.toContain("label: 'Study mode'")
   })
 
-  it('guides learners without reviewers to upload materials', () => {
+  it('separates study decks from subject folders and moves decks through a modal', () => {
     const reviewers = projectFile('src/pages/MyReviewersPage.tsx')
 
-    expect(reviewers).toContain('title="No reviewers yet"')
-    expect(reviewers).toContain('description="Upload study materials to create your first subject folder and study set."')
-    expect(reviewers).toContain("action={{ label: 'Upload materials', variant: 'primary', onClick: () => navigate('/reviewer?tab=upload') }}")
+    expect(reviewers).toContain('className="reviewer-library-entry-card"')
+    expect(reviewers).toContain('aria-label="Open Study Decks"')
+    expect(reviewers).toContain('aria-label="Open Subjects"')
+    expect(reviewers).toContain("onClick={() => showLibraryView('decks')}")
+    expect(reviewers).toContain("onClick={() => showLibraryView('subjects')}")
+    expect(reviewers).toContain('() => reviewers.filter(entry => !entry.material.subject_folder_id)')
+    expect(reviewers).toContain('renderReviewerDecks(studyDecks)')
+    expect(reviewers).toContain('visibleFolders.map(folder =>')
+    expect(reviewers).toContain('onClick={() => openMoveReviewer(entry)}')
+    expect(reviewers).toContain('title={moveTarget ? `Move ${moveTarget.material.title}` : \'Move study deck\'}')
+    expect(reviewers).toContain('Move deck')
+    expect(reviewers).not.toContain('Move to subject folder…')
+  })
+
+  it('uses labeled icon-only actions for study decks', () => {
+    const reviewers = projectFile('src/pages/MyReviewersPage.tsx')
+    const icons = projectFile('src/components/ui/Icon.tsx')
+    const editButtonLabel = reviewers.indexOf('aria-label={`Edit study set ${entry.material.title}`}')
+    const editButtonStart = reviewers.lastIndexOf('<Button', editButtonLabel)
+    const editButtonEnd = reviewers.indexOf('/>', editButtonLabel) + 2
+
+    expect(reviewers).toContain('aria-label={`Choose study mode for ${entry.material.title}`}')
+    expect(reviewers).toContain('aria-label={`Share reviewer ${entry.material.title}`}')
+    expect(reviewers).toContain('leftIcon="folder-input"')
+    expect(reviewers).toContain('aria-label={`Edit study set ${entry.material.title}`}')
+    expect(reviewers).toContain('leftIcon="edit"')
+    expect(reviewers.slice(editButtonStart, editButtonEnd)).toContain('variant="outline"')
+    expect(reviewers).toContain('aria-label={`Delete ${entry.material.title}`}')
+    expect(reviewers).not.toContain('navigate(`/side-by-side/${entry.material.id}`)')
+    expect(icons).toContain("'folder-input': FolderInput")
+  })
+
+  it('supports editing generated content with optional hints and resets its progress', () => {
+    const editor = projectFile('src/components/StudyDeckEditorModal.tsx')
+    const practice = projectFile('src/pages/PracticePage.tsx')
+    const migration = projectFile('supabase/migrations/202611240003_review_material_management.sql')
+
+    expect(editor).toContain('validateGeneratedPracticeItems')
+    expect(editor).toContain("p_hint: draft.hint.trim() || null")
+    expect(editor).toContain('ease_factor: 2.5')
+    expect(editor).toContain("supabase.rpc('update_review_practice_item'")
+    expect(migration).toContain('delete from public.attempts')
+    expect(migration).toContain('public.delete_review_material')
+    expect(migration).toContain('grant execute on function public.delete_review_material(uuid) to authenticated')
+    expect(practice).toContain('<SavedStudyHint hint={current.hint} />')
+    expect(practice).toContain('<SavedStudyHint hint={currentCard.hint} />')
+  })
+
+  it('guides learners without study decks to upload materials', () => {
+    const reviewers = projectFile('src/pages/MyReviewersPage.tsx')
+
+    expect(reviewers).toContain("'No study decks yet'")
+    expect(reviewers).toContain("'Upload study materials to create your first deck.'")
+    expect(reviewers).toContain("label: 'Upload materials', variant: 'primary', onClick: () => navigate('/reviewer?tab=upload')")
   })
 
   it('confirms subject-folder deletion before showing its undo toast', () => {
@@ -373,15 +424,26 @@ describe('accessible route and study controls', () => {
     expect(migration).toContain('delete from public.user_subjects')
   })
 
+  it('lets learners undo a study-deck deletion before the RPC runs', () => {
+    const reviewers = projectFile('src/pages/MyReviewersPage.tsx')
+
+    expect(reviewers).toContain('const REVIEWER_UNDO_WINDOW_MS = 8_000')
+    expect(reviewers).toContain('function queueReviewerDeletion(entry: ReviewerEntry)')
+    expect(reviewers).toContain('action: { label: \'Undo\', onClick: () => undoReviewerDeletion(entry) }')
+    expect(reviewers).toContain('void permanentlyDeleteReviewer(entry)')
+    expect(reviewers).toContain('setReviewerDeletionPending(materialId, false, true)')
+    expect(reviewers).toContain('reviewers.filter(entry => !pendingReviewerIds.has(entry.material.id))')
+    expect(reviewers).toContain('Use Undo in the toast within 8 seconds to keep this deck.')
+  })
+
   it('keeps the AI reader accessible from reviewers rather than the sidebar', () => {
     const sidebar = projectFile('src/components/Sidebar.tsx')
     const reviewers = projectFile('src/pages/MyReviewersPage.tsx')
 
     expect(sidebar).not.toContain("label: 'Side by side'")
     expect(sidebar).toContain("location.pathname.startsWith('/side-by-side')")
-    expect(reviewers.match(/Read with AI/g)).toHaveLength(2)
+    expect(reviewers.match(/Read with AI/g)).toHaveLength(1)
     expect(reviewers).toContain('navigate(`/side-by-side/${selectedReviewer.material.id}`)')
-    expect(reviewers).toContain('navigate(`/side-by-side/${entry.material.id}`)')
   })
 
   it('shows the selected reviewer folder while keeping content queries on the material subject', () => {

@@ -4,6 +4,7 @@ import Button from '@/components/ui/Button'
 import Icon from '@/components/ui/Icon'
 import { useToast } from '@/components/ui/Toast'
 import useReducedMotion from '@/hooks/useReducedMotion'
+import { readQuestionAloud, stopMascotVoice } from '@/lib/mascotVoice'
 
 const LILO_MOTION_STORAGE_KEY = 'lilo-animations-enabled'
 
@@ -44,35 +45,21 @@ export default function LiloSpeechPanel({
     return null
   })
   const [isSpeaking, setIsSpeaking] = useState(false)
+  const [voiceLoading, setVoiceLoading] = useState(false)
   const [spokenText, setSpokenText] = useState('')
-  const speechVersion = useRef(0)
-  const voices = useRef<SpeechSynthesisVoice[]>([])
   const readyPromptSpoken = useRef(false)
   const mutedRef = useRef(muted)
   const motionEnabled = motionOverride ?? !prefersReducedMotion
   mutedRef.current = muted
 
-  useEffect(() => {
-    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return
-    const updateVoices = () => {
-      voices.current = window.speechSynthesis.getVoices()
-    }
-    updateVoices()
-    window.speechSynthesis.addEventListener('voiceschanged', updateVoices)
-    return () => window.speechSynthesis.removeEventListener('voiceschanged', updateVoices)
-  }, [])
-
   useEffect(() => () => {
-    speechVersion.current += 1
-    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      window.speechSynthesis.cancel()
-    }
+    stopMascotVoice()
   }, [])
 
   function stopSpeaking() {
-    speechVersion.current += 1
-    if ('speechSynthesis' in window) window.speechSynthesis.cancel()
+    stopMascotVoice()
     setIsSpeaking(false)
+    setVoiceLoading(false)
   }
 
   function toggleMotion() {
@@ -92,51 +79,23 @@ export default function LiloSpeechPanel({
   const speakMessage = useCallback((message: string) => {
     const cleanMessage = message.trim()
     if (!cleanMessage || mutedRef.current) return
-    if (!('speechSynthesis' in window) || typeof SpeechSynthesisUtterance === 'undefined') {
-      addToast({
-        type: 'error',
-        title: 'Read aloud is unavailable',
-        message: 'Try a browser that supports speech synthesis.',
-      })
-      return
-    }
-
-    const version = ++speechVersion.current
-    const utterance = new SpeechSynthesisUtterance(cleanMessage)
-    const voice = voices.current.find(candidate => /\bmicrosoft mark\b/i.test(candidate.name))
-      ?? voices.current.find(candidate => /^(en-ph|fil-ph|tl-ph)\b/i.test(candidate.lang))
-      ?? voices.current.find(candidate => /\b(filipino|tagalog)\b/i.test(candidate.name))
-      ?? voices.current.find(candidate => /\bzira\b/i.test(candidate.name))
-      ?? voices.current.find(candidate => /^en-/i.test(candidate.lang))
-    if (voice) {
-      utterance.voice = voice
-      utterance.lang = voice.lang
-    } else {
-      utterance.lang = /^(en|fil|tl)-ph/i.test(navigator.language) ? navigator.language : 'en-US'
-    }
-    utterance.rate = 0.86
-    utterance.pitch = 1.02
-    utterance.volume = 0.78
-    utterance.onstart = () => {
-      if (version === speechVersion.current) setIsSpeaking(true)
-    }
-    utterance.onend = () => {
-      if (version === speechVersion.current) setIsSpeaking(false)
-    }
-    utterance.onerror = event => {
-      if (version !== speechVersion.current || event.error === 'canceled') return
+    setSpokenText(cleanMessage)
+    const playback = readQuestionAloud(
+      cleanMessage,
+      'en-US-TonyNeural',
+      () => setIsSpeaking(false),
+      setVoiceLoading,
+      () => setIsSpeaking(true),
+    )
+    void playback.catch(error => {
       setIsSpeaking(false)
+      setVoiceLoading(false)
       addToast({
         type: 'error',
         title: 'Lilo could not speak',
-        message: `Speech playback failed: ${event.error}.`,
+        message: error instanceof Error ? error.message : 'Speech playback failed.',
       })
-    }
-
-    if (window.speechSynthesis.speaking) window.speechSynthesis.cancel()
-    setSpokenText(cleanMessage)
-    setIsSpeaking(true)
-    window.speechSynthesis.speak(utterance)
+    })
   }, [addToast])
 
   useEffect(() => {
@@ -178,6 +137,7 @@ export default function LiloSpeechPanel({
         <div className={`lilo-cage${isSpeaking ? ' is-speaking' : ''}${motionEnabled ? ' is-motion-enabled' : ''}`}>
           <TtsMascot size={240} variant="idle" speaking={isSpeaking} reaction={reaction} motionEnabled={motionEnabled} />
         </div>
+        {voiceLoading && <p className="mascot-voice-loading" role="status">Preparing Lilo’s voice…</p>}
         {readyPromptOpen && (
           <section className="lilo-ready-prompt" role="group" aria-labelledby="lilo-ready-prompt-title">
             <p id="lilo-ready-prompt-title">Are you ready?</p>
@@ -220,7 +180,7 @@ export default function LiloSpeechPanel({
         <section className="lilo-speech-transcript" role="status" aria-live="polite" aria-atomic="true">
           <div className="lilo-speech-bubble__heading">
             <Icon name="volume-2" size={16} aria-hidden="true" />
-            <span>{isSpeaking ? 'Lilo is speaking' : 'Lilo said'}</span>
+            <span>{voiceLoading ? 'Lilo is preparing to speak' : isSpeaking ? 'Lilo is speaking' : 'Lilo said'}</span>
           </div>
           <p>{spokenText}</p>
         </section>

@@ -6,6 +6,7 @@ import type { McqAnswer, McqQuestion, PracticeItem } from '@/types'
 import type { GameWorldCollectible, GameWorldObstacle } from '@/components/GameWorld3D'
 import { obstacleDodged, type GameObstacleKind, type PlayerAction } from '@/lib/gameMode'
 import { gameSound } from '@/lib/gameSound'
+import { readQuestionAloud, stopMascotVoice } from '@/lib/mascotVoice'
 import { Badge, Button, Card, Icon, useToast } from '@/components/ui'
 
 const GameWorld3D = lazy(() => import('@/components/GameWorld3D'))
@@ -44,6 +45,7 @@ export default function GameModePage() {
   const [soundOn, setSoundOn] = useState(gameSound.isEnabled)
   const [countdown, setCountdown] = useState<number | null>(null)
   const [isSpeaking, setIsSpeaking] = useState(false)
+  const [voiceLoading, setVoiceLoading] = useState(false)
   const [resultAnnounced, setResultAnnounced] = useState(false)
   const [loading, setLoading] = useState(true)
   const [gameMessage, setGameMessage] = useState('')
@@ -57,8 +59,6 @@ export default function GameModePage() {
   const distanceRef = useRef(0)
   const livesRef = useRef(3)
   const timeLeftRef = useRef(QUESTION_SECONDS)
-  const speechVersion = useRef(0)
-  const voices = useRef<SpeechSynthesisVoice[]>([])
   const countdownRef = useRef<number | null>(null)
   const wasCorrectRef = useRef(false)
   const [gameEvent, setGameEvent] = useState<'none' | 'hit' | 'dodge' | 'collect' | 'gold'>('none')
@@ -105,16 +105,6 @@ export default function GameModePage() {
     load()
   }, [profile, materialId, subject])
 
-  useEffect(() => {
-    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return
-    const updateVoices = () => {
-      voices.current = window.speechSynthesis.getVoices()
-    }
-    updateVoices()
-    window.speechSynthesis.addEventListener('voiceschanged', updateVoices)
-    return () => window.speechSynthesis.removeEventListener('voiceschanged', updateVoices)
-  }, [])
-
   const currentQuestion = items[questionIndex % Math.max(items.length, 1)] || null
   const mcqQuestion = currentQuestion?.question as McqQuestion | undefined
   const mcqAnswer = currentQuestion?.answer as McqAnswer | undefined
@@ -142,54 +132,31 @@ export default function GameModePage() {
   }
 
   const stopSpeech = useCallback(() => {
-    speechVersion.current += 1
-    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      window.speechSynthesis.cancel()
-    }
+    stopMascotVoice()
     setIsSpeaking(false)
+    setVoiceLoading(false)
   }, [])
 
   const speakMessage = useCallback((message: string) => {
     const cleanMessage = message.trim()
     if (!cleanMessage) return
-    if (
-      typeof window === 'undefined' ||
-      !('speechSynthesis' in window) ||
-      typeof SpeechSynthesisUtterance === 'undefined'
-    ) {
-      return
-    }
-    const version = ++speechVersion.current
-    const utterance = new SpeechSynthesisUtterance(cleanMessage)
-    const voice =
-      voices.current.find(candidate => /\bmicrosoft mark\b/i.test(candidate.name)) ??
-      voices.current.find(candidate => /^(en-ph|fil-ph|tl-ph)\b/i.test(candidate.lang)) ??
-      voices.current.find(candidate => /(filipino|tagalog)/i.test(candidate.name)) ??
-      voices.current.find(candidate => /\bzira\b/i.test(candidate.name)) ??
-      voices.current.find(candidate => /^en-/i.test(candidate.lang))
-    if (voice) {
-      utterance.voice = voice
-      utterance.lang = voice.lang
-    } else {
-      utterance.lang = /^(en|fil|tl)-ph/i.test(navigator.language) ? navigator.language : 'en-US'
-    }
-    utterance.rate = 0.86
-    utterance.pitch = 1.02
-    utterance.volume = 0.78
-    utterance.onstart = () => {
-      if (version === speechVersion.current) setIsSpeaking(true)
-    }
-    utterance.onend = () => {
-      if (version === speechVersion.current) setIsSpeaking(false)
-    }
-    utterance.onerror = event => {
-      if (version !== speechVersion.current || event.error === 'canceled') return
+    const playback = readQuestionAloud(
+      cleanMessage,
+      'en-US-TonyNeural',
+      () => setIsSpeaking(false),
+      setVoiceLoading,
+      () => setIsSpeaking(true),
+    )
+    void playback.catch(error => {
       setIsSpeaking(false)
-    }
-    if (window.speechSynthesis.speaking) window.speechSynthesis.cancel()
-    setIsSpeaking(true)
-    window.speechSynthesis.speak(utterance)
-  }, [])
+      setVoiceLoading(false)
+      addToast({
+        type: 'error',
+        title: 'Lilo could not speak',
+        message: error instanceof Error ? error.message : 'Speech playback failed.',
+      })
+    })
+  }, [addToast])
 
   const gameQuestionText = useCallback(() => {
     if (!mcqQuestion) return ''
@@ -470,10 +437,10 @@ export default function GameModePage() {
     if (answerResult === null) return
     if (livesRef.current === 0) return
     if (!resultAnnounced) return // Lilo hasn't started speaking the result yet
-    if (isSpeaking) return // Lilo is still speaking; wait until she finishes
+    if (isSpeaking || voiceLoading) return // Wait for generation and playback to finish.
     wasCorrectRef.current = answerResult === 'correct'
     setCountdown(3)
-  }, [answerResult, resultAnnounced, isSpeaking, livesRef.current])
+  }, [answerResult, resultAnnounced, isSpeaking, voiceLoading, livesRef.current])
 
   // Countdown 3 → 2 → 1 → Go, then resume the run.
   useEffect(() => {
@@ -679,7 +646,7 @@ export default function GameModePage() {
                           className="game-sound-toggle"
                           aria-label={isSpeaking ? 'Stop Lilo speaking' : 'Listen with Lilo'}
                           aria-pressed={isSpeaking}
-                          disabled={!mcqQuestion || isSpeaking}
+                          disabled={!mcqQuestion || isSpeaking || voiceLoading}
                           onClick={() => {
                             if (isSpeaking) stopSpeech()
                             else speakMessage(gameQuestionText())
@@ -688,6 +655,7 @@ export default function GameModePage() {
                           <Icon name={isSpeaking ? 'x' : 'volume-2'} size={16} />
                         </button>
                       </div>
+                      {voiceLoading && <p className="mascot-voice-loading" role="status">Preparing Lilo’s voice…</p>}
                       <h2 id="checkpoint-question">{mcqQuestion.stem}</h2>
                       <div className="checkpoint-options">
                         {mcqQuestion.options.map((option, index) => {

@@ -48,6 +48,10 @@ export function Layout({ children, focus = false }: { children?: ReactNode; focu
   const pageName =
     pageNames[location.pathname] || (location.pathname.startsWith('/side-by-side/') ? 'Reader' : 'Workspace')
   const isDashboard = location.pathname === '/dashboard'
+  const isReviewersPage = location.pathname === '/reviewers' || location.pathname.startsWith('/side-by-side')
+  const isGamePage = location.pathname === '/game'
+  const isLeaderboardPage = location.pathname === '/leaderboard'
+  const isMorePage = location.pathname === '/mock' || location.pathname === '/analytics'
   const accountName = profile?.full_name?.trim() || 'Pharmacy candidate'
   const accountFirstName = accountName.split(/\s+/)[0]
   const accountInitials = accountName.split(/\s+/).slice(0, 2).map((part) => part[0]).join('').toUpperCase()
@@ -157,7 +161,7 @@ export function Layout({ children, focus = false }: { children?: ReactNode; focu
             >
               <Icon name="menu" size={21} />
             </button>
-            <Brand />
+            <Brand to="/dashboard" />
             <span className="mobile-topbar-label">BS PHARMACY · PhLE</span>
           </div>
 
@@ -180,12 +184,87 @@ export function Layout({ children, focus = false }: { children?: ReactNode; focu
       <main className="app-main" id="main-content" tabIndex={-1} aria-label={pageName} data-route-main>
         {!focus && (
           <div className="workspace-topbar">
+            <div className="workspace-topbar-brand">
+              <Brand to="/dashboard" />
+            </div>
+            <nav className="workspace-primary-nav" aria-label="Primary navigation">
+              <Link
+                to="/dashboard"
+                className={`workspace-primary-nav-link${isDashboard ? ' active' : ''}`}
+                aria-current={isDashboard ? 'page' : undefined}
+              >
+                Overview
+              </Link>
+              <Link
+                to="/reviewers"
+                className={`workspace-primary-nav-link${isReviewersPage ? ' active' : ''}`}
+                aria-current={isReviewersPage ? 'page' : undefined}
+              >
+                My Reviewers
+              </Link>
+              <Link
+                to="/game"
+                className={`workspace-primary-nav-link${isGamePage ? ' active' : ''}`}
+                aria-current={isGamePage ? 'page' : undefined}
+              >
+                Game Mode
+              </Link>
+              <Link
+                to="/leaderboard"
+                className={`workspace-primary-nav-link${isLeaderboardPage ? ' active' : ''}`}
+                aria-current={isLeaderboardPage ? 'page' : undefined}
+              >
+                Leaderboards
+              </Link>
+              <details className="workspace-primary-more">
+                <summary className={`workspace-primary-nav-link${isMorePage ? ' active' : ''}`}>
+                  More
+                  <Icon name="chevron-down" size={14} aria-hidden="true" />
+                </summary>
+                <div className="workspace-primary-more-menu">
+                  {profile?.track !== 'course' && (
+                    <Link to="/mock" onClick={(event) => event.currentTarget.closest('details')?.removeAttribute('open')}>
+                      Mock exam
+                    </Link>
+                  )}
+                  <Link to="/analytics" onClick={(event) => event.currentTarget.closest('details')?.removeAttribute('open')}>
+                    Analytics
+                  </Link>
+                </div>
+              </details>
+            </nav>
             <div className="workspace-breadcrumb">
               <span>PHARMACY STUDY SPACE</span>
               <Icon name="chevron-right" size={14} />
               <strong>{pageName}</strong>
             </div>
             <div className="workspace-topbar-right">
+              <div className="workspace-primary-actions">
+                <Link to="/reviewer?tab=upload" className="workspace-upload-link">
+                  <Icon name="upload" size={16} aria-hidden="true" />
+                  <span>Upload</span>
+                </Link>
+                <Link
+                  to="/friends"
+                  className={`workspace-nav-icon-link${location.pathname === '/friends' ? ' active' : ''}`}
+                  aria-label="Friends"
+                  aria-current={location.pathname === '/friends' ? 'page' : undefined}
+                  title="Friends"
+                >
+                  <Icon name="users" size={18} aria-hidden="true" />
+                  <span>Friends</span>
+                </Link>
+                <Link
+                  to="/achievements"
+                  className={`workspace-nav-icon-link${location.pathname === '/achievements' ? ' active' : ''}`}
+                  aria-label="Achievements"
+                  aria-current={location.pathname === '/achievements' ? 'page' : undefined}
+                  title="Achievements"
+                >
+                  <Icon name="trophy" size={18} aria-hidden="true" />
+                  <span>Achievements</span>
+                </Link>
+              </div>
               <span className="workspace-date">
                 <Icon name="calendar" size={16} />
                 {new Date().toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
