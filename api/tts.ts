@@ -48,7 +48,7 @@ export default async function handler(request: TtsRequest, response: TtsResponse
     return
   }
 
-  const { text, voice = DEFAULT_VOICE, rate = "+8%", pitch = "+3%" } = request.body as TtsBody
+  const { text, voice = DEFAULT_VOICE, rate = "+8%", pitch = "+18%" } = request.body as TtsBody
   if (typeof text !== "string" || !text.trim()) {
     sendError(response, 400, "Text is required.")
     return
@@ -61,7 +61,7 @@ export default async function handler(request: TtsRequest, response: TtsResponse
   const tts = new MsEdgeTTS()
   try {
     await tts.setMetadata(voice, OUTPUT_AUDIO_FORMAT)
-    const audioStream = tts.toStream(escapeXmlText(text), { rate, pitch })
+    const { audioStream } = tts.toStream(escapeXmlText(text), { rate, pitch })
     const chunks: Uint8Array[] = []
 
     await new Promise<void>(resolve => {
