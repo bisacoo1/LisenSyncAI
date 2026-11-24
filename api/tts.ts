@@ -74,7 +74,7 @@ export default async function handler(request: TtsRequest, response: TtsResponse
       }
 
       audioStream.on("data", (chunk: Uint8Array) => chunks.push(chunk))
-      audioStream.once("error", error => {
+      audioStream.once("error", (error: unknown) => {
         if (completed) return
         console.error("Mascot speech synthesis failed:", error)
         if (!response.headersSent) sendError(response, 500, "Speech synthesis failed.")
