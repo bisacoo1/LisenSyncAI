@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type MouseEvent, type PointerEvent } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { supabase } from '@/lib/supabase'
@@ -76,6 +76,9 @@ export default function MyReviewersPage() {
   const [createFolderOpen, setCreateFolderOpen] = useState(false)
   const [newFolderName, setNewFolderName] = useState('')
   const [savingFolder, setSavingFolder] = useState(false)
+  const [editFolderTarget, setEditFolderTarget] = useState<UserSubject | null>(null)
+  const [editFolderName, setEditFolderName] = useState('')
+  const [savingEditedFolder, setSavingEditedFolder] = useState(false)
   const [shareTarget, setShareTarget] = useState<ReviewerShareTarget | null>(null)
   const [shareFriends, setShareFriends] = useState<FriendConnection[]>([])
   const [shareFriendsLoading, setShareFriendsLoading] = useState(false)
@@ -90,12 +93,8 @@ export default function MyReviewersPage() {
   const [moveTarget, setMoveTarget] = useState<ReviewerEntry | null>(null)
   const [moveFolderId, setMoveFolderId] = useState('')
   const [movingReviewer, setMovingReviewer] = useState(false)
-  const folderClickTimer = useRef<number | null>(null)
-  const folderLongPressTimer = useRef<number | null>(null)
   const folderDeletionTimers = useRef(new Map<string, number>())
   const reviewerDeletionTimers = useRef(new Map<string, number>())
-  const folderLongPressTriggered = useRef(false)
-  const folderPointerType = useRef<string | null>(null)
   const isMounted = useRef(false)
   const selectedSubject = searchParams.get('subject')
   const selectedMaterialId = searchParams.get('material')
@@ -224,8 +223,6 @@ export default function MyReviewersPage() {
       isMounted.current = false
       window.removeEventListener(SUBJECT_FOLDER_DELETION_CHANGE_EVENT, syncPendingFolders)
       window.removeEventListener(REVIEWER_DELETION_CHANGE_EVENT, syncPendingReviewers)
-      if (folderClickTimer.current) window.clearTimeout(folderClickTimer.current)
-      if (folderLongPressTimer.current) window.clearTimeout(folderLongPressTimer.current)
     }
   }, [])
 
@@ -280,24 +277,12 @@ export default function MyReviewersPage() {
     setSearchParams(params)
   }
 
-  function clearFolderClickTimer() {
-    if (folderClickTimer.current) window.clearTimeout(folderClickTimer.current)
-    folderClickTimer.current = null
-  }
-
-  function clearFolderLongPressTimer() {
-    if (folderLongPressTimer.current) window.clearTimeout(folderLongPressTimer.current)
-    folderLongPressTimer.current = null
-  }
-
   function openFolderRemoval(folder: ReviewerFolder<ReviewerEntry>) {
     if (!folder.id) return
-    clearFolderClickTimer()
     setRemoveFolderTarget(folder)
   }
 
   function closeFolderRemoval() {
-    folderLongPressTriggered.current = false
     setRemoveFolderTarget(null)
   }
 
@@ -355,7 +340,6 @@ export default function MyReviewersPage() {
 
   function queueFolderRemoval(folder: ReviewerFolder<ReviewerEntry>) {
     if (!profile || !folder.id || folderDeletionTimers.current.has(folder.id)) return
-    clearFolderClickTimer()
     const folderId = folder.id
     setSubjectFolderDeletionPending(folderId, true)
     const timer = window.setTimeout(() => {
@@ -376,53 +360,62 @@ export default function MyReviewersPage() {
   function confirmFolderRemoval() {
     if (!removeFolderTarget) return
     queueFolderRemoval(removeFolderTarget)
-    folderLongPressTriggered.current = false
     setRemoveFolderTarget(null)
   }
 
-  function handleFolderPointerDown(folder: ReviewerFolder<ReviewerEntry>, event: PointerEvent<HTMLButtonElement>) {
-    folderPointerType.current = event.pointerType
-    folderLongPressTriggered.current = false
-    if (!folder.id || (event.pointerType !== 'touch' && event.pointerType !== 'pen')) return
-    clearFolderLongPressTimer()
-    folderLongPressTimer.current = window.setTimeout(() => {
-      folderLongPressTriggered.current = true
-      openFolderRemoval(folder)
-    }, 600)
+  function openSubjectFolderEditor(folder: ReviewerFolder<ReviewerEntry>) {
+    if (!folder.id) return
+    const subject = subjectFolders.find(item => item.id === folder.id)
+    if (!subject) return
+    setEditFolderTarget(subject)
+    setEditFolderName(subject.name)
   }
 
-  function handleFolderPointerEnd() {
-    clearFolderLongPressTimer()
+  function closeSubjectFolderEditor() {
+    if (savingEditedFolder) return
+    setEditFolderTarget(null)
+    setEditFolderName('')
   }
 
-  function handleFolderContextMenu(folder: ReviewerFolder<ReviewerEntry>, event: MouseEvent<HTMLButtonElement>) {
-    if (folderPointerType.current !== 'touch' && folderPointerType.current !== 'pen') return
-    event.preventDefault()
-    folderLongPressTriggered.current = true
-    clearFolderLongPressTimer()
-    openFolderRemoval(folder)
-  }
+  async function saveSubjectFolderName() {
+    if (!profile || !editFolderTarget) return
+    const name = editFolderName.trim()
+    if (!name) return
+    if (subjectFolders.some(folder =>
+      folder.id !== editFolderTarget.id && folder.name.toLocaleLowerCase() === name.toLocaleLowerCase()
+    )) {
+      addToast({ type: 'error', title: 'Subject already exists', message: 'Choose a different subject folder name.' })
+      return
+    }
 
-  function handleFolderClick(folder: ReviewerFolder<ReviewerEntry>, event: MouseEvent<HTMLButtonElement>) {
-    if (folderLongPressTriggered.current) {
-      folderLongPressTriggered.current = false
-      event.preventDefault()
-      return
+    setSavingEditedFolder(true)
+    try {
+      const { data, error: updateError } = await supabase
+        .from('user_subjects')
+        .update({ name })
+        .eq('id', editFolderTarget.id)
+        .eq('user_id', profile.id)
+        .select('*')
+        .single()
+      if (updateError) throw new Error(updateError.message)
+
+      const updatedSubject = data as UserSubject
+      setSubjectFolders(previous => previous
+        .map(subject => subject.id === updatedSubject.id ? updatedSubject : subject)
+        .sort((a, b) => a.name.localeCompare(b.name)))
+      setReviewers(previous => previous.map(entry =>
+        entry.material.subject_folder_id === updatedSubject.id
+          ? { ...entry, folderName: updatedSubject.name }
+          : entry
+      ))
+      setEditFolderTarget(null)
+      setEditFolderName('')
+      addToast({ type: 'success', title: 'Subject renamed', message: updatedSubject.name })
+    } catch (updateError) {
+      addToast({ type: 'error', title: 'Could not rename subject', message: getErrorMessage(updateError) })
+    } finally {
+      setSavingEditedFolder(false)
     }
-    if (event.detail === 0 || folderPointerType.current === 'touch' || folderPointerType.current === 'pen') {
-      showFolder(folder.subject)
-      return
-    }
-    if (event.detail >= 2) {
-      clearFolderClickTimer()
-      if (!folder.id) showFolder(folder.subject)
-      return
-    }
-    clearFolderClickTimer()
-    folderClickTimer.current = window.setTimeout(() => {
-      showFolder(folder.subject)
-      folderClickTimer.current = null
-    }, 500)
   }
 
   async function createSubjectFolder() {
@@ -600,7 +593,7 @@ export default function MyReviewersPage() {
           return (
             <article className="reviewer-set-card" key={entry.material.id}>
               <button type="button" className="reviewer-set-main" onClick={() => showReviewer(entry)}>
-                <span className="reviewer-set-icon"><Icon name="file-text" size={20} /></span>
+                <span className="reviewer-set-icon"><Icon name="file-text" size={18} /></span>
                 <span className="reviewer-set-copy">
                   <strong>{entry.material.title}</strong>
                   <span>
@@ -704,7 +697,7 @@ export default function MyReviewersPage() {
 
           <section className="reviewer-mode-section" aria-labelledby="reviewer-mode-title">
             <div className="reviewer-mode-heading">
-              <span className="reviewer-mode-heading-icon"><Icon name="book-open" size={20} /></span>
+              <span className="reviewer-mode-heading-icon"><Icon name="book-open" size={18} /></span>
               <div>
                 <h2 id="reviewer-mode-title">How do you want to study?</h2>
                 <p>
@@ -730,7 +723,7 @@ export default function MyReviewersPage() {
                     onClick={() => navigate(`/practice?mode=${mode.type}&subject=${encodeURIComponent(selectedReviewer.material.subject)}&material=${encodeURIComponent(selectedReviewer.material.id)}&folder=${encodeURIComponent(selectedReviewer.folderName)}`)}
                     aria-label={`${mode.title}. ${countLabel}`}
                   >
-                    <span className="reviewer-mode-icon"><Icon name={mode.icon} size={21} /></span>
+                    <span className="reviewer-mode-icon"><Icon name={mode.icon} size={18} /></span>
                     <span className="reviewer-mode-title">{mode.title}</span>
                     <span className="reviewer-mode-description">{mode.description}</span>
                     <span className="reviewer-mode-count">
@@ -822,7 +815,7 @@ export default function MyReviewersPage() {
           <WorkspacePageHeader
             eyebrow="STUDY LIBRARY"
             index={libraryView === 'decks' ? 'STUDY DECKS' : libraryView === 'subjects' ? 'SUBJECTS' : 'MY REVIEWERS'}
-            title={libraryView === 'decks' ? 'Study Decks' : libraryView === 'subjects' ? 'Subjects' : <>My <em>reviewers.</em></>}
+            title={libraryView === 'decks' ? 'Study Decks' : libraryView === 'subjects' ? 'Subjects' : 'My Reviewers'}
             description={libraryView === 'decks'
               ? 'Open a deck to choose a study mode, or move it into a subject folder.'
               : libraryView === 'subjects'
@@ -909,35 +902,45 @@ export default function MyReviewersPage() {
               ) : (
                 <div className="reviewer-folder-grid">
                   {visibleFolders.map(folder => (
-                    <button
-                      type="button"
+                    <article
                       className="reviewer-folder-card"
                       key={folder.subject}
-                      onClick={event => handleFolderClick(folder, event)}
-                      onDoubleClick={() => openFolderRemoval(folder)}
-                      onPointerDown={event => handleFolderPointerDown(folder, event)}
-                      onPointerUp={handleFolderPointerEnd}
-                      onPointerLeave={handleFolderPointerEnd}
-                      onPointerCancel={handleFolderPointerEnd}
-                      onContextMenu={event => handleFolderContextMenu(folder, event)}
-                      onKeyDown={event => {
-                        if (event.key === 'Delete' && folder.id) {
-                          event.preventDefault()
-                          openFolderRemoval(folder)
-                        }
-                      }}
-                      aria-keyshortcuts={folder.id ? 'Delete' : undefined}
-                      aria-label={`${folder.subject}, ${folder.reviewers.length} reviewer ${folder.reviewers.length === 1 ? 'set' : 'sets'}${folder.id ? '. Double-click or long-press to delete this subject; press Delete when focused.' : ''}`}
-                      title={folder.id ? 'Double-click or long-press to delete this subject' : undefined}
                     >
-                      <span className="reviewer-folder-icon"><Icon name="folder" size={23} /></span>
-                      <span className="reviewer-folder-copy">
-                        <strong>{folder.subject}</strong>
-                        <span>{folder.reviewers.length} reviewer {folder.reviewers.length === 1 ? 'set' : 'sets'}</span>
-                        <small>{folder.reviewers.slice(0, 2).map(entry => entry.material.title).join(' · ')}</small>
-                      </span>
-                      <Icon name="chevron-right" size={18} />
-                    </button>
+                      <button
+                        type="button"
+                        className="reviewer-folder-main"
+                        onClick={() => showFolder(folder.subject)}
+                        aria-label={`Open ${folder.subject}, ${folder.reviewers.length} reviewer ${folder.reviewers.length === 1 ? 'set' : 'sets'}`}
+                      >
+                        <span className="reviewer-folder-icon"><Icon name="folder" size={18} /></span>
+                        <span className="reviewer-folder-copy">
+                          <strong>{folder.subject}</strong>
+                          <span>{folder.reviewers.length} reviewer {folder.reviewers.length === 1 ? 'set' : 'sets'}</span>
+                          <small>{folder.reviewers.slice(0, 2).map(entry => entry.material.title).join(' · ')}</small>
+                        </span>
+                        <Icon name="chevron-right" size={18} />
+                      </button>
+                      {folder.id && (
+                        <div className="reviewer-folder-actions">
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            leftIcon="edit"
+                            aria-label={`Edit subject name ${folder.subject}`}
+                            title="Edit subject name"
+                            onClick={() => openSubjectFolderEditor(folder)}
+                          />
+                          <Button
+                            variant="danger"
+                            size="icon"
+                            leftIcon="trash"
+                            aria-label={`Delete subject ${folder.subject}`}
+                            title="Delete subject"
+                            onClick={() => openFolderRemoval(folder)}
+                          />
+                        </div>
+                      )}
+                    </article>
                   ))}
                 </div>
               )}
@@ -950,7 +953,7 @@ export default function MyReviewersPage() {
                 aria-label="Open Study Decks"
                 onClick={() => showLibraryView('decks')}
               >
-                <span className="reviewer-library-entry-icon"><Icon name="book-open" size={24} /></span>
+                <span className="reviewer-library-entry-icon"><Icon name="book-open" size={18} /></span>
                 <span className="reviewer-library-entry-copy">
                   <strong>Study Decks</strong>
                   <span className="reviewer-library-entry-count">
@@ -958,7 +961,7 @@ export default function MyReviewersPage() {
                   </span>
                   <span>Browse your reviewer decks and generated study modes.</span>
                 </span>
-                <Icon name="chevron-right" size={20} />
+                <Icon name="chevron-right" size={18} />
               </button>
               <button
                 type="button"
@@ -966,7 +969,7 @@ export default function MyReviewersPage() {
                 aria-label="Open Subjects"
                 onClick={() => showLibraryView('subjects')}
               >
-                <span className="reviewer-library-entry-icon"><Icon name="folder" size={24} /></span>
+                <span className="reviewer-library-entry-icon"><Icon name="folder" size={18} /></span>
                 <span className="reviewer-library-entry-copy">
                   <strong>Subjects</strong>
                   <span className="reviewer-library-entry-count">
@@ -974,12 +977,46 @@ export default function MyReviewersPage() {
                   </span>
                   <span>Open a subject folder to see the decks organized inside it.</span>
                 </span>
-                <Icon name="chevron-right" size={20} />
+                <Icon name="chevron-right" size={18} />
               </button>
             </div>
           )}
         </>
       )}
+      <Modal
+        open={Boolean(editFolderTarget)}
+        onClose={closeSubjectFolderEditor}
+        title="Edit subject name"
+        description="Rename this subject folder. Its reviewer sets and study history will stay together."
+        size="sm"
+        closeOnOverlayClick={!savingEditedFolder}
+        closeOnEscape={!savingEditedFolder}
+        footer={(
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+            <Button variant="secondary" onClick={closeSubjectFolderEditor} disabled={savingEditedFolder}>Cancel</Button>
+            <Button
+              variant="primary"
+              onClick={() => void saveSubjectFolderName()}
+              loading={savingEditedFolder}
+              disabled={!editFolderName.trim()}
+            >
+              Save name
+            </Button>
+          </div>
+        )}
+      >
+        <Input
+          label="Subject name"
+          value={editFolderName}
+          onChange={event => setEditFolderName(event.target.value)}
+          onKeyDown={event => { if (event.key === 'Enter') { event.preventDefault(); void saveSubjectFolderName() } }}
+          placeholder="e.g. Pharmacology"
+          maxLength={80}
+          fullWidth
+          required
+          disabled={savingEditedFolder}
+        />
+      </Modal>
       <Modal
         open={Boolean(shareTarget)}
         onClose={() => { if (!sharingFriendId) setShareTarget(null) }}

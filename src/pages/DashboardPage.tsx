@@ -309,7 +309,6 @@ export default function DashboardPage() {
   const dueFlashcardPath = dueSubject
     ? `/practice?mode=flashcards&subject=${encodeURIComponent(dueSubject)}`
     : '/practice'
-  const firstName = profile.full_name?.trim().split(/\s+/)[0]
   const today = new Date()
   today.setHours(0, 0, 0, 0)
   const examDate = profile.target_exam_date ? new Date(`${profile.target_exam_date}T00:00:00`) : null
@@ -426,7 +425,6 @@ export default function DashboardPage() {
     : loading || !activeStudyStep
       ? { label: 'Continue studying', to: '/practice' }
       : { label: activeStudyStep.action, to: activeStudyStep.to }
-  const showHeaderPrimaryAction = primaryAction.label !== 'Review cards'
 
   async function makeAiStudyPlan() {
     if (!profile || !focusSubject || generatingAiPlan) return
@@ -487,7 +485,7 @@ export default function DashboardPage() {
     <div className="dashboard-page">
       <header className="dashboard-heading">
         <div>
-          <h1>{firstName ? `Your daily dose, ${firstName}.` : 'Your daily dose.'}</h1>
+          <h1>Study overview</h1>
           <p>
             {isCourse
               ? loading
@@ -502,25 +500,23 @@ export default function DashboardPage() {
                   : 'Your PhLE preparation across all six Pharmacy modules.'}
           </p>
         </div>
-        {showHeaderPrimaryAction && (
-          <Link
-            to={primaryAction.to}
-            className={`workspace-primary-link${resumeStudy ? ' workspace-primary-link--resume' : ''}`}
-          >
-            {resumeStudy ? (
-              <span className="workspace-primary-link-copy">
-                <strong>{primaryAction.label}</strong>
-                <small className="workspace-primary-link-context">
-                  {resumeStudy.setTitle
-                    ? `Set: ${resumeStudy.setTitle} · ${resumeStudy.subject}`
-                    : `Subject: ${resumeStudy.folder ? `${resumeStudy.folder} · ` : ''}${resumeStudy.subject}`}
-                  {' · '}{STUDY_MODE_LABELS[resumeStudy.mode] || 'Study mode'}
-                </small>
-              </span>
-            ) : primaryAction.label}
-            <Icon name="arrow-right" size={17} />
-          </Link>
-        )}
+        <Link
+          to={primaryAction.to}
+          className={`workspace-primary-link${resumeStudy ? ' workspace-primary-link--resume' : ''}`}
+        >
+          {resumeStudy ? (
+            <span className="workspace-primary-link-copy">
+              <strong>{primaryAction.label}</strong>
+              <small className="workspace-primary-link-context">
+                {resumeStudy.setTitle
+                  ? `Set: ${resumeStudy.setTitle} · ${resumeStudy.subject}`
+                  : `Subject: ${resumeStudy.folder ? `${resumeStudy.folder} · ` : ''}${resumeStudy.subject}`}
+                {' · '}{STUDY_MODE_LABELS[resumeStudy.mode] || 'Study mode'}
+              </small>
+            </span>
+          ) : primaryAction.label}
+          <Icon name="arrow-right" size={17} />
+        </Link>
       </header>
 
       <Reveal as="section" className="dashboard-stats-strip motion-stagger" aria-label="Study summary">
@@ -551,19 +547,20 @@ export default function DashboardPage() {
             </small>
           </div>
         </div>
-        <Link
-          to={dueFlashcardPath}
-          className={`dashboard-stat dashboard-stat--link${!loading && dueCards > 0 ? ' dashboard-stat--attention' : ''}`}
-        >
-          <span className="dashboard-stat-icon" aria-hidden="true"><Icon name="book-open" size={20} /></span>
-          <span className="dashboard-stat-content">
-            <span className="dashboard-stat-label">Cards to study</span>
-            <strong>{loading ? '—' : <AnimatedNumber value={dueCards} duration={1100} delay={120} />}</strong>
+        <div className="dashboard-stat dashboard-stat--accuracy">
+          <span className="dashboard-stat-icon" aria-hidden="true"><Icon name="target" size={20} /></span>
+          <div className="dashboard-stat-content">
+            <span className="dashboard-stat-label">Overall accuracy</span>
+            <strong>
+              {loading ? '—' : <AnimatedNumber value={overall} suffix="%" duration={1100} delay={120} />}
+            </strong>
             <small>
-              {loading ? 'Checking your cards…' : dueCards > 0 ? 'Ready for another look' : 'You’re all caught up'}
+              {loading
+                ? 'Loading quiz results…'
+                : <><AnimatedNumber value={attempts.length} duration={1100} delay={180} /> {attempts.length === 1 ? 'question answered' : 'questions answered'}</>}
             </small>
-          </span>
-        </Link>
+          </div>
+        </div>
       </Reveal>
 
       <div className="dashboard-actions-grid">
@@ -721,8 +718,8 @@ export default function DashboardPage() {
             <div className="dashboard-roadmap-complete">
               <Icon name="trophy" size={22} />
               <div className="dashboard-roadmap-complete-copy" role="status">
-                <strong>Roadmap complete!</strong>
-                <p>Excellent work—you completed every step. Keep that momentum going!</p>
+                <strong>Roadmap complete</strong>
+                <p>You completed every step in today&apos;s roadmap.</p>
               </div>
             </div>
           )}
@@ -789,7 +786,7 @@ export default function DashboardPage() {
               <div>
                 <Icon name="target" size={20} />
                 <strong>{PASSING_RATE}%</strong>
-                <span>PhLE TARGET</span>
+                <span>PhLE target</span>
               </div>
             </div>
           </div>
@@ -829,12 +826,12 @@ export default function DashboardPage() {
             <span>Exam countdown</span>
           </div>
           <div className="countdown-content">
-            <span className="countdown-overline">A DATE TO WORK TOWARDS</span>
+            <span className="countdown-overline">PhLE target date</span>
             <h2 id="countdown-title">
               {daysLeft == null ? (
-                'Your PhLE exam day.'
+                'Set your exam date.'
               ) : daysLeft < 0 ? (
-                'A new date awaits.'
+                'Choose a new target date.'
               ) : (
                 <>
                   <AnimatedNumber value={daysLeft} duration={1200} delay={150} />{' '}
@@ -1015,6 +1012,13 @@ export default function DashboardPage() {
 
 type CourseSubjectTrend = { subject: string; points: SubjectDailyTrendPoint[] }
 
+const subjectTrendColors: Record<string, string> = {
+  anatomy: '#C97700',
+  general: '#2A77B8',
+  botany: '#2F8B57',
+  pharmacology: '#C7425A',
+}
+
 const trendColors = [
   'var(--primary)',
   'var(--accent)',
@@ -1025,6 +1029,34 @@ const trendColors = [
   '#7c3aed',
   '#c026d3',
 ]
+
+function getSubjectTrendColor(subject: string, index: number) {
+  const subjectKey = Object.keys(subjectTrendColors).find(key => subject.toLowerCase().includes(key))
+  return subjectKey ? subjectTrendColors[subjectKey] : trendColors[index % trendColors.length]
+}
+
+function smoothTrendPath(points: { x: number; y: number }[], minY: number, maxY: number) {
+  if (points.length < 2) return ''
+
+  const clampY = (value: number) => Math.max(minY, Math.min(maxY, value))
+  let path = `M ${points[0].x} ${points[0].y}`
+
+  for (let index = 1; index < points.length; index += 1) {
+    const previous = points[index - 1]
+    const current = points[index]
+    const beforePrevious = points[Math.max(0, index - 2)]
+    const afterCurrent = points[Math.min(points.length - 1, index + 1)]
+    const clampX = (value: number) => Math.max(previous.x, Math.min(current.x, value))
+    const control1X = clampX(previous.x + (current.x - beforePrevious.x) / 6)
+    const control1Y = clampY(previous.y + (current.y - beforePrevious.y) / 6)
+    const control2X = clampX(current.x - (afterCurrent.x - previous.x) / 6)
+    const control2Y = clampY(current.y - (afterCurrent.y - previous.y) / 6)
+
+    path += ` C ${control1X} ${control1Y}, ${control2X} ${control2Y}, ${current.x} ${current.y}`
+  }
+
+  return path
+}
 
 function SubjectDailyTrendChart({ trends }: { trends: CourseSubjectTrend[] }) {
   const data = trends[0]?.points || []
@@ -1052,22 +1084,14 @@ function SubjectDailyTrendChart({ trends }: { trends: CourseSubjectTrend[] }) {
   const x = (index: number) => pad.left + (index / Math.max(visibleData.length - 1, 1)) * innerWidth
   const y = (percent: number) => pad.top + innerHeight - (percent / 100) * innerHeight
   const series = visibleTrends.map((trend, index) => {
-    const segments: string[] = []
-    let segment: string[] = []
-    trend.points.forEach((day, dayIndex) => {
-      if (day.percent === null) {
-        if (segment.length > 1) segments.push(segment.join(' '))
-        segment = []
-      } else {
-        segment.push(`${x(dayIndex)},${y(day.percent)}`)
-      }
-    })
-    if (segment.length > 1) segments.push(segment.join(' '))
+    const practicedPoints = trend.points.flatMap((day, dayIndex) =>
+      day.percent === null ? [] : [{ x: x(dayIndex), y: y(day.percent) }]
+    )
     return {
       ...trend,
-      active: trend.points.some(day => day.percent !== null),
-      color: trendColors[index % trendColors.length],
-      segments,
+      active: practicedPoints.length > 0,
+      color: getSubjectTrendColor(trend.subject, index),
+      path: smoothTrendPath(practicedPoints, pad.top, pad.top + innerHeight),
     }
   })
   const dateLabel = (date: string) => new Date(`${date}T00:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
@@ -1105,8 +1129,8 @@ function SubjectDailyTrendChart({ trends }: { trends: CourseSubjectTrend[] }) {
             <div className="course-trend-chart-scroll">
               <svg
                 viewBox={`0 0 ${width} ${height}`}
-                role="img"
-                aria-label={`Daily accuracy trends for ${activeTrends.length} subjects from ${rangeLabel}, across ${activeDays.length} practice days. Point labels show accuracy percentages.`}
+                role="group"
+                aria-label={`Daily accuracy trends for ${activeTrends.length} subjects from ${rangeLabel}, across ${activeDays.length} practice days. Focus or hover on a point for the exact accuracy and question count.`}
                 style={{ width: '100%', minWidth: 520, display: 'block', height: 'auto' }}
               >
               <text x={pad.left} y="8" fontSize="10" fontWeight="700" fill="var(--muted)">Accuracy (%)</text>
@@ -1126,41 +1150,55 @@ function SubjectDailyTrendChart({ trends }: { trends: CourseSubjectTrend[] }) {
                   </text>
                 </g>
               ))}
-              {series.map(item => item.segments.map((points, index) => (
-                <polyline
-                  key={`${item.subject}-${index}`}
-                  points={points}
+              {series.map(item => item.path && (
+                <path
+                  key={item.subject}
+                  d={item.path}
                   fill="none"
                   stroke={item.color}
-                  strokeWidth="1.5"
+                  strokeWidth="2"
                   strokeLinejoin="round"
                   strokeLinecap="round"
+                  aria-hidden="true"
                 />
-              )))}
-              {series.map(item => item.points.map((day, index) => day.percent === null ? null : (
-                <g key={`${item.subject}-${day.date}`}>
-                  <circle
-                    cx={x(index)}
-                    cy={y(day.percent)}
-                    r="3"
-                    fill={item.color}
-                    stroke="var(--panel)"
-                    strokeWidth="1.25"
+              ))}
+              {series.map(item => item.points.map((day, index) => {
+                if (day.percent === null) return null
+                const pointX = x(index)
+                const pointY = y(day.percent)
+                const tooltipWidth = 184
+                const tooltipHeight = 44
+                const tooltipX = pointX > width - tooltipWidth - 14 ? pointX - tooltipWidth - 8 : pointX + 8
+                const tooltipY = pointY < pad.top + tooltipHeight + 8 ? pointY + 10 : pointY - tooltipHeight - 8
+                const pointLabel = `${item.subject}, ${dateLabel(day.date)}: ${day.percent}% accuracy from ${day.total} questions`
+
+                return (
+                  <g
+                    key={`${item.subject}-${day.date}`}
+                    className="course-trend-point"
+                    tabIndex={0}
+                    role="img"
+                    aria-label={pointLabel}
+                    style={{ color: item.color }}
                   >
-                    <title>{`${item.subject} · ${new Date(`${day.date}T00:00:00`).toLocaleDateString()}: ${day.percent}% accuracy (${day.total} questions answered)`}</title>
-                  </circle>
-                  <text
-                    x={x(index)}
-                    y={y(day.percent) + (day.percent >= 90 ? 15 : -8)}
-                    textAnchor="middle"
-                    fontSize="10"
-                    fontWeight="700"
-                    fill="var(--text)"
-                  >
-                    {`${day.percent}%`}
-                  </text>
-                </g>
-              )))}
+                    <circle className="course-trend-point-hit-area" cx={pointX} cy={pointY} r="12" />
+                    <circle className="course-trend-point-marker" cx={pointX} cy={pointY} r="4" fill="currentColor" />
+                    <g
+                      className="course-trend-tooltip"
+                      transform={`translate(${tooltipX} ${tooltipY})`}
+                      aria-hidden="true"
+                    >
+                      <rect x="0" y="0" width={tooltipWidth} height={tooltipHeight} rx="7" />
+                      <text className="course-trend-tooltip-date" x="8" y="17">
+                        {`${dateLabel(day.date)} · ${day.percent}% accuracy`}
+                      </text>
+                      <text className="course-trend-tooltip-detail" x="8" y="34">
+                        {`${item.subject} · ${day.total} questions`}
+                      </text>
+                    </g>
+                  </g>
+                )
+              }))}
               {visibleData.map((day, index) => (
                 <text
                   key={`date-${day.date}`}
