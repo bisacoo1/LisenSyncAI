@@ -3,18 +3,14 @@ import { TtsSession } from '@mintplex-labs/piper-tts-web'
 
 ort.env.wasm.wasmPaths = '/onnx/'
 
-// Multi-threaded inference needs SharedArrayBuffer, which browsers only expose on a
-// cross-origin isolated page (COOP: same-origin + COEP, set in vercel.json and the Vite
-// dev/preview server). When that isolation is present we use several threads so speech
-// synthesizes faster; otherwise we fall back to a single thread (same as before). The
-// count is clamped so small models don't pay pthread spawn overhead.
-const MASCOT_THREADS = (typeof crossOriginIsolated !== 'undefined' && crossOriginIsolated)
-  ? Math.min(navigator.hardwareConcurrency || 4, 4)
-  : 1
-ort.env.wasm.numThreads = MASCOT_THREADS
-// TtsSession resets numThreads from navigator.hardwareConcurrency during initialization,
-// so mirror the chosen count there too (this is the worker-scoped navigator only).
-Object.defineProperty(navigator, 'hardwareConcurrency', { configurable: true, value: MASCOT_THREADS })
+// Force single-threaded inference. TtsSession resets numThreads from
+// navigator.hardwareConcurrency during its own initialization, so we also pin that to 1.
+// Multi-threaded mode (SharedArrayBuffer + cross-origin isolation) was attempted but
+// caused uncaught errors inside ONNX Runtime's internal worker, so it stays disabled
+// until a guarded fallback can be validated. The lighter "low" voice plus the prefetch
+// in PracticePage already remove the perceived wait for cached / sequential speech.
+ort.env.wasm.numThreads = 1
+Object.defineProperty(navigator, 'hardwareConcurrency', { configurable: true, value: 1 })
 
 // Piper voice used for Lilo. Pinned to a "low" model to cut first-sound latency:
 // a smaller download (~10 MB vs ~40 MB) and lighter inference than the previous
