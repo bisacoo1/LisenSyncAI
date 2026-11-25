@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase, supabaseConfigured } from '@/lib/supabase'
-import { DEFAULT_PROGRAM, PHARMACY_PROGRAM } from '@/lib/syllabus'
+import { DEFAULT_PROGRAM } from '@/lib/syllabus'
 import { upsertProfile, useAuth } from '@/context/AuthContext'
-import { PASSING_RATE, type StudyTrack } from '@/types'
+import type { StudyTrack } from '@/types'
 import { StudyTrackSelector } from '@/components/StudyTrackSelector'
 import { Button, Input, Icon, useToast } from '@/components/ui'
 
@@ -27,47 +27,59 @@ export default function RegisterPage() {
     e.preventDefault()
     setError(null)
     if (!supabaseConfigured) {
-      setError('Supabase is not configured. Copy .env.example to .env and set your project keys.')
+      setError(
+        'Account creation is not available yet. Please contact the site administrator to finish setting up authentication.'
+      )
       return
     }
     setLoading(true)
-    const { data, error } = await supabase.auth.signUp({ email, password, options: { data: { full_name: fullName, track } } })
-    if (error) {
-      setLoading(false)
-      setError(error.message)
-      return
-    }
-    const user = data.user
-    if (user && data.session) {
-      try {
-        await upsertProfile(user.id, DEFAULT_PROGRAM, fullName, null, track)
-        await refreshProfile(user.id)
-      } catch (err: any) {
-        console.warn('Profile upsert deferred:', err?.message)
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email: email.trim(),
+        password,
+        options: { data: { full_name: fullName, track } },
+      })
+      if (error) {
+        setError(error.message)
+        return
       }
-    }
-    setLoading(false)
-    if (data.session) nav('/dashboard')
-    else {
-      addToast({ type: 'info', title: 'Check your email', message: 'Confirm your account before signing in.' })
-      nav('/login')
+      const user = data.user
+      if (user && data.session) {
+        try {
+          await upsertProfile(user.id, DEFAULT_PROGRAM, fullName, null, track)
+          await refreshProfile(user.id)
+        } catch (err: any) {
+          console.warn('Profile upsert deferred:', err?.message)
+        }
+      }
+      if (data.session) nav('/dashboard')
+      else {
+        addToast({
+          type: 'info',
+          title: 'Check your email',
+          message: 'Confirm your account before signing in.',
+        })
+        nav('/login')
+      }
+    } catch {
+      setError(
+        'We couldn’t connect. Check your internet connection and try again.'
+      )
+    } finally {
+      setLoading(false)
     }
   }
 
   return (
     <div className="auth-form-page auth-form-page--register">
       <div className="auth-form-heading">
-        <span className="section-kicker">
-          <span className="eyebrow-dot" /> BS PHARMACY · PhLE REVIEW
+        <span className="public-auth-form-icon">
+          <Icon name="sparkles" size={22} />
         </span>
-        <h1>
-          Make space
-          <br />
-          for <em>your RPh.</em>
-        </h1>
+        <h1>Your next chapter starts here.</h1>
         <p>
-          Create your Pharmacy study account — review all 6 PRC board modules, or organize your own BS Pharmacy
-          course subjects.
+          Make room for better study days. Create your Pharmora account and find
+          your rhythm.
         </p>
       </div>
       {error && (
@@ -76,29 +88,12 @@ export default function RegisterPage() {
           <span>{error}</span>
         </div>
       )}
-      <form onSubmit={onSubmit} className="auth-form">
-        <div
-          className="pharmacy-program-banner"
-          aria-label={track === 'course' ? 'Selected course mode' : 'Selected board exam track'}
-        >
-          <span className="pharmacy-program-banner-icon">
-            <Icon name={track === 'course' ? 'book-open' : 'pill'} size={18} />
-          </span>
-          <div className="pharmacy-program-banner-copy">
-            <span className="pharmacy-program-banner-kicker">
-              {track === 'course' ? 'COURSE MODE' : 'INCLUDED BOARD TRACK'}
-            </span>
-            <strong>{track === 'course' ? 'BS Pharmacy coursework — your own subjects' : PHARMACY_PROGRAM.name}</strong>
-            <span>
-              {track === 'course'
-                ? 'Upload a reviewer and get flashcards, MCQ, identification, and enumeration sets'
-                : `${PHARMACY_PROGRAM.subjects.length} official PRC PhLE modules · ${PASSING_RATE}% passing benchmark`}
-            </span>
-          </div>
-        </div>
+      <form onSubmit={onSubmit} className="auth-form" aria-busy={loading}>
         <Input
           label="Full name"
           autoComplete="name"
+          maxLength={100}
+          disabled={loading}
           value={fullName}
           onChange={(e) => setFullName(e.target.value)}
           placeholder="Juan Dela Cruz"
@@ -112,6 +107,7 @@ export default function RegisterPage() {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           required
+          disabled={loading}
           leftIcon="mail"
           placeholder="you@example.com"
           fullWidth
@@ -123,13 +119,16 @@ export default function RegisterPage() {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           required
+          disabled={loading}
           minLength={6}
+          hint="Use at least 6 characters. A longer password is more secure."
           leftIcon="lock"
           placeholder="At least 6 characters"
           fullWidth
           rightElement={
             <button
               type="button"
+              disabled={loading}
               className="password-toggle"
               onClick={() => setShowPassword(!showPassword)}
               aria-label={showPassword ? 'Hide password' : 'Show password'}
@@ -142,11 +141,23 @@ export default function RegisterPage() {
           value={track}
           onChange={setTrack}
           options={[
-            { value: 'board', title: 'Board exam', description: 'PhLE candidate' },
-            { value: 'course', title: 'Still studying', description: 'BS Pharmacy student' },
+            {
+              value: 'board',
+              title: 'Board exam',
+              description: 'PhLE candidate',
+            },
+            {
+              value: 'course',
+              title: 'Still studying',
+              description: 'BS Pharmacy student',
+            },
           ]}
         />
-        <p className="auth-field-hint" style={{ marginTop: -4 }}>For BS Pharmacy — the Pharmacists Licensure Examination (PhLE) or your current coursework.</p>
+        <p className="auth-field-hint">
+          {track === 'board'
+            ? 'Review across all 6 PhLE modules with practice and timed mock exams.'
+            : 'Organize your own subjects and turn your course notes into practice.'}
+        </p>
         <Button
           variant="primary"
           type="submit"
@@ -156,13 +167,13 @@ export default function RegisterPage() {
           rightIcon="arrow-right"
           className="auth-submit"
         >
-          {loading ? 'Creating account…' : 'Create Pharmacy account'}
+          {loading ? 'Creating account…' : 'Create account'}
         </Button>
       </form>
       <div className="auth-form-bottom">
         Already have an account?{' '}
         <Link to="/login">
-          Sign in <Icon name="arrow-right" size={15} />
+          Log in <Icon name="arrow-right" size={15} />
         </Link>
       </div>
     </div>

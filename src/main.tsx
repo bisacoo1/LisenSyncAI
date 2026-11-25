@@ -8,6 +8,7 @@ import '@fontsource-variable/figtree/wght.css'
 import '@fontsource-variable/jetbrains-mono/wght.css'
 import './index.css'
 import './design.css'
+import './public.css'
 
 // Apply the workspace theme before the first render; navy dark is the new default.
 try {
