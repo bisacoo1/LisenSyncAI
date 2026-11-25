@@ -14,31 +14,39 @@ export default function LoginPage() {
     e.preventDefault()
     setError(null)
     if (!supabaseConfigured) {
-      setError('Supabase is not configured. Copy .env.example to .env and set your project keys.')
+      setError(
+        'Sign-in is not available yet. Please contact the site administrator to finish setting up authentication.'
+      )
       return
     }
     setLoading(true)
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
-    setLoading(false)
-    if (error) {
-      setError(error.message)
-    } else {
-      nav('/dashboard')
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password,
+      })
+      if (error) setError(error.message)
+      else nav('/dashboard')
+    } catch {
+      setError(
+        'We couldn’t connect. Check your internet connection and try again.'
+      )
+    } finally {
+      setLoading(false)
     }
   }
 
   return (
     <div className="auth-form-page">
       <div className="auth-form-heading">
-        <span className="section-kicker">
-          <span className="eyebrow-dot" /> WELCOME BACK, FUTURE RPh
+        <span className="public-auth-form-icon">
+          <Icon name="book-open" size={22} />
         </span>
-        <h1>
-          Pick up where
-          <br />
-          <em>you left off.</em>
-        </h1>
-        <p>Your BS Pharmacy study space is ready when you are.</p>
+        <h1>Good to see you again.</h1>
+        <p>
+          A little progress starts with showing up. Let’s pick up where you left
+          off.
+        </p>
       </div>
       {error && (
         <div className="auth-error" role="alert">
@@ -46,7 +54,7 @@ export default function LoginPage() {
           <span>{error}</span>
         </div>
       )}
-      <form onSubmit={onSubmit} className="auth-form">
+      <form onSubmit={onSubmit} className="auth-form" aria-busy={loading}>
         <Input
           label="Email address"
           type="email"
@@ -54,6 +62,7 @@ export default function LoginPage() {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           required
+          disabled={loading}
           leftIcon="mail"
           placeholder="you@example.com"
           fullWidth
@@ -65,12 +74,14 @@ export default function LoginPage() {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           required
+          disabled={loading}
           leftIcon="lock"
           placeholder="Enter your password"
           fullWidth
           rightElement={
             <button
               type="button"
+              disabled={loading}
               className="password-toggle"
               onClick={() => setShowPassword(!showPassword)}
               aria-label={showPassword ? 'Hide password' : 'Show password'}
@@ -88,11 +99,11 @@ export default function LoginPage() {
           rightIcon="arrow-right"
           className="auth-submit"
         >
-          {loading ? 'Signing in…' : 'Sign in to your workspace'}
+          {loading ? 'Signing in…' : 'Log in'}
         </Button>
       </form>
       <div className="auth-form-bottom">
-        New to Pharmora?{' '}
+        Your pharmacy journey starts here.{' '}
         <Link to="/register">
           Create an account <Icon name="arrow-right" size={15} />
         </Link>

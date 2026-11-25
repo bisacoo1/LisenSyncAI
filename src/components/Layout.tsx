@@ -10,6 +10,8 @@ import { PROGRAM_SHORT_NAMES } from '@/lib/syllabus'
 import { AccountAvatarPicker } from '@/components/AccountAvatarPicker'
 import { ProfileAvatar } from '@/components/ProfileAvatar'
 import FloatingLiloChat from '@/components/FloatingLiloChat'
+import { ArrowLeft, ArrowRight, BookOpen, BrainCircuit, Check, ShieldCheck, Sparkles } from 'lucide-react'
+import lilo from '@/assets/mascot/mascot-avatar-512.png'
 
 const pageNames: Record<string, string> = {
   '/dashboard': 'Overview',
@@ -416,51 +418,100 @@ export function Layout({ children, focus = false }: { children?: ReactNode; focu
 
 export function AuthLayout({ children }: { children?: ReactNode }) {
   const location = useLocation()
-  const pageName = location.pathname === '/register' ? 'Create account' : 'Sign in'
+  const isRegister = location.pathname === '/register'
 
   return (
-    <div className="auth-layout">
-      <aside className="auth-visual">
-        <Brand inverse />
-        <div className="auth-visual-copy">
-          <span className="auth-kicker">
-            <span /> BS PHARMACY · PRC PhLE REVIEW
+    <div className={`public-auth${isRegister ? ' public-auth--register' : ''}`}>
+      <a className="public-skip" href="#auth-content">
+        Skip to form
+      </a>
+      <header className="public-auth-header">
+        <Brand />
+        <div>
+          <span>
+            {isRegister ? 'Already part of Pharmora?' : 'New to Pharmora?'}
+          </span>
+          <Link to={isRegister ? '/login' : '/register'}>
+            {isRegister ? 'Log in' : 'Create account'} <ArrowRight size={15} />
+          </Link>
+        </div>
+      </header>
+      <div className="public-auth-grid">
+        <aside
+          className="public-auth-story"
+          aria-label="Your pharmacy study companion"
+        >
+          <span className="public-pill">
+            <Sparkles size={15} /> Your next chapter starts here
           </span>
           <h2>
-            Good things come
-            <br />
-            to those who <em>prepare.</em>
+            {isRegister ? (
+              <>
+                Big dreams.
+                <br />
+                Small steps.
+                <br />
+                Let’s get you there.
+              </>
+            ) : (
+              <>
+                A fresh session.
+                <br />A clearer mind.
+                <br />
+                You’ve got this.
+              </>
+            )}
           </h2>
-          <p>Focused review across all 6 Pharmacy board modules—for steady confidence on PhLE exam day.</p>
-          <ul className="auth-module-pills" aria-label="BS Pharmacy PhLE modules">
-            {PHARMACY_PROGRAM.subjectDetails.map((mod) => (
-              <li key={mod.name}>
-                <span>{mod.moduleNumber}</span>
-                {mod.name}
-              </li>
-            ))}
-          </ul>
-        </div>
-        <div className="auth-visual-footer">
-          <span>BS PHARMACY STUDY SPACE</span>
-          <span>06 PhLE MODULES</span>
-        </div>
-      </aside>
-      <main className="auth-main" tabIndex={-1} aria-label={pageName} data-route-main>
-        <div className="auth-mobile-brand">
-          <Brand />
-        </div>
-        <Link to="/" className="auth-back">
-          <Icon name="arrow-left" size={16} /> Back to home
-        </Link>
-        <div className="auth-card">
-          <Outlet />
-          {children}
-        </div>
-        <div className="auth-copyright">
-          © {new Date().getFullYear()} Pharmora AI <span>Built for future Registered Pharmacists (RPh).</span>
-        </div>
-      </main>
+          <p>
+            Your notes, a little practice, and a study companion
+            <br className="public-auth-linebreak" /> that’s with you all the way
+            to RPh.
+          </p>
+          <div className="public-auth-mascot">
+            <span className="public-auth-mascot-circle" />
+            <span className="public-auth-float public-auth-float--one">
+              <BookOpen size={18} /> Make it stick.
+            </span>
+            <img src={lilo} alt="Lilo, your owl study companion" />
+            <span className="public-auth-float public-auth-float--two">
+              <BrainCircuit size={18} /> One concept at a time.
+            </span>
+          </div>
+          <div className="public-auth-story-footer">
+            <span>
+              <Check size={15} /> Your own materials
+            </span>
+            <span>
+              <Check size={15} /> Your own pace
+            </span>
+            <span>
+              <Check size={15} /> Real progress
+            </span>
+          </div>
+        </aside>
+        <main
+          id="auth-content"
+          className="public-auth-main"
+          tabIndex={-1}
+          aria-label={isRegister ? 'Create account' : 'Log in'}
+          data-route-main
+        >
+          <div className="public-auth-form-wrap">
+            <Link to="/" className="public-auth-back">
+              <ArrowLeft size={15} /> Back to home
+            </Link>
+            {children || <Outlet />}
+            <p className="public-auth-security">
+              <ShieldCheck size={15} /> A focused space for your pharmacy
+              journey.
+            </p>
+          </div>
+        </main>
+      </div>
+      <footer className="public-auth-footer">
+        <span>© {new Date().getFullYear()} Pharmora AI</span>
+        <span>Made for your journey to RPh.</span>
+      </footer>
     </div>
   )
 }
