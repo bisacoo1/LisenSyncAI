@@ -1,13 +1,156 @@
 type LoadingChange = (loading: boolean) => void
 
-const DEFAULT_VOICE = "en-US-TonyNeural"
+const ROMAN_TO_ARABIC: Record<string, string> = {
+  I: '1',
+  II: '2',
+  III: '3',
+  IV: '4',
+  V: '5',
+  VI: '6',
+  VII: '7',
+  VIII: '8',
+  IX: '9',
+  X: '10',
+}
+
+const MAX_CACHED_AUDIO = 24
+const audioCache = new Map<string, Blob>()
+const pendingAudio = new Map<string, Promise<Blob>>()
+const pendingWorkerRequests = new Map<number, {
+  resolve: (audio: Blob) => void
+  reject: (error: Error) => void
+}>()
+let nextWorkerRequestId = 0
+let piperWorker: Worker | null = null
 let playbackVersion = 0
 let activeAudio: HTMLAudioElement | null = null
 let activeObjectUrl: string | null = null
 let activeAudioResolve: (() => void) | null = null
 let activeOnEnd: (() => void) | null = null
 let activeLoadingChange: LoadingChange | null = null
-let stopFallbackSpeech: (() => void) | null = null
+let playbackQueue: Promise<void> = Promise.resolve()
+let queueGeneration = 0
+
+type PiperWorkerResponse = {
+  id: number
+  buffer?: ArrayBuffer
+  error?: string
+}
+
+export function normalizeTextForSpeech(text: string): string {
+  return text
+    .replace(
+      /\b(Cranial\s+Nerve|Phase|Type|Class|Stage|Grade|Generation|Factor|Schedule|Receptor)\s+(VIII|VII|VI|IV|III|II|IX|X|V|I)\b/gi,
+      (_match, term: string, numeral: string) => `${term} ${ROMAN_TO_ARABIC[numeral.toUpperCase()]}`,
+    )
+    .replace(/</g, ' less than ')
+    .replace(/>/g, ' greater than ')
+    .replace(/±/g, ' plus or minus ')
+    .replace(/(?:µg|mcg)/gi, ' micrograms ')
+    .replace(/\s+([,.;:!?])/g, '$1')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function rejectPendingWorkerRequests(error: Error) {
+  for (const pending of pendingWorkerRequests.values()) pending.reject(error)
+  pendingWorkerRequests.clear()
+}
+
+function discardWorker(worker: Worker, error: Error) {
+  worker.terminate()
+  if (piperWorker === worker) piperWorker = null
+  rejectPendingWorkerRequests(error)
+}
+
+function getPiperWorker(): Worker {
+  if (piperWorker) return piperWorker
+
+  const worker = new Worker(new URL("../workers/piperWorker.ts", import.meta.url), { type: "module" })
+  worker.onmessage = event => {
+    const response = event.data as PiperWorkerResponse
+    const pending = pendingWorkerRequests.get(response.id)
+    if (!pending) return
+    pendingWorkerRequests.delete(response.id)
+
+    if (response.error) {
+      pending.reject(new Error(response.error))
+    } else if (!response.buffer || response.buffer.byteLength === 0) {
+      pending.reject(new Error("Piper worker returned an empty audio buffer."))
+    } else {
+      pending.resolve(new Blob([response.buffer], { type: "audio/wav" }))
+    }
+  }
+  worker.onerror = event => {
+    event.preventDefault()
+    discardWorker(worker, new Error(event.message || "Piper speech worker failed."))
+  }
+  worker.onmessageerror = () => {
+    discardWorker(worker, new Error("Piper speech worker returned an unreadable message."))
+  }
+  piperWorker = worker
+  return worker
+}
+
+function generateSpeechAudio(text: string): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    let worker: Worker
+    try {
+      worker = getPiperWorker()
+    } catch (error) {
+      reject(error instanceof Error ? error : new Error(String(error)))
+      return
+    }
+
+    const id = ++nextWorkerRequestId
+    pendingWorkerRequests.set(id, { resolve, reject })
+    try {
+      worker.postMessage({ id, text })
+    } catch (error) {
+      pendingWorkerRequests.delete(id)
+      reject(error instanceof Error ? error : new Error(String(error)))
+    }
+  })
+}
+
+function loadSpeechAudio(text: string): Promise<Blob> {
+  const key = text
+  const cachedAudio = audioCache.get(key)
+  if (cachedAudio) {
+    audioCache.delete(key)
+    audioCache.set(key, cachedAudio)
+    return Promise.resolve(cachedAudio)
+  }
+  const pendingRequest = pendingAudio.get(key)
+  if (pendingRequest) return pendingRequest
+
+  const request = generateSpeechAudio(text).then(audio => {
+    audioCache.delete(key)
+    audioCache.set(key, audio)
+    if (audioCache.size > MAX_CACHED_AUDIO) {
+      const oldestKey = audioCache.keys().next().value
+      if (oldestKey) audioCache.delete(oldestKey)
+    }
+    return audio
+  }).finally(() => {
+    pendingAudio.delete(key)
+  })
+
+  pendingAudio.set(key, request)
+  return request
+}
+
+export function prefetchMascotSpeech(text: string): void {
+  const cleanText = normalizeTextForSpeech(text)
+  if (!cleanText) return
+  void loadSpeechAudio(cleanText).catch(error => {
+    console.error("Mascot speech prefetch failed:", error)
+  })
+}
+
+export function warmupMascotVoice(): void {
+  prefetchMascotSpeech('Hi')
+}
 
 function releaseAudio() {
   if (activeAudio) {
@@ -30,7 +173,6 @@ function finishPlayback(version: number) {
   const resolveAudio = activeAudioResolve
   activeAudioResolve = null
   resolveAudio?.()
-  stopFallbackSpeech = null
   const onEnd = activeOnEnd
   const onLoadingChange = activeLoadingChange
   activeOnEnd = null
@@ -40,14 +182,12 @@ function finishPlayback(version: number) {
 }
 
 export function stopMascotVoice() {
+  queueGeneration += 1
   playbackVersion += 1
   releaseAudio()
   const resolveAudio = activeAudioResolve
   activeAudioResolve = null
   resolveAudio?.()
-  const stopFallback = stopFallbackSpeech
-  stopFallbackSpeech = null
-  stopFallback?.()
   const onEnd = activeOnEnd
   const onLoadingChange = activeLoadingChange
   activeOnEnd = null
@@ -56,16 +196,14 @@ export function stopMascotVoice() {
   onEnd?.()
 }
 
-export async function readQuestionAloud(
+async function playQuestionAloud(
   text: string,
-  voice: string = DEFAULT_VOICE,
   onEnd: () => void = () => {},
   onLoadingChange?: LoadingChange,
   onStart?: () => void,
 ): Promise<void> {
-  stopMascotVoice()
   const version = ++playbackVersion
-  const cleanText = text.trim()
+  const cleanText = normalizeTextForSpeech(text)
   if (!cleanText) {
     onEnd()
     return
@@ -75,21 +213,15 @@ export async function readQuestionAloud(
   activeLoadingChange = onLoadingChange ?? null
   try {
     onLoadingChange?.(true)
-    const response = await fetch("/api/tts", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text: cleanText, voice }),
-    })
+    const audioBlob = await loadSpeechAudio(cleanText)
     if (version !== playbackVersion) return
-    if (!response.ok) throw new Error(`Speech service returned ${response.status}.`)
-    const audioBlob = await response.blob()
-    if (version !== playbackVersion) return
-    if (audioBlob.size === 0) throw new Error("Speech service returned empty audio.")
     activeObjectUrl = URL.createObjectURL(audioBlob)
     const audioElement = new Audio(activeObjectUrl)
     activeAudio = audioElement
     await new Promise<void>((resolve, reject) => {
       activeAudioResolve = resolve
+      audioElement.playbackRate = 1.11
+      audioElement.preservesPitch = true
       const fail = (error: unknown) => {
         if (version !== playbackVersion) {
           resolve()
@@ -117,54 +249,34 @@ export async function readQuestionAloud(
     if (version !== playbackVersion) return
   } catch (error) {
     if (version !== playbackVersion) return
-    onLoadingChange?.(false)
-    activeLoadingChange = null
     if (activeAudio) {
       activeAudio.onended = null
       activeAudio.onerror = null
     }
     releaseAudio()
-
-    if (
-      typeof window === "undefined" ||
-      !("speechSynthesis" in window) ||
-      typeof SpeechSynthesisUtterance === "undefined"
-    ) {
-      finishPlayback(version)
-      throw error
-    }
-
-    try {
-      const utterance = new SpeechSynthesisUtterance(cleanText)
-      const synthesis = window.speechSynthesis
-      const voices = synthesis.getVoices()
-      const britishVoices = voices.filter(candidate => /^en-GB\b/i.test(candidate.lang))
-      const fallbackVoice =
-        britishVoices.find(candidate => /\b(ryan|george|daniel|oliver|arthur|thomas|male)\b/i.test(candidate.name)) ??
-        britishVoices[0] ??
-        voices.find(candidate => /\b(ryan|george|daniel|oliver|arthur|thomas|male)\b/i.test(candidate.name)) ??
-        voices.find(candidate => /^en-/i.test(candidate.lang))
-      if (fallbackVoice) {
-        utterance.voice = fallbackVoice
-        utterance.lang = fallbackVoice.lang
-      } else {
-        utterance.lang = "en-GB"
-      }
-      utterance.rate = 0.86
-      utterance.pitch = 1
-      utterance.onstart = () => {
-        if (version !== playbackVersion) return
-        onLoadingChange?.(false)
+    finishPlayback(version)
+    throw error
+  } finally {
+    if (version === playbackVersion) {
+      if (activeLoadingChange === onLoadingChange) {
         activeLoadingChange = null
-        onStart?.()
+        onLoadingChange?.(false)
       }
-      utterance.onend = () => finishPlayback(version)
-      utterance.onerror = () => finishPlayback(version)
-      stopFallbackSpeech = () => synthesis.cancel()
-      synthesis.speak(utterance)
-    } catch (fallbackError) {
-      finishPlayback(version)
-      throw fallbackError
     }
   }
+}
+
+export function readQuestionAloud(
+  text: string,
+  onEnd: () => void = () => {},
+  onLoadingChange?: LoadingChange,
+  onStart?: () => void,
+): Promise<void> {
+  const generation = queueGeneration
+  const playback = playbackQueue.catch(() => {}).then(() => {
+    if (generation !== queueGeneration) return
+    return playQuestionAloud(text, onEnd, onLoadingChange, onStart)
+  })
+  playbackQueue = playback
+  return playback
 }

@@ -8,6 +8,7 @@ import { isCardDue, scheduleReview, type ReviewQuality } from '@/lib/srs'
 import { buildPracticeReviewQueue, updatePracticeReviewQueue, type PracticeReviewAttempt, type PracticeReviewQueueItem } from '@/lib/practiceReview'
 import { getStudyModeProgress, isStudyMode, parseCompletedStudyModes, studyModeProgressKey } from '@/lib/studyModeProgress'
 import { getEnumerationPromptCount } from '@/lib/practiceItemValidation'
+import { prefetchMascotSpeech, readQuestionAloud, stopMascotVoice, warmupMascotVoice } from '@/lib/mascotVoice'
 import type { Flashcard, McqAnswer, McqQuestion, PracticeItem, PracticeType, SequenceAnswer, SequenceQuestion, DiagnosisAnswer, DiagnosisQuestion, EnumerationAnswer } from '@/types'
 import { AnimatedNumber, Card, CardHeader, CardContent, Button, Badge, Icon, EmptyState, Tabs, useToast, type TabItem } from '@/components/ui'
 import LevelUpCelebration from '@/components/LevelUpCelebration'
@@ -37,6 +38,9 @@ export default function PracticePage() {
   const [liloMuted, setLiloMuted] = useState(false)
   const [seqOrder, setSeqOrder] = useState<string[]>([])
   const [feedback, setFeedback] = useState<{ correct: boolean; text: string } | null>(null)
+  const [rationaleLoading, setRationaleLoading] = useState(false)
+  const [rationaleSpeaking, setRationaleSpeaking] = useState(false)
+  const [nextQuestionToken, setNextQuestionToken] = useState(0)
   const [readyPromptOpen, setReadyPromptOpen] = useState(false)
   const [readyPromptAnnounced, setReadyPromptAnnounced] = useState(false)
   const [reviewFilter, setReviewFilter] = useState<'all' | 'due' | null>(null)
@@ -67,6 +71,11 @@ export default function PracticePage() {
   const folderLabelParam = searchParams.get('folder') || ''
   const markReadyPromptAnnounced = useCallback(() => setReadyPromptAnnounced(true), [])
   const closeReadyPrompt = useCallback(() => setReadyPromptOpen(false), [])
+
+  useEffect(() => () => stopMascotVoice(), [])
+  useEffect(() => {
+    warmupMascotVoice()
+  }, [])
 
   useEffect(() => {
     const qpMode = searchParams.get('mode')
@@ -543,6 +552,7 @@ export default function PracticePage() {
   async function recordAttempt(response: unknown): Promise<boolean | null> {
     const it = items[idx]
     if (!it || !user || !profile || !program || attemptSubmitting.current) return null
+    stopMascotVoice()
     attemptSubmitting.current = true
     try {
       const { data, error } = await supabase.rpc('record_practice_attempt', {
@@ -597,6 +607,53 @@ export default function PracticePage() {
       addToast({ type: 'error', title: 'Could not refresh profile progress', message: error instanceof Error ? error.message : 'Review and progress were saved.' })
     }
     next()
+  }
+
+  function speakRationale(text: string) {
+    const cleanText = text.trim()
+    if (!cleanText) return
+    if (rationaleLoading || rationaleSpeaking) {
+      stopMascotVoice()
+      setRationaleLoading(false)
+      setRationaleSpeaking(false)
+      return
+    }
+
+    stopMascotVoice()
+    const playback = readQuestionAloud(
+      cleanText,
+      () => setRationaleSpeaking(false),
+      setRationaleLoading,
+      () => setRationaleSpeaking(true),
+    )
+    void playback.catch(error => {
+      setRationaleLoading(false)
+      setRationaleSpeaking(false)
+      addToast({
+        type: 'error',
+        title: 'Lilo could not speak',
+        message: error instanceof Error ? error.message : 'Speech playback failed.',
+      })
+    })
+  }
+
+  function rationaleReadButton(text: string) {
+    if (!text.trim()) return null
+    const active = rationaleLoading || rationaleSpeaking
+    return (
+      <Button
+        className="practice-rationale-read-button"
+        variant="ghost"
+        size="sm"
+        leftIcon="volume-2"
+        aria-label={rationaleLoading ? 'Preparing rationale audio' : rationaleSpeaking ? 'Stop rationale reading' : 'Read rationale'}
+        aria-pressed={active}
+        onClick={() => speakRationale(text)}
+        disabled={liloMuted}
+      >
+        {rationaleLoading ? 'Preparing…' : rationaleSpeaking ? 'Stop reading' : 'Read rationale'}
+      </Button>
+    )
   }
 
   async function submitMcq() {
@@ -739,53 +796,26 @@ export default function PracticePage() {
     }
   }
 
+  function practiceItemSpeechText(item: PracticeItem): string {
+    if (item.type === 'mcq') return (item.question as McqQuestion).stem
+    if (item.type === 'sequence') {
+      const question = item.question as SequenceQuestion
+      return [question.prompt, `Items: ${question.items.join(', ')}.`].filter(Boolean).join(' ')
+    }
+    if (item.type === 'enumeration') return (item.question as DiagnosisQuestion).prompt
+    const question = item.question as DiagnosisQuestion
+    return [question.scenario, question.prompt].filter(Boolean).join(' ')
+  }
+
+  function flashcardSpeechText(card: Flashcard, includeAnswer: boolean): string {
+    return includeAnswer
+      ? `Flashcard: ${card.front}. Answer: ${card.back}`
+      : `Flashcard: ${card.front}`
+  }
+
   function studySpeechText(): string {
-    if (mode === 'flashcards') {
-      if (!currentCard) return ''
-      return reveal
-        ? `Flashcard: ${currentCard.front}. Answer: ${currentCard.back}`
-        : `Flashcard: ${currentCard.front}`
-    }
-    if (!current) return ''
-
-    if (mode === 'mcq') {
-      const question = current.question as McqQuestion
-      const options = question.options
-        .map((option, index) => `Option ${String.fromCharCode(65 + index)}: ${option}`)
-        .join('. ')
-      const answer = current.answer as McqAnswer
-      const feedbackText = feedback
-        ? `The correct answer is ${String.fromCharCode(65 + answer.correctIndex)}: ${question.options[answer.correctIndex]}. ${current.rationale || feedback.text}`
-        : ''
-      return `${question.stem}. ${options}. ${feedbackText}`.trim()
-    }
-
-    if (mode === 'sequence') {
-      const question = current.question as SequenceQuestion
-      const answer = current.answer as SequenceAnswer
-      return [
-        question.prompt,
-        `Items: ${question.items.join(', ')}.`,
-        feedback ? `The correct order is ${answer.order.join(', ')}. ${current.rationale || feedback.text}` : '',
-      ].filter(Boolean).join(' ')
-    }
-
-    if (mode === 'enumeration') {
-      const question = current.question as DiagnosisQuestion
-      const answer = current.answer as EnumerationAnswer
-      return [
-        question.prompt,
-        feedback ? `The expected items are ${(answer.items || []).join(', ')}. ${current.rationale || feedback.text}` : '',
-      ].filter(Boolean).join(' ')
-    }
-
-    const question = current.question as DiagnosisQuestion
-    const answer = current.answer as DiagnosisAnswer
-    return [
-      question.scenario,
-      question.prompt,
-      feedback ? `The expected answer is ${answer.expected}. ${current.rationale || feedback.text}` : '',
-    ].filter(Boolean).join(' ')
+    if (mode === 'flashcards') return currentCard ? flashcardSpeechText(currentCard, reveal) : ''
+    return current ? practiceItemSpeechText(current) : ''
   }
 
   function correctAnswerSpeechText(): string {
@@ -795,7 +825,7 @@ export default function PracticePage() {
       const question = current.question as McqQuestion
       const answer = current.answer as McqAnswer
       const option = question.options[answer.correctIndex]
-      return option ? `Option ${String.fromCharCode(65 + answer.correctIndex)}: ${option}` : ''
+      return option || ''
     }
 
     if (mode === 'sequence') {
@@ -811,6 +841,26 @@ export default function PracticePage() {
 
   const speechText = studySpeechText()
   const correctAnswerText = correctAnswerSpeechText()
+  const nextItemCandidate = items[idx + 1]
+  const nextItem = nextItemCandidate?.type === mode
+    && nextItemCandidate.subject === subject
+    && (!materialId || nextItemCandidate.material_id === materialId)
+    ? nextItemCandidate
+    : undefined
+  const nextCardCandidate = flashcards[idx + 1]
+  const nextCard = nextCardCandidate?.subject === subject
+    && (!materialId || nextCardCandidate.material_id === materialId)
+    ? nextCardCandidate
+    : undefined
+  const nextSpeechText = mode === 'flashcards'
+    ? nextCard ? flashcardSpeechText(nextCard, false) : ''
+    : nextItem ? practiceItemSpeechText(nextItem) : ''
+
+  useEffect(() => {
+    if (loading) return
+    prefetchMascotSpeech(speechText)
+    prefetchMascotSpeech(nextSpeechText)
+  }, [loading, nextSpeechText, speechText])
 
   useEffect(() => {
     if (readyPromptScheduled.current || loading || !speechText.trim()) return
@@ -831,6 +881,8 @@ export default function PracticePage() {
 
   function next() {
     focusPanelAfterAdvance.current = true
+    stopMascotVoice()
+    setNextQuestionToken(token => token + 1)
     setIdx(i => i + 1)
     setReveal(false); setSelected(null); setDiagInput(''); setFeedback(null)
   }
@@ -889,7 +941,6 @@ export default function PracticePage() {
   const showCompanion = !loading && !empty && !done && Boolean(current || currentCard)
   const practiceLocked = mode !== 'flashcards'
     && (reviewGate.status !== 'clear' || reviewGate.mode !== mode)
-  const speechContextKey = `${mode}:${subject}:${materialId}:${idx}:${current?.id ?? currentCard?.id ?? ''}:${reveal}:${Boolean(feedback)}`
   return (
     <div className="container workspace-page practice-page">
       <header className="practice-focus-header">
@@ -1266,8 +1317,11 @@ export default function PracticePage() {
                   <div className="practice-feedback-title">
                     {feedback.correct ? 'Correct.' : 'Incorrect.'}
                   </div>
-                  <div className="practice-feedback-text">
-                    <strong>Rationale:</strong> {feedback.text}
+                  <div className="practice-feedback-rationale">
+                    <div className="practice-feedback-text">
+                      <strong>Rationale:</strong> {feedback.text}
+                    </div>
+                    {rationaleReadButton(feedback.text)}
                   </div>
                 </div>
               </div>
@@ -1327,8 +1381,11 @@ export default function PracticePage() {
                   <div className="practice-feedback-title">
                     {feedback.correct ? 'Correct.' : 'Incorrect.'}
                   </div>
-                  <div className="practice-feedback-text">
-                    <strong>Rationale / Expected:</strong> {feedback.text}
+                  <div className="practice-feedback-rationale">
+                    <div className="practice-feedback-text">
+                      <strong>Rationale / Expected:</strong> {feedback.text}
+                    </div>
+                    {rationaleReadButton(feedback.text)}
                   </div>
                 </div>
               </div>
@@ -1386,8 +1443,11 @@ export default function PracticePage() {
                     <div className="practice-feedback-title">
                       {feedback.correct ? 'Correct order.' : 'Incorrect order.'}
                     </div>
-                    <div className="practice-feedback-text">
-                      <strong>Rationale:</strong> {feedback.text}
+                    <div className="practice-feedback-rationale">
+                      <div className="practice-feedback-text">
+                        <strong>Rationale:</strong> {feedback.text}
+                      </div>
+                      {rationaleReadButton(feedback.text)}
                     </div>
                     {!feedback.correct && (
                       <div className="practice-correct-answer">
@@ -1457,8 +1517,11 @@ export default function PracticePage() {
                     <div className="practice-feedback-title">
                       {feedback.correct ? 'Correct.' : 'Incorrect.'}
                     </div>
-                    <div className="practice-feedback-text">
-                      <strong>Rationale / Expected:</strong> {feedback.text}
+                    <div className="practice-feedback-rationale">
+                      <div className="practice-feedback-text">
+                        <strong>Rationale / Expected:</strong> {feedback.text}
+                      </div>
+                      {rationaleReadButton(feedback.text)}
                     </div>
                 </div>
               </div>
@@ -1534,7 +1597,10 @@ export default function PracticePage() {
                         ))}
                       </ul>
                       {current.rationale && (
-                        <p className="practice-enumeration-rationale"><strong>Rationale:</strong> {current.rationale}</p>
+                        <div className="practice-feedback-rationale practice-enumeration-rationale">
+                          <div><strong>Rationale:</strong> {current.rationale}</div>
+                          {rationaleReadButton(current.rationale)}
+                        </div>
                       )}
                     </div>
                 </div>
@@ -1568,12 +1634,11 @@ export default function PracticePage() {
       </div>
       {showCompanion && <aside className="practice-companion" aria-label="Study with Lilo">
         <LiloSpeechPanel
-          key={speechContextKey}
           text={speechText}
+          nextQuestionToken={nextQuestionToken}
           reaction={feedback?.correct === false ? 'laughing' : undefined}
           answerCorrect={feedback?.correct}
           answerText={correctAnswerText}
-          answerExplanation={feedback ? current?.rationale || '' : undefined}
           muted={liloMuted}
           onMutedChange={setLiloMuted}
           readyPromptOpen={readyPromptOpen}

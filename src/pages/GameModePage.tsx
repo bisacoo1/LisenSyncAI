@@ -6,7 +6,7 @@ import type { McqAnswer, McqQuestion, PracticeItem } from '@/types'
 import type { GameWorldCollectible, GameWorldObstacle } from '@/components/GameWorld3D'
 import { obstacleDodged, type GameObstacleKind, type PlayerAction } from '@/lib/gameMode'
 import { gameSound } from '@/lib/gameSound'
-import { readQuestionAloud, stopMascotVoice } from '@/lib/mascotVoice'
+import { prefetchMascotSpeech, readQuestionAloud, stopMascotVoice, warmupMascotVoice } from '@/lib/mascotVoice'
 import { Badge, Button, Card, Icon, useToast } from '@/components/ui'
 
 const GameWorld3D = lazy(() => import('@/components/GameWorld3D'))
@@ -67,6 +67,10 @@ export default function GameModePage() {
   const [combo, setCombo] = useState(0)
   const floatingIdRef = useRef(0)
   const { addToast } = useToast()
+
+  useEffect(() => {
+    warmupMascotVoice()
+  }, [])
 
   useEffect(() => {
     if (!profile) return
@@ -142,7 +146,6 @@ export default function GameModePage() {
     if (!cleanMessage) return
     const playback = readQuestionAloud(
       cleanMessage,
-      'en-US-TonyNeural',
       () => setIsSpeaking(false),
       setVoiceLoading,
       () => setIsSpeaking(true),
@@ -158,13 +161,21 @@ export default function GameModePage() {
     })
   }, [addToast])
 
-  const gameQuestionText = useCallback(() => {
-    if (!mcqQuestion) return ''
-    const options = mcqQuestion.options
+  const gameQuestionText = useCallback((item: PracticeItem | null = currentQuestion) => {
+    const question = item?.question as McqQuestion | undefined
+    if (!question) return ''
+    const options = question.options
       .map((option, index) => `Option ${String.fromCharCode(65 + index)}: ${option}`)
       .join('. ')
-    return `Question. ${mcqQuestion.stem}. ${options}.`
-  }, [mcqQuestion])
+    return `Question. ${question.stem}. ${options}.`
+  }, [currentQuestion])
+
+  useEffect(() => {
+    if (!currentQuestion) return
+    const nextQuestion = items[(questionIndex + 1) % items.length] || null
+    prefetchMascotSpeech(gameQuestionText())
+    prefetchMascotSpeech(gameQuestionText(nextQuestion))
+  }, [currentQuestion, gameQuestionText, items, questionIndex])
 
   const addFloatingText = useCallback((text: string, color: string) => {
     const id = ++floatingIdRef.current
@@ -655,7 +666,7 @@ export default function GameModePage() {
                           <Icon name={isSpeaking ? 'x' : 'volume-2'} size={16} />
                         </button>
                       </div>
-                      {voiceLoading && <p className="mascot-voice-loading" role="status">Preparing Lilo’s voice…</p>}
+                      {(voiceLoading || isSpeaking) && <p className="mascot-voice-loading" role="status">Lilo is speaking…</p>}
                       <h2 id="checkpoint-question">{mcqQuestion.stem}</h2>
                       <div className="checkpoint-options">
                         {mcqQuestion.options.map((option, index) => {

@@ -8,12 +8,18 @@ import { readQuestionAloud, stopMascotVoice } from '@/lib/mascotVoice'
 
 const LILO_MOTION_STORAGE_KEY = 'lilo-animations-enabled'
 
+export function getAnswerFeedbackMessage(correct: boolean, answerText?: string): string {
+  const correctAnswer = answerText?.trim()
+  if (correct) return correctAnswer ? `Correct! The answer is ${correctAnswer}.` : 'Correct!'
+  return correctAnswer ? `Not quite! The correct answer is ${correctAnswer}.` : 'Not quite!'
+}
+
 interface LiloSpeechPanelProps {
   text: string
+  nextQuestionToken: number
   reaction?: 'laughing'
   answerCorrect?: boolean
   answerText?: string
-  answerExplanation?: string
   muted: boolean
   onMutedChange: (muted: boolean) => void
   readyPromptOpen: boolean
@@ -24,10 +30,10 @@ interface LiloSpeechPanelProps {
 
 export default function LiloSpeechPanel({
   text,
+  nextQuestionToken,
   reaction,
   answerCorrect,
   answerText,
-  answerExplanation,
   muted,
   onMutedChange,
   readyPromptOpen,
@@ -48,13 +54,13 @@ export default function LiloSpeechPanel({
   const [voiceLoading, setVoiceLoading] = useState(false)
   const [spokenText, setSpokenText] = useState('')
   const readyPromptSpoken = useRef(false)
+  const previousQuestionToken = useRef(nextQuestionToken)
+  const spokenAnswerFeedback = useRef<string | null>(null)
   const mutedRef = useRef(muted)
+  const addToastRef = useRef(addToast)
   const motionEnabled = motionOverride ?? !prefersReducedMotion
   mutedRef.current = muted
-
-  useEffect(() => () => {
-    stopMascotVoice()
-  }, [])
+  addToastRef.current = addToast
 
   function stopSpeaking() {
     stopMascotVoice()
@@ -79,24 +85,34 @@ export default function LiloSpeechPanel({
   const speakMessage = useCallback((message: string) => {
     const cleanMessage = message.trim()
     if (!cleanMessage || mutedRef.current) return
-    setSpokenText(cleanMessage)
+    stopMascotVoice()
+    setIsSpeaking(false)
+    setVoiceLoading(false)
     const playback = readQuestionAloud(
       cleanMessage,
-      'en-US-TonyNeural',
       () => setIsSpeaking(false),
       setVoiceLoading,
-      () => setIsSpeaking(true),
+      () => {
+        setSpokenText(cleanMessage)
+        setIsSpeaking(true)
+      },
     )
     void playback.catch(error => {
       setIsSpeaking(false)
       setVoiceLoading(false)
-      addToast({
+      addToastRef.current({
         type: 'error',
         title: 'Lilo could not speak',
         message: error instanceof Error ? error.message : 'Speech playback failed.',
       })
     })
-  }, [addToast])
+  }, [])
+
+  useEffect(() => {
+    if (previousQuestionToken.current === nextQuestionToken) return
+    previousQuestionToken.current = nextQuestionToken
+    speakMessage(text)
+  }, [nextQuestionToken, speakMessage, text])
 
   useEffect(() => {
     if (!announceReadyPrompt || readyPromptSpoken.current) return
@@ -106,18 +122,16 @@ export default function LiloSpeechPanel({
   }, [announceReadyPrompt, onReadyPromptAnnounced, speakMessage])
 
   useEffect(() => {
-    if (answerCorrect === undefined) return
-    const correctAnswer = answerText?.trim()
-    const explanation = answerExplanation?.trim()
-    const answerMessage = answerCorrect
-      ? correctAnswer ? `Correct! The answer is ${correctAnswer}.` : 'Correct!'
-      : correctAnswer ? `Ha ha! Let's try again. The correct answer is ${correctAnswer}.` : "Ha ha! Let's try again."
-    const message = `${answerMessage} ${explanation ? `Here's why: ${explanation}` : 'No explanation was provided for this question.'}`
-    const timeout = window.setTimeout(() => {
-      speakMessage(message)
-    }, 0)
-    return () => window.clearTimeout(timeout)
-  }, [answerCorrect, answerExplanation, answerText, speakMessage])
+    if (answerCorrect === undefined) {
+      spokenAnswerFeedback.current = null
+      return
+    }
+
+    const feedbackKey = `${nextQuestionToken}:${answerCorrect}`
+    if (spokenAnswerFeedback.current === feedbackKey) return
+    spokenAnswerFeedback.current = feedbackKey
+    speakMessage(getAnswerFeedbackMessage(answerCorrect, answerText))
+  }, [answerCorrect, answerText, nextQuestionToken, speakMessage])
 
   function toggleMuted() {
     const nextMuted = !muted
@@ -134,10 +148,17 @@ export default function LiloSpeechPanel({
   return (
     <div className="lilo-speech-widget">
       <div className="lilo-speech-stage">
-        <div className={`lilo-cage${isSpeaking ? ' is-speaking' : ''}${motionEnabled ? ' is-motion-enabled' : ''}`}>
+        <button
+          type="button"
+          className={`lilo-cage${isSpeaking ? ' is-speaking' : ''}${motionEnabled ? ' is-motion-enabled' : ''}`}
+          aria-label="Read question aloud"
+          title="Read question aloud"
+          onClick={() => speakMessage(text)}
+          disabled={muted || !text.trim()}
+        >
           <TtsMascot size={240} variant="idle" speaking={isSpeaking} reaction={reaction} motionEnabled={motionEnabled} />
-        </div>
-        {voiceLoading && <p className="mascot-voice-loading" role="status">Preparing Lilo’s voice…</p>}
+        </button>
+        {(voiceLoading || isSpeaking) && <p className="mascot-voice-loading" role="status">Lilo is speaking…</p>}
         {readyPromptOpen && (
           <section className="lilo-ready-prompt" role="group" aria-labelledby="lilo-ready-prompt-title">
             <p id="lilo-ready-prompt-title">Are you ready?</p>
@@ -180,7 +201,7 @@ export default function LiloSpeechPanel({
         <section className="lilo-speech-transcript" role="status" aria-live="polite" aria-atomic="true">
           <div className="lilo-speech-bubble__heading">
             <Icon name="volume-2" size={16} aria-hidden="true" />
-            <span>{voiceLoading ? 'Lilo is preparing to speak' : isSpeaking ? 'Lilo is speaking' : 'Lilo said'}</span>
+            <span>{voiceLoading || isSpeaking ? 'Lilo is speaking' : 'Lilo said'}</span>
           </div>
           <p>{spokenText}</p>
         </section>

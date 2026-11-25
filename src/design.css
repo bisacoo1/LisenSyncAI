@@ -937,7 +937,9 @@ input::placeholder, textarea::placeholder { color: var(--muted); opacity: 1; }
 .practice-companion .tts-mascot { margin: 0 auto; }
 .lilo-speech-widget { position: relative; display: flex; flex-direction: column; align-items: center; gap: 12px; width: 100%; }
 .lilo-speech-stage { position: relative; display: flex; flex-direction: column; align-items: center; width: 100%; }
-.lilo-cage { position: relative; isolation: isolate; perspective: 700px; box-sizing: border-box; display: grid; place-items: center; width: min(100%, 184px); height: 210px; padding: 24px 8px 10px; overflow: hidden; border: 2px solid var(--border-strong); border-radius: 100px 100px 18px 18px; background: linear-gradient(180deg, var(--primary-bg), var(--panel-2)); box-shadow: inset 0 0 0 4px var(--panel), var(--shadow-sm); }
+.lilo-cage { position: relative; isolation: isolate; perspective: 700px; box-sizing: border-box; display: grid; place-items: center; width: min(100%, 184px); height: 210px; padding: 24px 8px 10px; overflow: hidden; border: 2px solid var(--border-strong); border-radius: 100px 100px 18px 18px; background: linear-gradient(180deg, var(--primary-bg), var(--panel-2)); box-shadow: inset 0 0 0 4px var(--panel), var(--shadow-sm); color: inherit; font: inherit; cursor: pointer; appearance: none; }
+.lilo-cage:focus-visible { outline: 3px solid var(--primary); outline-offset: 3px; }
+.lilo-cage:disabled { cursor: not-allowed; opacity: .7; }
 .lilo-cage::before, .lilo-cage::after { position: absolute; z-index: 2; top: 18px; bottom: 8px; width: calc(50% - 7px); background: repeating-linear-gradient(90deg, transparent 0 22px, rgba(92, 83, 61, .48) 22px 24px); content: ''; pointer-events: none; }
 .lilo-cage::before { left: 7px; border-right: 2px solid rgba(92, 83, 61, .48); border-radius: 80px 0 0 10px; transform-origin: left center; }
 .lilo-cage::after { right: 7px; border-left: 2px solid rgba(92, 83, 61, .48); border-radius: 0 80px 10px 0; transform-origin: right center; }
@@ -1024,6 +1026,11 @@ input::placeholder, textarea::placeholder { color: var(--muted); opacity: 1; }
 .practice-feedback-title { color: var(--danger); font-size: 15px; font-weight: 700; }
 .practice-feedback[data-correct="true"] .practice-feedback-title { color: var(--success); }
 .practice-feedback-text { margin-top: 7px; color: var(--text-dim); line-height: 1.65; overflow-wrap: anywhere; }
+.practice-feedback-rationale { display: flex; align-items: flex-start; flex-wrap: wrap; gap: 8px 12px; margin-top: 7px; }
+.practice-feedback-rationale .practice-feedback-text { min-width: 0; flex: 1 1 200px; margin-top: 0; }
+.practice-rationale-read-button { flex: 0 0 auto; min-height: 40px; white-space: nowrap; }
+.practice-enumeration-rationale { align-items: center; }
+.practice-enumeration-rationale > div { min-width: 0; flex: 1 1 200px; line-height: 1.65; overflow-wrap: anywhere; }
 .practice-enumeration-expected-list { margin: 6px 0 0; padding-left: 20px; }
 .practice-enumeration-expected-list li + li { margin-top: 4px; }
 .practice-enumeration-rationale { margin: 8px 0 0; }
