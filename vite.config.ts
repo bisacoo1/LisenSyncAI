@@ -23,7 +23,23 @@ export default defineConfig({
     exclude: ['@mintplex-labs/piper-tts-web', 'onnxruntime-web'],
   },
   worker: { format: 'es' },
-  server: { host: '0.0.0.0', allowedHosts: ['.e2b.app'] },
+  server: {
+    host: '0.0.0.0',
+    allowedHosts: ['.e2b.app'],
+    // Cross-origin isolation is required for ONNX Runtime multi-threaded inference
+    // (SharedArrayBuffer). COEP is set to `credentialless` so cross-origin assets such
+    // as the mascot videos and pdf.js keep loading without needing CORP/CORS headers.
+    headers: {
+      'Cross-Origin-Opener-Policy': 'same-origin',
+      'Cross-Origin-Embedder-Policy': 'credentialless',
+    },
+  },
+  preview: {
+    headers: {
+      'Cross-Origin-Opener-Policy': 'same-origin',
+      'Cross-Origin-Embedder-Policy': 'credentialless',
+    },
+  },
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),

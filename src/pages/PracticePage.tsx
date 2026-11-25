@@ -13,7 +13,7 @@ import type { Flashcard, McqAnswer, McqQuestion, PracticeItem, PracticeType, Seq
 import { AnimatedNumber, Card, CardHeader, CardContent, Button, Badge, Icon, EmptyState, Tabs, useToast, type TabItem } from '@/components/ui'
 import LevelUpCelebration from '@/components/LevelUpCelebration'
 import AiHelper from '@/components/AiHelper'
-import LiloSpeechPanel from '@/components/LiloSpeechPanel'
+import LiloSpeechPanel, { getAnswerFeedbackMessage } from '@/components/LiloSpeechPanel'
 import SavedStudyHint from '@/components/SavedStudyHint'
 
 export default function PracticePage() {
@@ -860,7 +860,13 @@ export default function PracticePage() {
     if (loading) return
     prefetchMascotSpeech(speechText)
     prefetchMascotSpeech(nextSpeechText)
-  }, [loading, nextSpeechText, speechText])
+    // Pre-generate the post-answer feedback so Lilo speaks instantly after the
+    // learner submits, instead of synthesizing on the fly.
+    if (correctAnswerText.trim()) {
+      prefetchMascotSpeech(getAnswerFeedbackMessage(true, correctAnswerText))
+      prefetchMascotSpeech(getAnswerFeedbackMessage(false, correctAnswerText))
+    }
+  }, [loading, nextSpeechText, speechText, correctAnswerText])
 
   useEffect(() => {
     if (readyPromptScheduled.current || loading || !speechText.trim()) return
